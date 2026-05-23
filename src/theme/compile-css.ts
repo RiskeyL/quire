@@ -855,6 +855,14 @@ function buildStructural(): string {
 .cover > *:first-child { margin-top: 0; }
 .toc { break-after: page; }
 
+/* Each top-level (depth-0) chapter starts on a fresh page. Only depth-0
+   structural headings carry .chapter-start (set in walkTree); nested
+   sections/pages do not, so sub-content flows continuously. The body's first
+   chapter follows the TOC's own \`break-after: page\`, so Paged.js places it at
+   the top of a fresh page; a forced break at the very top of a page is a no-op
+   in Paged.js, so no spurious blank page is produced (verified empirically). */
+.chapter-start { break-before: page; }
+
 /* TOC layout: remove bullets; every entry is a link with a target-counter
    page number. The TOC is heading-based (buildTocFromHeadings): each entry is
    a .toc-entry li carrying a .toc-level-N tier class, nested in <ul>s by tier. */

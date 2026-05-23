@@ -374,7 +374,10 @@ function walkTree(
       // top-right running header reads (see buildPageFurniture in compile-css).
       // Only structural headings (section + page-title) are marked, never
       // content sub-headings, so the running header tracks chapters, not prose.
-      out += `<h${L} class="chapter-heading" id="${sectionId}">${escapeHtml(node.title)}</h${L}>`;
+      // A depth-0 node is a top-level chapter, so it ALSO gets `chapter-start`
+      // (CSS `break-before: page` in the PDF). Nested sections/pages do not.
+      const sectionClass = depth === 0 ? "chapter-heading chapter-start" : "chapter-heading";
+      out += `<h${L} class="${sectionClass}" id="${sectionId}">${escapeHtml(node.title)}</h${L}>`;
       out += walkTree(node.children, rendered, anchors, targets, depth + 1, idState, showDescription);
     } else {
       // page node
@@ -399,8 +402,12 @@ function walkTree(
           : "";
       // The page-title heading is a structural heading, so it carries
       // class="chapter-heading" to update the top-right running header. Content
-      // sub-headings inside `linked` are intentionally left unmarked.
-      out += `<section><h${L} class="chapter-heading" id="${anchor}">${escapeHtml(title)}</h${L}>${lede}${demoteHeadings(linked, depth + 1)}</section>`;
+      // sub-headings inside `linked` are intentionally left unmarked. A depth-0
+      // page (flat page-list manifest, no enclosing section) is a top-level
+      // chapter, so it ALSO gets `chapter-start`; a page nested under a section
+      // (depth > 0) does not.
+      const pageClass = depth === 0 ? "chapter-heading chapter-start" : "chapter-heading";
+      out += `<section><h${L} class="${pageClass}" id="${anchor}">${escapeHtml(title)}</h${L}>${lede}${demoteHeadings(linked, depth + 1)}</section>`;
     }
   }
   return out;

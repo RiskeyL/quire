@@ -67,6 +67,89 @@ export function hexColor(color: string): string | null {
   return null;
 }
 
+/**
+ * Portrait page dimensions in twips (1/20 pt) for the supported page sizes.
+ * Word's `<w:pgSz>` uses twips for width/height. The PDF path honors page size
+ * via CSS `@page size:`; this is the Word-side equivalent.
+ *
+ * A4    = 210mm × 297mm = 11906 × 16838 twips.
+ * Letter = 8.5in × 11in  = 12240 × 15840 twips.
+ */
+export function pageSizeToTwips(size: "A4" | "Letter"): { w: number; h: number } {
+  return size === "Letter" ? { w: 12240, h: 15840 } : { w: 11906, h: 16838 };
+}
+
+/**
+ * Conversion factors from a CSS length unit to twips (1/20 pt = 1/1440 in).
+ * cm: 1cm = 1440/2.54 = 566.929… → 567 (rounded per value below)
+ * mm: 1mm = 56.6929… → 56.7
+ * in: 1in = 1440
+ * pt: 1pt = 20
+ * px: 1px = 1/96 in = 15
+ */
+const UNIT_TO_TWIPS: Record<string, number> = {
+  cm: 567,
+  mm: 56.7,
+  in: 1440,
+  pt: 20,
+  px: 15,
+};
+
+/** Default margin in twips (2cm) used when a margin value cannot be parsed. */
+const DEFAULT_MARGIN_TWIPS = 1134; // 2cm × 567
+
+/**
+ * Parse a single CSS length token (e.g. `"2cm"`, `"1in"`, `"96px"`) to twips.
+ * Returns `null` for an unrecognized unit or malformed token so callers can
+ * fall back to the default rather than emit a nonsense margin.
+ */
+function lengthTokenToTwips(token: string): number | null {
+  const m = token.trim().match(/^(\d+(?:\.\d+)?)(cm|mm|in|pt|px)$/i);
+  if (!m) return null;
+  const value = parseFloat(m[1]);
+  const factor = UNIT_TO_TWIPS[m[2].toLowerCase()];
+  return Math.round(value * factor);
+}
+
+/**
+ * Parse a CSS `margin` shorthand string to per-side twips, supporting the
+ * 1-, 2-, and 4-value forms (CSS top/right/bottom/left ordering):
+ *   "2cm"               → all four sides 2cm
+ *   "2cm 1in"           → top/bottom 2cm, right/left 1in
+ *   "1cm 2cm 3cm 4cm"   → top, right, bottom, left
+ * Supported units: cm, mm, in, pt, px. If the string is unparseable (unknown
+ * unit, wrong token count, or any token fails), falls back to the 2cm default
+ * on all sides — mirroring the existing "skip rather than emit garbage" policy.
+ */
+export function marginToTwips(margin: string): {
+  top: number;
+  right: number;
+  bottom: number;
+  left: number;
+} {
+  const fallback = {
+    top: DEFAULT_MARGIN_TWIPS,
+    right: DEFAULT_MARGIN_TWIPS,
+    bottom: DEFAULT_MARGIN_TWIPS,
+    left: DEFAULT_MARGIN_TWIPS,
+  };
+  const tokens = margin.trim().split(/\s+/);
+  const twips = tokens.map(lengthTokenToTwips);
+  if (twips.some((t) => t === null)) return fallback;
+  const v = twips as number[];
+  switch (v.length) {
+    case 1:
+      return { top: v[0], right: v[0], bottom: v[0], left: v[0] };
+    case 2:
+      return { top: v[0], right: v[1], bottom: v[0], left: v[1] };
+    case 4:
+      return { top: v[0], right: v[1], bottom: v[2], left: v[3] };
+    default:
+      // 3-value form and any other count are unsupported; use the default.
+      return fallback;
+  }
+}
+
 // ---------------------------------------------------------------------------
 // XML patching helpers (private)
 // ---------------------------------------------------------------------------
@@ -218,6 +301,184 @@ function patchMonoFont(xml: string, fontName: string): string {
   );
 }
 
+/**
+ * Insert `<w:pageBreakBefore/>` into the Heading1 paragraph style's `<w:pPr>`,
+ * so each top-level chapter (an `<h1>` → Word "Heading 1") starts on a new page.
+ * The cover title is also an `<h1>`; Word ignores pageBreakBefore on the very
+ * first paragraph of the document, so the cover is unaffected (verified in the
+ * generated docx). Idempotent: if pageBreakBefore is already present in the
+ * Heading1 pPr, the style is returned unchanged. Best-effort: returns the input
+ * unchanged (no throw) if the Heading1 style or its pPr is not found, so the
+ * run degrades to "no chapter break" rather than aborting.
+ */
+function patchHeading1PageBreak(xml: string): string {
+  return xml.replace(
+    /(<w:style[^>]*w:styleId="Heading1"[^>]*>[\s\S]*?)(<w:pPr>)([\s\S]*?<\/w:pPr>[\s\S]*?<\/w:style>)/,
+    (match, before, pPrOpen, after) => {
+      if (/<w:pageBreakBefore\s*\/>/.test(match)) return match; // already patched
+      return `${before}${pPrOpen}<w:pageBreakBefore />${after}`;
+    }
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Page furniture: header/footer parts and section-properties wiring
+// ---------------------------------------------------------------------------
+
+// Relationship ids for the header/footer parts. These are high enough to avoid
+// colliding with pandoc's existing rIds (rId1–rId8, rId30) in the reference doc.
+const HEADER_RID = "rId90";
+const FOOTER_RID = "rId91";
+
+// Shared run properties for the muted, ~9pt furniture text, matching the PDF's
+// @page margin-box styling (#6b7280 / 9pt). w:sz is in half-points → 18 = 9pt.
+const FURNITURE_RPR = '<w:rPr><w:color w:val="6B7280" /><w:sz w:val="18" /></w:rPr>';
+
+/**
+ * Build word/header1.xml: the document title flush-left, and a STYLEREF field
+ * for the current Heading 1 flush-right. The right alignment uses a single
+ * right-aligned tab stop at the content width (page width minus left+right
+ * margins), so the title sits left and the chapter sits right on one line.
+ * Mirrors the PDF running header (doc title @top-left, chapter @top-right).
+ *
+ * `titleText` is XML-escaped. When empty, the title run is omitted but the
+ * STYLEREF chapter field still renders (header degrades gracefully).
+ */
+function buildHeaderXml(titleText: string, contentWidthTwips: number): string {
+  const escaped = escapeXml(titleText);
+  const titleRun = escaped
+    ? `<w:r>${FURNITURE_RPR}<w:t xml:space="preserve">${escaped}</w:t></w:r>`
+    : "";
+  // STYLEREF "Heading 1" \* MERGEFORMAT — shows the in-effect Heading 1 text.
+  // Each run carries the muted/9pt rPr so the whole header line is uniform.
+  const stylerefField =
+    `<w:r>${FURNITURE_RPR}<w:fldChar w:fldCharType="begin" /></w:r>` +
+    `<w:r>${FURNITURE_RPR}<w:instrText xml:space="preserve"> STYLEREF "Heading 1" \\* MERGEFORMAT </w:instrText></w:r>` +
+    `<w:r>${FURNITURE_RPR}<w:fldChar w:fldCharType="separate" /></w:r>` +
+    `<w:r>${FURNITURE_RPR}<w:t xml:space="preserve"></w:t></w:r>` +
+    `<w:r>${FURNITURE_RPR}<w:fldChar w:fldCharType="end" /></w:r>`;
+  return (
+    `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n` +
+    `<w:hdr xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main" ` +
+    `xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">` +
+    `<w:p>` +
+    `<w:pPr><w:tabs><w:tab w:val="right" w:pos="${contentWidthTwips}" /></w:tabs></w:pPr>` +
+    titleRun +
+    `<w:r>${FURNITURE_RPR}<w:tab /></w:r>` +
+    stylerefField +
+    `</w:p>` +
+    `</w:hdr>`
+  );
+}
+
+/**
+ * Build word/footer1.xml: a centered PAGE field for the page number, styled
+ * with the same muted/9pt furniture run properties as the header.
+ */
+function buildFooterXml(): string {
+  const pageField =
+    `<w:r>${FURNITURE_RPR}<w:fldChar w:fldCharType="begin" /></w:r>` +
+    `<w:r>${FURNITURE_RPR}<w:instrText xml:space="preserve"> PAGE </w:instrText></w:r>` +
+    `<w:r>${FURNITURE_RPR}<w:fldChar w:fldCharType="separate" /></w:r>` +
+    `<w:r>${FURNITURE_RPR}<w:t xml:space="preserve">1</w:t></w:r>` +
+    `<w:r>${FURNITURE_RPR}<w:fldChar w:fldCharType="end" /></w:r>`;
+  return (
+    `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n` +
+    `<w:ftr xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main" ` +
+    `xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">` +
+    `<w:p>` +
+    `<w:pPr><w:jc w:val="center" /></w:pPr>` +
+    pageField +
+    `</w:p>` +
+    `</w:ftr>`
+  );
+}
+
+/** Minimal XML escaping for text interpolated into header/footer runs. */
+function escapeXml(s: string): string {
+  return s
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&apos;");
+}
+
+/**
+ * Add the header/footer Override entries to [Content_Types].xml.
+ * Idempotent and best-effort: if the closing </Types> anchor is missing, the
+ * input is returned unchanged.
+ */
+function patchContentTypes(xml: string): string {
+  if (xml.includes("/word/header1.xml")) return xml;
+  const overrides =
+    `<Override PartName="/word/header1.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.header+xml" />` +
+    `<Override PartName="/word/footer1.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.footer+xml" />`;
+  return xml.replace("</Types>", `${overrides}</Types>`);
+}
+
+/**
+ * Add the header/footer Relationship entries to word/_rels/document.xml.rels.
+ * Idempotent and best-effort: returns the input unchanged if the closing
+ * </Relationships> anchor is missing.
+ */
+function patchDocumentRels(xml: string): string {
+  if (xml.includes(`Id="${HEADER_RID}"`)) return xml;
+  const rels =
+    `<Relationship Id="${HEADER_RID}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/header" Target="header1.xml" />` +
+    `<Relationship Id="${FOOTER_RID}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/footer" Target="footer1.xml" />`;
+  return xml.replace("</Relationships>", `${rels}</Relationships>`);
+}
+
+/**
+ * Patch word/document.xml's `<w:sectPr>` to (a) reference the header/footer
+ * parts and (b) carry the page size and margins. Pandoc copies the reference
+ * doc's sectPr verbatim into its generated output (verified empirically), so
+ * branding the reference-doc sectPr is sufficient — no post-processing of the
+ * output docx is needed.
+ *
+ * The reference doc's r: namespace is already declared on <w:document>
+ * (xmlns:r=...), so the r:id attributes resolve. The header/footer references
+ * must come FIRST inside sectPr per the OOXML schema's element ordering
+ * (headerReference/footerReference precede pgSz/pgMar).
+ *
+ * Best-effort: returns the input unchanged (no throw) if no <w:sectPr> anchor
+ * is found, so the run degrades to Pandoc's default page rather than aborting.
+ */
+function patchSectionProperties(
+  xml: string,
+  geometry: {
+    pgW: number;
+    pgH: number;
+    top: number;
+    right: number;
+    bottom: number;
+    left: number;
+    headerDist: number;
+    footerDist: number;
+  }
+): string {
+  const refs =
+    `<w:headerReference w:type="default" r:id="${HEADER_RID}" />` +
+    `<w:footerReference w:type="default" r:id="${FOOTER_RID}" />`;
+  const pg =
+    `<w:pgSz w:w="${geometry.pgW}" w:h="${geometry.pgH}" />` +
+    `<w:pgMar w:top="${geometry.top}" w:right="${geometry.right}" ` +
+    `w:bottom="${geometry.bottom}" w:left="${geometry.left}" ` +
+    `w:header="${geometry.headerDist}" w:footer="${geometry.footerDist}" w:gutter="0" />`;
+
+  // Self-closing sectPr (e.g. "<w:sectPr/>"): replace with a full element.
+  if (/<w:sectPr\s*\/>/.test(xml)) {
+    return xml.replace(/<w:sectPr\s*\/>/, `<w:sectPr>${refs}${pg}</w:sectPr>`);
+  }
+  // Open/close sectPr: inject refs at the very start (schema order) and pg at
+  // the end, preserving any existing children (e.g. pandoc's footnotePr).
+  return xml.replace(
+    /<w:sectPr(\s[^>]*)?>([\s\S]*?)<\/w:sectPr>/,
+    (_m, attrs, inner) => `<w:sectPr${attrs ?? ""}>${refs}${inner}${pg}</w:sectPr>`
+  );
+}
+
 // ---------------------------------------------------------------------------
 // Binary capture helper (must use buffer encoding to avoid UTF-8 corruption)
 // ---------------------------------------------------------------------------
@@ -243,19 +504,38 @@ function pandocDefaultRefDocx(): Promise<Buffer> {
 // Public API
 // ---------------------------------------------------------------------------
 
+/** Options for {@link compileDocxReference}. All fields are optional. */
+export interface CompileDocxReferenceOptions {
+  /**
+   * Document title for the Word running header (flush-left). When omitted, the
+   * header still renders the right-aligned STYLEREF chapter field but with no
+   * title text — so the existing 2-argument callers keep working unchanged.
+   */
+  docTitle?: string;
+}
+
 /**
  * Generate a Pandoc reference document (.docx) with styles patched from the
  * given brand tokens, and write it to `outPath`.
  *
  * The reference doc is used via `pandoc --reference-doc=<outPath>` to brand
- * Word export output with the correct fonts, heading colors, and base size.
+ * Word export output with the correct fonts, heading colors, base size, page
+ * geometry, and running header/footer. Pandoc copies the reference doc's
+ * `<w:sectPr>` (page size, margins, header/footer references) verbatim into the
+ * generated output and carries the header/footer parts through, so branding the
+ * reference doc alone is sufficient — no post-processing of the output is needed
+ * (verified empirically against pandoc 3.8).
  *
- * TODO (M4): patch page geometry — A4/Letter page size (`<w:pgSz>`) and
- * margins (`<w:pgMar>`) in the section properties. The PDF already honors
- * page size/margins via CSS `@page`; the Word output uses Pandoc's default
- * page for now.
+ * Page furniture (header/footer/geometry) is applied best-effort: if an anchor
+ * is missing the furniture is skipped silently rather than aborting the run,
+ * mirroring the existing warn-and-fallback policy. The font/size/heading
+ * patches remain hard requirements (they throw DocxReferenceError on failure).
  */
-export async function compileDocxReference(tokens: BrandTokens, outPath: string): Promise<void> {
+export async function compileDocxReference(
+  tokens: BrandTokens,
+  outPath: string,
+  options?: CompileDocxReferenceOptions
+): Promise<void> {
   // Step a: preflight
   await assertBinary("pandoc", "Install it with: brew install pandoc");
 
@@ -316,8 +596,61 @@ export async function compileDocxReference(tokens: BrandTokens, outPath: string)
   // Mono font in VerbatimChar (best-effort)
   stylesXml = patchMonoFont(stylesXml, monoFontName);
 
-  // Step e: write patched styles back, regenerate zip, write to disk
+  // Feature 1 (Word side): top-level chapters break to a new page. <h1> maps to
+  // Word "Heading 1", so a pageBreakBefore on the Heading1 style breaks before
+  // each chapter. Best-effort — degrades to "no break" if the anchor is gone.
+  stylesXml = patchHeading1PageBreak(stylesXml);
+
   zip.file("word/styles.xml", stylesXml);
+
+  // Step e: page furniture — header/footer parts + section-properties geometry.
+  // All best-effort: a missing anchor skips that piece rather than aborting.
+
+  // Compute page geometry (Feature 3) from tokens.
+  const { w: pgW, h: pgH } = pageSizeToTwips(tokens.page.size);
+  const margins = marginToTwips(tokens.page.margin);
+  // Header/footer distance: half the (smaller vertical) margin, floored at 360
+  // twips (0.25in) so the furniture never sits flush against the page edge.
+  const minVerticalMargin = Math.min(margins.top, margins.bottom);
+  const headerFooterDist = Math.max(360, Math.round(minVerticalMargin / 2));
+  // Content width = page width minus left+right margins; the header's
+  // right-aligned tab stop sits here so the chapter title is flush-right.
+  const contentWidth = pgW - margins.left - margins.right;
+
+  // Header (Feature 2): title left, STYLEREF chapter right.
+  zip.file("word/header1.xml", buildHeaderXml(options?.docTitle ?? "", contentWidth));
+  // Footer (Feature 2): centered PAGE field.
+  zip.file("word/footer1.xml", buildFooterXml());
+
+  // Content types: register the header/footer parts (best-effort).
+  const ctFile = zip.file("[Content_Types].xml");
+  if (ctFile) {
+    zip.file("[Content_Types].xml", patchContentTypes(await ctFile.async("string")));
+  }
+
+  // Document relationships: point the header/footer rIds at the parts (best-effort).
+  const relsFile = zip.file("word/_rels/document.xml.rels");
+  if (relsFile) {
+    zip.file("word/_rels/document.xml.rels", patchDocumentRels(await relsFile.async("string")));
+  }
+
+  // Section properties: header/footer references + page geometry (best-effort).
+  const docFile = zip.file("word/document.xml");
+  if (docFile) {
+    const patchedDoc = patchSectionProperties(await docFile.async("string"), {
+      pgW,
+      pgH,
+      top: margins.top,
+      right: margins.right,
+      bottom: margins.bottom,
+      left: margins.left,
+      headerDist: headerFooterDist,
+      footerDist: headerFooterDist,
+    });
+    zip.file("word/document.xml", patchedDoc);
+  }
+
+  // Step f: regenerate zip, write to disk
   const outBuffer = await zip.generateAsync({ type: "nodebuffer" });
   await writeFile(outPath, outBuffer);
 }

@@ -8,6 +8,8 @@ import {
   firstFontFamily,
   ptToHalfPoints,
   hexColor,
+  pageSizeToTwips,
+  marginToTwips,
 } from "../../src/theme/compile-docx-ref.js";
 import { htmlToDocx } from "../../src/export/docx.js";
 import type { BrandTokens } from "../../src/theme/tokens.js";
@@ -30,6 +32,7 @@ const CUSTOM_TOKENS: BrandTokens = {
     lineHeight: 1.5,
   },
   toc: { title: "Contents" },
+  meta: { showDescription: true },
 };
 
 describe("compileDocxReference", () => {
@@ -157,6 +160,171 @@ describe("compileDocxReference", () => {
       await rm(dir, { recursive: true, force: true });
     }
   });
+
+  it("patches pageBreakBefore into the Heading1 paragraph style so top-level chapters break", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "quire-cdr-pbb-"));
+    const out = join(dir, "ref.docx");
+    try {
+      await compileDocxReference(CUSTOM_TOKENS, out);
+      const zip = await JSZip.loadAsync(await readFile(out));
+      const stylesXml = await zip.file("word/styles.xml")!.async("string");
+      const heading1 = stylesXml.match(
+        /<w:style[^>]*w:styleId="Heading1"[^>]*>[\s\S]*?<\/w:style>/
+      )![0];
+      // pageBreakBefore must sit inside the Heading1 pPr.
+      expect(heading1).toMatch(/<w:pPr>[\s\S]*<w:pageBreakBefore\s*\/>[\s\S]*<\/w:pPr>/);
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("adds a header part with the doc title and a STYLEREF Heading 1 field", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "quire-cdr-hdr-"));
+    const out = join(dir, "ref.docx");
+    try {
+      await compileDocxReference(CUSTOM_TOKENS, out, { docTitle: "Quire Sample Title" });
+      const zip = await JSZip.loadAsync(await readFile(out));
+      const headerFile = zip.file("word/header1.xml");
+      expect(headerFile).not.toBeNull();
+      const headerXml = await headerFile!.async("string");
+      // Title text on the left.
+      expect(headerXml).toContain("Quire Sample Title");
+      // STYLEREF field for the current Heading 1 on the right.
+      expect(headerXml).toMatch(/STYLEREF\s+"Heading 1"/);
+      // Muted color + ~9pt styling.
+      expect(headerXml).toContain('w:val="6B7280"');
+      expect(headerXml).toContain('w:val="18"');
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("adds a footer part with a centered PAGE field", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "quire-cdr-ftr-"));
+    const out = join(dir, "ref.docx");
+    try {
+      await compileDocxReference(CUSTOM_TOKENS, out, { docTitle: "T" });
+      const zip = await JSZip.loadAsync(await readFile(out));
+      const footerFile = zip.file("word/footer1.xml");
+      expect(footerFile).not.toBeNull();
+      const footerXml = await footerFile!.async("string");
+      // PAGE field for the page number.
+      expect(footerXml).toMatch(/<w:instrText[^>]*>\s*PAGE\s*<\/w:instrText>/);
+      // Centered.
+      expect(footerXml).toMatch(/<w:jc w:val="center"\s*\/>/);
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("wires header/footer into content-types, rels, and the sectPr references", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "quire-cdr-wire-"));
+    const out = join(dir, "ref.docx");
+    try {
+      await compileDocxReference(CUSTOM_TOKENS, out, { docTitle: "T" });
+      const zip = await JSZip.loadAsync(await readFile(out));
+      const ct = await zip.file("[Content_Types].xml")!.async("string");
+      expect(ct).toContain("/word/header1.xml");
+      expect(ct).toContain("/word/footer1.xml");
+      const rels = await zip.file("word/_rels/document.xml.rels")!.async("string");
+      expect(rels).toContain("header1.xml");
+      expect(rels).toContain("footer1.xml");
+      const doc = await zip.file("word/document.xml")!.async("string");
+      const sectPr = doc.match(/<w:sectPr[\s\S]*?<\/w:sectPr>/)![0];
+      expect(sectPr).toMatch(/<w:headerReference[^>]*w:type="default"/);
+      expect(sectPr).toMatch(/<w:footerReference[^>]*w:type="default"/);
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("omits the header title text when no docTitle is supplied but still renders the STYLEREF chapter field", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "quire-cdr-notitle-"));
+    const out = join(dir, "ref.docx");
+    try {
+      // Backward-compatible 2-arg call: no options.
+      await compileDocxReference(CUSTOM_TOKENS, out);
+      const zip = await JSZip.loadAsync(await readFile(out));
+      const headerXml = await zip.file("word/header1.xml")!.async("string");
+      // STYLEREF still present even without a title.
+      expect(headerXml).toMatch(/STYLEREF\s+"Heading 1"/);
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("patches pgSz (A4 portrait) and pgMar (2cm => 1134 twips) into the sectPr", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "quire-cdr-geom-"));
+    const out = join(dir, "ref.docx");
+    try {
+      await compileDocxReference(CUSTOM_TOKENS, out, { docTitle: "T" });
+      const zip = await JSZip.loadAsync(await readFile(out));
+      const doc = await zip.file("word/document.xml")!.async("string");
+      const sectPr = doc.match(/<w:sectPr[\s\S]*?<\/w:sectPr>/)![0];
+      // A4 portrait.
+      expect(sectPr).toMatch(/<w:pgSz[^>]*w:w="11906"/);
+      expect(sectPr).toMatch(/<w:pgSz[^>]*w:h="16838"/);
+      // 2cm = 1134 twips on all sides.
+      expect(sectPr).toMatch(/<w:pgMar[^>]*w:top="1134"/);
+      expect(sectPr).toMatch(/<w:pgMar[^>]*w:left="1134"/);
+      expect(sectPr).toMatch(/<w:pgMar[^>]*w:right="1134"/);
+      expect(sectPr).toMatch(/<w:pgMar[^>]*w:bottom="1134"/);
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("uses Letter dimensions when the page size token is Letter", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "quire-cdr-letter-"));
+    const out = join(dir, "ref.docx");
+    const letterTokens: BrandTokens = {
+      ...CUSTOM_TOKENS,
+      page: { size: "Letter", margin: "1in" },
+    };
+    try {
+      await compileDocxReference(letterTokens, out, { docTitle: "T" });
+      const zip = await JSZip.loadAsync(await readFile(out));
+      const doc = await zip.file("word/document.xml")!.async("string");
+      const sectPr = doc.match(/<w:sectPr[\s\S]*?<\/w:sectPr>/)![0];
+      expect(sectPr).toMatch(/<w:pgSz[^>]*w:w="12240"/);
+      expect(sectPr).toMatch(/<w:pgSz[^>]*w:h="15840"/);
+      // 1in = 1440 twips.
+      expect(sectPr).toMatch(/<w:pgMar[^>]*w:top="1440"/);
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("end-to-end: pandoc preserves the header, footer, sectPr geometry and Heading1 break in the OUTPUT docx", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "quire-cdr-e2e2-"));
+    const ref = join(dir, "ref.docx");
+    const out = join(dir, "out.docx");
+    try {
+      await compileDocxReference(CUSTOM_TOKENS, ref, { docTitle: "Doc Title" });
+      const html =
+        "<!doctype html><html><body><h1>Cover</h1><h1>Chapter A</h1><p>a</p><h1>Chapter B</h1><p>b</p></body></html>";
+      await htmlToDocx(html, out, { referenceDoc: ref });
+      const zip = await JSZip.loadAsync(await readFile(out));
+      // Header/footer parts survive.
+      expect(zip.file("word/header1.xml")).not.toBeNull();
+      expect(zip.file("word/footer1.xml")).not.toBeNull();
+      // sectPr in the OUTPUT carries refs + geometry.
+      const doc = await zip.file("word/document.xml")!.async("string");
+      const sectPr = doc.match(/<w:sectPr[\s\S]*?<\/w:sectPr>/)![0];
+      expect(sectPr).toMatch(/<w:headerReference/);
+      expect(sectPr).toMatch(/<w:footerReference/);
+      expect(sectPr).toMatch(/<w:pgSz/);
+      expect(sectPr).toMatch(/<w:pgMar/);
+      // Heading1 pageBreakBefore survives into the output styles.
+      const styles = await zip.file("word/styles.xml")!.async("string");
+      const heading1 = styles.match(
+        /<w:style[^>]*w:styleId="Heading1"[^>]*>[\s\S]*?<\/w:style>/
+      )![0];
+      expect(heading1).toContain("pageBreakBefore");
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -230,5 +398,55 @@ describe("hexColor", () => {
 
   it("returns null for empty string", () => {
     expect(hexColor("")).toBeNull();
+  });
+});
+
+describe("pageSizeToTwips", () => {
+  it("returns A4 portrait dimensions in twips", () => {
+    expect(pageSizeToTwips("A4")).toEqual({ w: 11906, h: 16838 });
+  });
+
+  it("returns Letter portrait dimensions in twips", () => {
+    expect(pageSizeToTwips("Letter")).toEqual({ w: 12240, h: 15840 });
+  });
+});
+
+describe("marginToTwips", () => {
+  it("converts a single cm value to twips on all four sides (2cm => 1134)", () => {
+    expect(marginToTwips("2cm")).toEqual({ top: 1134, right: 1134, bottom: 1134, left: 1134 });
+  });
+
+  it("converts mm (10mm => 567)", () => {
+    expect(marginToTwips("10mm")).toEqual({ top: 567, right: 567, bottom: 567, left: 567 });
+  });
+
+  it("converts inches (1in => 1440)", () => {
+    expect(marginToTwips("1in")).toEqual({ top: 1440, right: 1440, bottom: 1440, left: 1440 });
+  });
+
+  it("converts points (72pt => 1440)", () => {
+    expect(marginToTwips("72pt")).toEqual({ top: 1440, right: 1440, bottom: 1440, left: 1440 });
+  });
+
+  it("converts px (96px => 1440)", () => {
+    expect(marginToTwips("96px")).toEqual({ top: 1440, right: 1440, bottom: 1440, left: 1440 });
+  });
+
+  it("handles the 2-value shorthand (vertical horizontal)", () => {
+    // "2cm 1in" => top/bottom 2cm (1134), right/left 1in (1440)
+    expect(marginToTwips("2cm 1in")).toEqual({ top: 1134, right: 1440, bottom: 1134, left: 1440 });
+  });
+
+  it("handles the 4-value shorthand (top right bottom left)", () => {
+    expect(marginToTwips("1cm 2cm 3cm 4cm")).toEqual({
+      top: 567,
+      right: 1134,
+      bottom: 1701,
+      left: 2268,
+    });
+  });
+
+  it("falls back to the 2cm default for an unparseable value", () => {
+    expect(marginToTwips("garbage")).toEqual({ top: 1134, right: 1134, bottom: 1134, left: 1134 });
   });
 });

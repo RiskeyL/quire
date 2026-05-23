@@ -187,7 +187,9 @@ export async function runConvert(paths: string[], options: ConvertOptions): Prom
     try {
       const refPath = join(refDir, "reference.docx");
       try {
-        await compileDocxReference(tokens, refPath);
+        // Thread docTitle so the Word running header shows the document title
+        // (flush-left), mirroring the PDF's @top-left furniture.
+        await compileDocxReference(tokens, refPath, { docTitle });
         await htmlToDocx(docxHtml, `${base}.docx`, { toc: useToc, referenceDoc: refPath });
       } catch (err) {
         if (err instanceof DocxReferenceError) {

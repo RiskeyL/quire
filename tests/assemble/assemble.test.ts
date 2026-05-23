@@ -33,22 +33,66 @@ describe("assembleBody", () => {
   const rendered = new Map([["guides/intro.md", "<h1>Heading in page</h1><p>body</p>"]]);
 
   it("emits the section heading at the section's depth level", () => {
-    expect(assembleBody(tree, rendered)).toContain('<h1 class="chapter-heading" id="quire-section-1">Guides</h1>');
+    // Top-level (depth-0) section also carries chapter-start.
+    expect(assembleBody(tree, rendered)).toContain('<h1 class="chapter-heading chapter-start" id="quire-section-1">Guides</h1>');
   });
 
   it("gives the section heading a quire-section-N id for PDF outline navigation", () => {
     const html = assembleBody(tree, rendered);
     expect(html).toMatch(/id="quire-section-\d+"/);
-    expect(html).toContain('<h1 class="chapter-heading" id="quire-section-1">Guides</h1>');
+    expect(html).toContain('<h1 class="chapter-heading chapter-start" id="quire-section-1">Guides</h1>');
   });
   it("wraps each page in a section and puts the anchor id on the page heading", () => {
     const html = assembleBody(tree, rendered);
     // Anchor id is on the heading, not the <section> wrapper (so pagedjs can
     // build working PDF outline destinations from it).
-    expect(html).toContain('<h2 class="chapter-heading" id="guides-intro-md">Intro</h2>');
+    expect(html).toContain('id="guides-intro-md">Intro</h2>');
     expect(html).not.toContain('<section id="guides-intro-md">');
     expect(html).toContain("<section>");                // wrapper still present, just no id
     expect(html).toContain("<h3>Heading in page</h3>"); // page content h1 demoted by 2 -> h3
+  });
+
+  it("marks the depth-0 section heading with chapter-start so it breaks to a new page", () => {
+    const html = assembleBody(tree, rendered);
+    // The top-level section heading carries BOTH chapter-heading (running header
+    // named string) and chapter-start (page break before).
+    expect(html).toContain('<h1 class="chapter-heading chapter-start" id="quire-section-1">Guides</h1>');
+    // The nested page-title heading (depth 1) must NOT carry chapter-start.
+    expect(html).not.toContain('chapter-start" id="guides-intro-md"');
+    expect(html).toContain('<h2 class="chapter-heading" id="guides-intro-md">Intro</h2>');
+  });
+});
+
+describe("assembleBody chapter-start on flat page lists", () => {
+  it("marks a depth-0 page heading with chapter-start when the manifest is a flat page list", () => {
+    const tree: Tree = [
+      { type: "page", file: "a.md", title: "A" },
+      { type: "page", file: "b.md", title: "B" },
+    ];
+    const rendered = new Map([
+      ["a.md", "<p>body a</p>"],
+      ["b.md", "<p>body b</p>"],
+    ]);
+    const html = assembleBody(tree, rendered);
+    // Both top-level pages are depth-0 chapters.
+    expect(html).toContain('<h1 class="chapter-heading chapter-start" id="a-md">A</h1>');
+    expect(html).toContain('<h1 class="chapter-heading chapter-start" id="b-md">B</h1>');
+  });
+
+  it("does not mark a nested page heading inside a section with chapter-start", () => {
+    const tree: Tree = [
+      {
+        type: "section",
+        title: "Sec",
+        children: [{ type: "page", file: "a.md", title: "A" }],
+      },
+    ];
+    const rendered = new Map([["a.md", "<p>body</p>"]]);
+    const html = assembleBody(tree, rendered);
+    // The section (depth 0) is the chapter; the page (depth 1) is not.
+    expect(html).toContain('<h1 class="chapter-heading chapter-start" id="quire-section-1">Sec</h1>');
+    expect(html).toContain('<h2 class="chapter-heading" id="a-md">A</h2>');
+    expect(html).not.toContain('chapter-start" id="a-md"');
   });
 });
 
@@ -264,7 +308,7 @@ describe("assembleDocument with showDescription option", () => {
     // The lede must appear immediately after the page-title heading
     expect(html).toContain('<p class="page-description">A short intro.</p>');
     // It must come after the heading, not before
-    const headingPos = html.indexOf('<h1 class="chapter-heading" id="a-md">Alpha</h1>');
+    const headingPos = html.indexOf('<h1 class="chapter-heading chapter-start" id="a-md">Alpha</h1>');
     const ledePos = html.indexOf('<p class="page-description">');
     expect(headingPos).toBeGreaterThanOrEqual(0);
     expect(ledePos).toBeGreaterThan(headingPos);
@@ -389,8 +433,9 @@ describe("assembleBody cross-link integration", () => {
     const anchors = assignAnchors(tree);
     const bAnchor = anchors.get("b.md")!;   // "b-md"
 
-    // The anchor must be on the heading, not the <section> wrapper
-    expect(html).toContain(`<h1 class="chapter-heading" id="${bAnchor}">`);
+    // The anchor must be on the heading, not the <section> wrapper. b.md is a
+    // top-level (depth-0) page, so it also carries chapter-start.
+    expect(html).toContain(`<h1 class="chapter-heading chapter-start" id="${bAnchor}">`);
     expect(html).not.toContain(`<section id="${bAnchor}">`);
 
     // The cross-link in a.md must point at b's anchor

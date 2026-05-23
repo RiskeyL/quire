@@ -181,6 +181,12 @@ describe("compileCss", () => {
       expect(compileCss(DEFAULT_TOKENS)).toContain(".toc");
     });
 
+    it("emits .chapter-start { break-before: page } so each top-level chapter starts on a new page", () => {
+      expect(compileCss(DEFAULT_TOKENS)).toMatch(
+        /\.chapter-start\b[^{]*\{[^}]*break-before:\s*page/
+      );
+    });
+
     it("emits target-counter rule exactly", () => {
       expect(compileCss(DEFAULT_TOKENS)).toContain(
         "content: target-counter(attr(href), page)"
