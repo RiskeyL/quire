@@ -3,6 +3,7 @@ import { tmpdir } from "node:os";
 import { basename, dirname, extname, join, resolve } from "node:path";
 import { renderMdx } from "../render/mdx/render-mdx.js";
 import { resolveTitle } from "../render/mdx/title.js";
+import { stripPageChrome } from "../render/strip-chrome.js";
 import { embedImages } from "../render/images.js";
 import { renderMermaid } from "../render/mermaid.js";
 import { htmlToPdf } from "../export/pdf.js";
@@ -68,9 +69,14 @@ export async function runConvert(paths: string[], options: ConvertOptions): Prom
       ? resolve(manifestDir, page.file)
       : resolve(page.file);
     const markdown = await readFile(resolvedPath, "utf8");
-    const { html: rawHtml, frontmatter } = renderMdx(markdown, {
+    const { html: renderedHtml, frontmatter } = renderMdx(markdown, {
       onWarn: (msg) => process.stderr.write(`${msg}\n`),
     });
+
+    // Strip docs page chrome (the "Edit this page | Report an issue" footer that
+    // a docs site appends to every page) before any further processing, so it
+    // never reaches the PDF or Word output.
+    const rawHtml = stripPageChrome(renderedHtml);
 
     // Resolve the effective title and strip the first body <h1> when it is the
     // title source. Mutating page.title on the tree node makes assemble.ts's

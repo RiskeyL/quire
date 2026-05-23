@@ -17,6 +17,7 @@ import type { BrandTokens } from "./tokens.js";
 export function compileCss(tokens: BrandTokens): string {
   const root = buildRoot(tokens);
   const page = buildPage(tokens);
+  const pageFurniture = buildPageFurniture();
   const elements = buildElements();
   const content = buildContent();
   const boxed = buildBoxed();
@@ -32,7 +33,7 @@ export function compileCss(tokens: BrandTokens): string {
 
   const pageDescription = buildPageDescription();
 
-  return [root, page, elements, content, pageDescription, boxed, figure, disclosure, steps, cards, fields, code, inline, structural, structuralLists].join("\n");
+  return [root, page, pageFurniture, elements, content, pageDescription, boxed, figure, disclosure, steps, cards, fields, code, inline, structural, structuralLists].join("\n");
 }
 
 // ---------------------------------------------------------------------------
@@ -61,6 +62,52 @@ function buildRoot(tokens: BrandTokens): string {
 
 function buildPage(tokens: BrandTokens): string {
   return `@page { size: ${tokens.page.size}; margin: ${tokens.page.margin}; }`;
+}
+
+/**
+ * Running headers/footers (default page furniture), via CSS Paged Media:
+ *   - bottom-center: the page number (counter(page)).
+ *   - top-left: the document title, captured from the cover h1 (.doc-title) as
+ *     the `doctitle` named string.
+ *   - top-right: the current chapter title, captured from structural headings
+ *     (.chapter-heading) as the `chaptertitle` named string. The `first` keyword
+ *     yields the chapter in effect at the top of the page (the running header
+ *     updates as chapters change).
+ *
+ * The cover page is given its own named page (`page: cover`) whose margin boxes
+ * are emptied (content: none / normal), so the cover shows no furniture.
+ *
+ * Margin-box descriptors use ONLY literal values (no var()): Paged.js does not
+ * reliably resolve custom properties inside @page, and a test forbids var()
+ * there. The muted gray (#6b7280) matches the default --color-muted token value.
+ *
+ * The string-set rules (.doc-title / .chapter-heading) live outside @page as
+ * ordinary element rules; only the named-string consumers sit in the margin
+ * boxes. This builder is emitted right after buildPage so all @page rules are
+ * grouped together.
+ */
+function buildPageFurniture(): string {
+  return `/* ---- Named strings feeding the running headers ---- */
+/* Captured from the cover title and from structural headings respectively. */
+.doc-title { string-set: doctitle content(); }
+.chapter-heading { string-set: chaptertitle content(); }
+
+/* ---- Default running headers/footers ---- */
+/* Literal values only (no var()): Paged.js does not reliably resolve custom
+   properties inside @page margin boxes. #6b7280 mirrors --color-muted. */
+@page {
+  @top-left { content: string(doctitle); font-size: 9pt; color: #6b7280; }
+  @top-right { content: string(chaptertitle, first); font-size: 9pt; color: #6b7280; }
+  @bottom-center { content: counter(page); font-size: 9pt; color: #6b7280; }
+}
+
+/* The cover gets its own named page so the furniture is suppressed there. */
+.cover { page: cover; }
+@page cover {
+  @top-left { content: none; }
+  @top-right { content: none; }
+  @bottom-center { content: none; }
+}`;
 }
 
 function buildElements(): string {
@@ -808,22 +855,27 @@ function buildStructural(): string {
 .cover > *:first-child { margin-top: 0; }
 .toc { break-after: page; }
 
-/* TOC layout: remove bullets, dot leaders, page numbers via target-counter. */
+/* TOC layout: remove bullets; every entry is a link with a target-counter
+   page number. The TOC is heading-based (buildTocFromHeadings): each entry is
+   a .toc-entry li carrying a .toc-level-N tier class, nested in <ul>s by tier. */
 .toc ul { list-style: none; padding: 0; margin: 0; }
 .toc li { margin: 0.25em 0; }
-.toc-section > span { font-weight: bold; display: block; margin-top: 0.75em; }
-.toc-page a {
+/* Tier-1 entries read as bold group headers; deeper tiers are lighter. */
+.toc-level-1 > a { font-weight: bold; }
+.toc-entry a {
   display: flex;
   align-items: baseline;
   text-decoration: none;
   color: inherit;
 }
-.toc-page a::after {
+/* Page number flushed right, fed by the linked heading's page via target-counter. */
+.toc-entry a::after {
   content: target-counter(attr(href), page);
   margin-left: auto;
   padding-left: 0.5em;
 }
-.toc-section > ul { padding-left: 1.5em; }`;
+/* Nested tiers indent so the heading hierarchy reads on paper. */
+.toc-entry ul { padding-left: 1.5em; }`;
 }
 
 /**

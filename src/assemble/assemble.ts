@@ -1,4 +1,5 @@
 import * as cheerio from "cheerio";
+import type { Element } from "domhandler";
 import { basename, extname, posix } from "node:path";
 import { escapeHtml, wrapHtmlDocument } from "../render/html-document.js";
 import { collectPages } from "../resolve/tree.js";
@@ -170,35 +171,100 @@ function pageTitle(node: PageNode): string {
 }
 
 /**
- * Build a nested HTML `<nav class="toc">` from the document tree.
+ * Build a nested HTML `<nav class="toc">` by scanning an already-assembled body
+ * for headings that carry an `id`, down to `maxDepth` levels (default 3).
  *
- * - Section nodes render as non-linked group labels (`<li class="toc-section">`).
- * - Page nodes render as anchored links (`<li class="toc-page">`).
+ * Because page content is demoted by tree depth, the document mixes absolute
+ * heading levels (e.g. a section is h1, a page title is h2, page content runs
+ * h2→h4). Keying off tag numbers would be unreliable. Instead, the distinct
+ * heading levels that actually appear are RANKED — shallowest = tier 1, next =
+ * tier 2, and so on — and only headings in the top `maxDepth` tiers are
+ * included, nested by tier. This yields a sensible N-level TOC regardless of
+ * how content was demoted.
  *
- * V1 limitation: section entries are group labels without page numbers;
- * only page entries get target-counter page numbers via CSS.
+ * Every entry is a link (`<a href="#id">`) so the `target-counter` page-number
+ * CSS applies to all of them. The cover and the TOC title are excluded simply
+ * because only the body is scanned (it contains neither).
  *
- * @param tree    The resolved page tree.
- * @param anchors The anchor map produced by `assignAnchors`.
+ * @param bodyHtml The assembled body HTML (excludes the cover and TOC title).
+ * @param options  `title` for the TOC heading; optional `maxDepth` (default 3).
  */
-export function buildToc(tree: Tree, anchors: Map<string, string>, title: string = "Contents"): string {
-  function walkNodes(nodes: TreeNode[]): string {
-    let items = "";
-    for (const node of nodes) {
-      if (node.type === "section") {
-        items += `<li class="toc-section"><span>${escapeHtml(node.title)}</span><ul>${walkNodes(node.children)}</ul></li>`;
-      } else {
-        const anchor = anchors.get(node.file);
-        if (anchor === undefined) {
-          throw new Error(`No anchor assigned for page "${node.file}".`);
-        }
-        const tocTitle = pageTitle(node);
-        items += `<li class="toc-page"><a href="#${anchor}">${escapeHtml(tocTitle)}</a></li>`;
+export function buildTocFromHeadings(
+  bodyHtml: string,
+  options: { title: string; maxDepth?: number }
+): string {
+  const maxDepth = options.maxDepth ?? 3;
+  const $ = cheerio.load(bodyHtml, null, false);
+
+  // Collect, in document order, every h1–h6 with a non-empty id.
+  const headings: Array<{ level: number; id: string; text: string }> = [];
+  $("h1, h2, h3, h4, h5, h6").each((_, el: Element) => {
+    const id = $(el).attr("id");
+    if (id === undefined || id === "") return;
+    const level = Number(el.tagName.slice(1));
+    headings.push({ level, id, text: $(el).text() });
+  });
+
+  // Rank distinct levels: shallowest level -> tier 1, next -> tier 2, etc.
+  const distinctLevels = [...new Set(headings.map((h) => h.level))].sort((a, b) => a - b);
+  const tierOf = new Map<number, number>();
+  distinctLevels.forEach((level, i) => tierOf.set(level, i + 1));
+
+  // Keep only headings within the top `maxDepth` tiers, tagged with their tier.
+  const entries = headings
+    .map((h) => ({ ...h, tier: tierOf.get(h.level) ?? 0 }))
+    .filter((h) => h.tier >= 1 && h.tier <= maxDepth);
+
+  return `<nav class="toc"><h2 class="toc-title" id="${TOC_ID}">${escapeHtml(options.title)}</h2>${renderTocList(entries)}</nav>`;
+}
+
+/**
+ * Render a flat, tier-ranked list of TOC entries into nested `<ul>`s. A deeper
+ * tier opens a nested list under the most recent shallower entry; a shallower
+ * tier closes back out. Entries at the top tier sit in the outer list.
+ */
+function renderTocList(entries: Array<{ tier: number; id: string; text: string }>): string {
+  if (entries.length === 0) return "<ul></ul>";
+
+  let out = "";
+  // Stack of tiers for the currently-open <ul> levels. Using an explicit stack
+  // (rather than assuming the list starts at tier 1) keeps the output balanced
+  // for ANY input, including the pathological case where the first entry is
+  // deeper than a later one — assembleDocument never produces that, but
+  // buildTocFromHeadings is a public export.
+  const stack: number[] = [];
+
+  for (const entry of entries) {
+    if (stack.length === 0) {
+      out += "<ul>";
+      stack.push(entry.tier);
+    } else if (entry.tier > stack[stack.length - 1]) {
+      // Descend: open a nested <ul> inside the previous <li>, which stays open.
+      out += "<ul>";
+      stack.push(entry.tier);
+    } else {
+      // Close the previous sibling <li>, then ascend, closing any deeper lists.
+      out += "</li>";
+      while (stack.length > 1 && stack[stack.length - 1] > entry.tier) {
+        out += "</ul></li>";
+        stack.pop();
       }
+      // This entry is a sibling at the current open level.
+      stack[stack.length - 1] = entry.tier;
     }
-    return items;
+
+    out += `<li class="toc-entry toc-level-${entry.tier}"><a href="#${entry.id}">${escapeHtml(entry.text)}</a>`;
   }
-  return `<nav class="toc"><h2 class="toc-title" id="${TOC_ID}">${escapeHtml(title)}</h2><ul>${walkNodes(tree)}</ul></nav>`;
+
+  // Close the final entry, then unwind every still-open nested list + its <li>.
+  out += "</li>";
+  while (stack.length > 1) {
+    out += "</ul></li>";
+    stack.pop();
+  }
+  out += "</ul>";
+
+  return out;
 }
 
 /**
@@ -217,7 +283,39 @@ export function assembleBody(
   // unique "quire-section-N" id. pagedjs uses these ids as PDF outline
   // destinations. The "quire-section-" prefix won't collide with page anchors
   // (filename slugs) as long as no file is literally named "section-N.md".
-  return walkTree(tree, rendered, anchors, targets, 0, { section: 0 }, showDescription);
+  const body = walkTree(tree, rendered, anchors, targets, 0, { section: 0 }, showDescription);
+  return deduplicateIds(body);
+}
+
+/**
+ * Make every `id` in the assembled body globally unique. rehype-slug only
+ * dedupes ids within a single page render, so the same content heading slug
+ * (e.g. "summary") can recur across pages. Combined into one document, those
+ * collisions break both in-document links and the TOC's `target-counter`
+ * page-number lookup (which resolves to the FIRST element with a given id).
+ *
+ * First occurrence keeps its id; later collisions get a `-2`, `-3`, … suffix.
+ * Structural ids (page anchors, `quire-section-N`) are unique by construction
+ * and always appear before any colliding content heading, so they are never
+ * rewritten — keeping cross-links and the PDF outline intact.
+ */
+function deduplicateIds(bodyHtml: string): string {
+  const $ = cheerio.load(bodyHtml, null, false);
+  const seen = new Set<string>();
+  $("[id]").each((_, el) => {
+    const id = $(el).attr("id");
+    if (id === undefined || id === "") return;
+    if (!seen.has(id)) {
+      seen.add(id);
+      return;
+    }
+    let n = 2;
+    while (seen.has(`${id}-${n}`)) n++;
+    const unique = `${id}-${n}`;
+    seen.add(unique);
+    $(el).attr("id", unique);
+  });
+  return $.html();
 }
 
 /**
@@ -245,18 +343,13 @@ export function assembleDocument(
   }
 ): string {
   const cover = options.cover ? renderCover(options.title) : "";
-  let toc = "";
-  if (options.toc) {
-    // assignAnchors is deterministic over collectPages order, so calling it
-    // here and in assembleBody (via walkTree) produces identical maps.
-    const anchors = assignAnchors(tree);
-    toc = buildToc(tree, anchors, options.tocTitle);
-  }
-  return wrapHtmlDocument(
-    cover + toc + assembleBody(tree, rendered, options.showDescription),
-    options.title,
-    options.css
-  );
+  // Assemble the body first so the TOC can be built from its actual headings
+  // (which carry ids from rehype-slug + structural-heading ids from walkTree).
+  const body = assembleBody(tree, rendered, options.showDescription);
+  const toc = options.toc
+    ? buildTocFromHeadings(body, { title: options.tocTitle ?? "Contents" })
+    : "";
+  return wrapHtmlDocument(cover + toc + body, options.title, options.css);
 }
 
 function walkTree(
@@ -277,7 +370,11 @@ function walkTree(
       // demoteHeadings (h4+ in sectioned docs) are intentionally left without
       // ids — per-heading ids are an M5 / rehype-slug concern.
       const sectionId = `quire-section-${++idState.section}`;
-      out += `<h${L} id="${sectionId}">${escapeHtml(node.title)}</h${L}>`;
+      // class="chapter-heading" feeds the `chaptertitle` named string that the
+      // top-right running header reads (see buildPageFurniture in compile-css).
+      // Only structural headings (section + page-title) are marked, never
+      // content sub-headings, so the running header tracks chapters, not prose.
+      out += `<h${L} class="chapter-heading" id="${sectionId}">${escapeHtml(node.title)}</h${L}>`;
       out += walkTree(node.children, rendered, anchors, targets, depth + 1, idState, showDescription);
     } else {
       // page node
@@ -300,7 +397,10 @@ function walkTree(
         showDescription && node.description && node.description.trim() !== ""
           ? `<p class="page-description">${escapeHtml(node.description)}</p>`
           : "";
-      out += `<section><h${L} id="${anchor}">${escapeHtml(title)}</h${L}>${lede}${demoteHeadings(linked, depth + 1)}</section>`;
+      // The page-title heading is a structural heading, so it carries
+      // class="chapter-heading" to update the top-right running header. Content
+      // sub-headings inside `linked` are intentionally left unmarked.
+      out += `<section><h${L} class="chapter-heading" id="${anchor}">${escapeHtml(title)}</h${L}>${lede}${demoteHeadings(linked, depth + 1)}</section>`;
     }
   }
   return out;

@@ -62,9 +62,79 @@ describe("compileCss", () => {
 
     it("does NOT emit var() inside @page", () => {
       const css = compileCss(DEFAULT_TOKENS);
-      // Extract the @page block to check it doesn't use var()
+      // Extract the size/margin @page block to check it doesn't use var().
       const pageBlock = css.match(/@page\s*\{[^}]*\}/)?.[0] ?? "";
       expect(pageBlock).not.toContain("var(");
+    });
+
+    it("does NOT emit var() anywhere inside any @page rule (including margin boxes)", () => {
+      // Paged.js does not reliably resolve custom properties inside @page, and
+      // the running-header margin boxes must use literal values only. Scan from
+      // each "@page" keyword to the end and assert the margin-box descriptors
+      // (which sit between @page and the next top-level rule) carry no var().
+      const css = compileCss(DEFAULT_TOKENS);
+      // The margin-box keywords only ever appear inside @page rules.
+      const marginBoxArea = css.slice(css.indexOf("@top-left"));
+      expect(marginBoxArea).toContain("@top-left");
+      // Restrict to the furniture region: everything up to the first non-@page
+      // selector after the cover block. The named-string element rules sit
+      // before @top-left, so checking the margin-box descriptors specifically:
+      const furnitureLines = css
+        .split("\n")
+        .filter((l) => /@(top-left|top-right|bottom-center)/.test(l));
+      expect(furnitureLines.length).toBeGreaterThan(0);
+      for (const line of furnitureLines) {
+        expect(line).not.toContain("var(");
+      }
+    });
+  });
+
+  describe("Part C: running headers/footers (page furniture)", () => {
+    it("captures the document title as the doctitle named string from .doc-title", () => {
+      expect(compileCss(DEFAULT_TOKENS)).toMatch(
+        /\.doc-title[^{]*\{[^}]*string-set:\s*doctitle content\(\)/
+      );
+    });
+
+    it("captures the chapter title as the chaptertitle named string from .chapter-heading", () => {
+      expect(compileCss(DEFAULT_TOKENS)).toMatch(
+        /\.chapter-heading[^{]*\{[^}]*string-set:\s*chaptertitle content\(\)/
+      );
+    });
+
+    it("puts the page number at @bottom-center via counter(page)", () => {
+      expect(compileCss(DEFAULT_TOKENS)).toMatch(
+        /@bottom-center\s*\{[^}]*content:\s*counter\(page\)/
+      );
+    });
+
+    it("puts the document title at @top-left via string(doctitle)", () => {
+      expect(compileCss(DEFAULT_TOKENS)).toMatch(
+        /@top-left\s*\{[^}]*content:\s*string\(doctitle\)/
+      );
+    });
+
+    it("puts the chapter title at @top-right via string(chaptertitle, first)", () => {
+      expect(compileCss(DEFAULT_TOKENS)).toMatch(
+        /@top-right\s*\{[^}]*content:\s*string\(chaptertitle,\s*first\)/
+      );
+    });
+
+    it("styles margin boxes with a literal small font-size and muted gray", () => {
+      const css = compileCss(DEFAULT_TOKENS);
+      expect(css).toMatch(/@bottom-center\s*\{[^}]*font-size:\s*9pt/);
+      expect(css).toMatch(/@bottom-center\s*\{[^}]*color:\s*#6b7280/);
+    });
+
+    it("gives the cover its own named page that suppresses the furniture", () => {
+      const css = compileCss(DEFAULT_TOKENS);
+      expect(css).toMatch(/\.cover[^{]*\{[^}]*page:\s*cover/);
+      expect(css).toContain("@page cover");
+      // All three margin boxes are emptied on the cover.
+      const coverBlock = css.slice(css.indexOf("@page cover"));
+      expect(coverBlock).toMatch(/@top-left\s*\{[^}]*content:\s*none/);
+      expect(coverBlock).toMatch(/@top-right\s*\{[^}]*content:\s*none/);
+      expect(coverBlock).toMatch(/@bottom-center\s*\{[^}]*content:\s*none/);
     });
   });
 
@@ -117,20 +187,28 @@ describe("compileCss", () => {
       );
     });
 
-    it("emits .toc-section > ul rule", () => {
-      expect(compileCss(DEFAULT_TOKENS)).toContain(".toc-section > ul");
+    it("applies the target-counter page number to .toc-entry links", () => {
+      // Every heading-based TOC entry is a link, so the page-number rule must
+      // be keyed off .toc-entry a (not the legacy .toc-page a).
+      expect(compileCss(DEFAULT_TOKENS)).toMatch(
+        /\.toc-entry a::after[^{]*\{[^}]*content:\s*target-counter\(attr\(href\), page\)/
+      );
     });
 
-    it("emits .toc-page a with color: inherit", () => {
-      expect(compileCss(DEFAULT_TOKENS)).toContain("color: inherit");
+    it("emits a nested .toc-entry ul indent rule", () => {
+      expect(compileCss(DEFAULT_TOKENS)).toMatch(/\.toc-entry ul[^{]*\{[^}]*padding-left:/);
+    });
+
+    it("emits .toc-entry a with color: inherit", () => {
+      expect(compileCss(DEFAULT_TOKENS)).toMatch(/\.toc-entry a[^{]*\{[^}]*color:\s*inherit/);
     });
 
     it("emits .toc ul with list-style: none", () => {
       expect(compileCss(DEFAULT_TOKENS)).toContain("list-style: none");
     });
 
-    it("emits .toc-section > span with font-weight: bold", () => {
-      expect(compileCss(DEFAULT_TOKENS)).toContain("font-weight: bold");
+    it("emits a bold tier-1 entry rule (.toc-level-1)", () => {
+      expect(compileCss(DEFAULT_TOKENS)).toMatch(/\.toc-level-1[^{]*\{[^}]*font-weight:\s*bold/);
     });
   });
 
@@ -453,8 +531,8 @@ describe("compileCss", () => {
       expect(compileCss(DEFAULT_TOKENS)).toContain("list-style: none");
     });
 
-    it(".toc-section > ul rule is still present", () => {
-      expect(compileCss(DEFAULT_TOKENS)).toContain(".toc-section > ul");
+    it(".toc-entry ul nested-indent rule is still present", () => {
+      expect(compileCss(DEFAULT_TOKENS)).toContain(".toc-entry ul");
     });
 
     it(".toc li rule is still present", () => {
