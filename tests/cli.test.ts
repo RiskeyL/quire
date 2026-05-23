@@ -6,7 +6,8 @@ const run = promisify(execFile);
 
 describe("quire CLI", () => {
   it("prints its version", async () => {
-    const { stdout } = await run("npx", ["tsx", "src/cli.ts", "--version"]);
+    const tsxBin = new URL("../node_modules/.bin/tsx", import.meta.url).pathname;
+    const { stdout } = await run(tsxBin, ["src/cli.ts", "--version"]);
     expect(stdout.trim()).toBe("0.1.0");
   });
 });

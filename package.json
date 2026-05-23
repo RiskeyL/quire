@@ -2,7 +2,6 @@
   "name": "quire",
   "version": "0.1.0",
   "description": "Convert Markdown/MDX docs to branded PDF and Word",
-  "main": "index.js",
   "scripts": {
     "test": "vitest run",
     "dev": "tsx src/cli.ts",

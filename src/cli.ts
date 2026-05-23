@@ -1,18 +1,22 @@
 #!/usr/bin/env node
-import { Command } from "commander";
+import { Command, Option } from "commander";
+import { createRequire } from "node:module";
+
+const require = createRequire(import.meta.url);
+const { version } = require("../package.json") as { version: string };
 
 const program = new Command();
 
 program
   .name("quire")
   .description("Convert Markdown/MDX docs to branded PDF and Word")
-  .version("0.1.0");
+  .version(version);
 
 program
   .command("convert")
   .description("Convert one or more files to PDF and/or Word")
   .argument("<paths...>", "Markdown/MDX files to convert")
-  .option("-f, --format <format>", "pdf | docx | both", "both")
+  .addOption(new Option("-f, --format <format>", "output format").choices(["pdf", "docx", "both"]).default("both"))
   .option("-o, --out <path>", "output file base or directory")
   .action(() => {
     console.log("convert: not implemented yet");
