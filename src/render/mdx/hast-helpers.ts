@@ -63,3 +63,42 @@ export function getStringAttr(
   }
   return undefined;
 }
+
+/**
+ * Detect whether a boolean-style attribute is present and truthy.
+ *
+ * Mintlify boolean flags like `required` / `deprecated` are usually written
+ * bare (`<ParamField path="x" required>`), which the parser records as an
+ * `mdxJsxAttribute` with a `null` value. `getStringAttr` returns `undefined`
+ * for those, so it cannot distinguish "present bare flag" from "absent". This
+ * helper fills that gap:
+ *
+ * - bare flag (`value: null` or `undefined`) → `true` (the flag is set)
+ * - string value (`required="true"`) → `true` (present at all)
+ * - `required={true}` (expression) → `true`; `required={false}` → `false`
+ *   (defensive handling: a literal `false`/`null`/`undefined`/`0`/`""`
+ *   expression text reads as not-set)
+ * - absent attribute → `false`
+ * - spread attributes (`{...props}`) are skipped
+ */
+export function hasAttr(node: JsxComponentNode, name: string): boolean {
+  for (const attr of node.attributes) {
+    if (attr.type !== "mdxJsxAttribute") continue; // skip spread attributes
+    if (attr.name !== name) continue;
+    // Bare flag (`required`, value null/undefined) or string value
+    // (`required="true"`): present.
+    if (attr.value === null || attr.value === undefined) return true;
+    if (typeof attr.value === "string") return true;
+    // Expression value (`required={...}`): treat literal falsy expressions as
+    // not-set so `required={false}` does not render a badge. The expression's
+    // `.value` string can itself be undefined/null on a constructible node
+    // shape; guard before trimming so a malformed expression reads as not-set
+    // rather than throwing out of the handler (which would degrade the whole
+    // page to the stripped fallback).
+    const raw = attr.value.value;
+    if (raw === null || raw === undefined) return false;
+    const expr = raw.trim();
+    return !["false", "null", "undefined", "0", '""', "''"].includes(expr);
+  }
+  return false;
+}

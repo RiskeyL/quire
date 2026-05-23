@@ -639,4 +639,79 @@ describe("compileCss", () => {
       );
     });
   });
+
+  describe("fields: ParamField/ResponseField and examples", () => {
+    it("emits a .param-field rule", () => {
+      expect(compileCss(DEFAULT_TOKENS)).toMatch(/\.param-field\b[^{]*\{/);
+    });
+
+    it(".param-field has a hairline border-top separator", () => {
+      const css = compileCss(DEFAULT_TOKENS);
+      const rule = css.match(/\.param-field\b[^{]*\{[^}]*\}/)?.[0] ?? "";
+      expect(rule).toMatch(/border-top:/);
+    });
+
+    it(".param-field does NOT carry break-inside: avoid (nested fields can be long)", () => {
+      const css = compileCss(DEFAULT_TOKENS);
+      const rule = css.match(/\.param-field\b[^{]*\{[^}]*\}/)?.[0] ?? "";
+      expect(rule).not.toMatch(/break-inside:\s*avoid/);
+    });
+
+    it("emits a .param-name rule that uses var(--font-mono)", () => {
+      expect(compileCss(DEFAULT_TOKENS)).toMatch(
+        /\.param-name[^{]*\{[^}]*font-family:\s*var\(--font-mono\)/
+      );
+    });
+
+    it(".param-name is bold", () => {
+      expect(compileCss(DEFAULT_TOKENS)).toMatch(
+        /\.param-name[^{]*\{[^}]*font-weight:\s*(bold|700)/
+      );
+    });
+
+    it(".param-name neutralizes the global inline-code pill (background: transparent)", () => {
+      // .param-name is a real <code>, so the global :not(pre) > code rule would
+      // otherwise give it a tinted, padded pill. The rule must reset it.
+      const css = compileCss(DEFAULT_TOKENS);
+      const rule = css.match(/\.param-name\b[^{]*\{[^}]*\}/)?.[0] ?? "";
+      expect(rule).toMatch(/background:\s*transparent/);
+    });
+
+    it("emits a .param-type rule that uses var(--color-muted)", () => {
+      expect(compileCss(DEFAULT_TOKENS)).toMatch(
+        /\.param-type[^{]*\{[^}]*color:\s*var\(--color-muted\)/
+      );
+    });
+
+    it("emits a .param-required badge rule", () => {
+      expect(compileCss(DEFAULT_TOKENS)).toMatch(/\.param-required\b[^{]*\{/);
+    });
+
+    it("emits a .param-deprecated badge rule", () => {
+      expect(compileCss(DEFAULT_TOKENS)).toMatch(/\.param-deprecated\b[^{]*\{/);
+    });
+
+    it("emits a .param-default rule that uses var(--color-muted)", () => {
+      expect(compileCss(DEFAULT_TOKENS)).toMatch(
+        /\.param-default[^{]*\{[^}]*color:\s*var\(--color-muted\)/
+      );
+    });
+
+    it("emits a .param-body rule with a left indent", () => {
+      const css = compileCss(DEFAULT_TOKENS);
+      const rule = css.match(/\.param-body\b[^{]*\{[^}]*\}/)?.[0] ?? "";
+      expect(rule).not.toBe("");
+      expect(rule).toMatch(/(padding-left|margin-left):/);
+    });
+
+    it("emits an .example rule", () => {
+      expect(compileCss(DEFAULT_TOKENS)).toMatch(/\.example\b[^{]*\{/);
+    });
+
+    it("emits an .example-label rule that is bold", () => {
+      expect(compileCss(DEFAULT_TOKENS)).toMatch(
+        /\.example-label[^{]*\{[^}]*font-weight:\s*(bold|700)/
+      );
+    });
+  });
 });

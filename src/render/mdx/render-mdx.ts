@@ -23,6 +23,7 @@ import { frameHandlers } from "./components/frame.js";
 import { disclosureHandlers } from "./components/disclosure.js";
 import { stepsHandlers } from "./components/steps.js";
 import { cardsHandlers } from "./components/cards.js";
+import { fieldsHandlers } from "./components/fields.js";
 
 /** Parsed YAML frontmatter for a page. `title`/`description` are surfaced for convenience. */
 export interface PageFrontmatter {
@@ -56,6 +57,7 @@ const componentMap: Record<string, ComponentHandler> = {
   ...disclosureHandlers,
   ...stepsHandlers,
   ...cardsHandlers,
+  ...fieldsHandlers,
 };
 
 /**

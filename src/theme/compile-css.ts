@@ -24,9 +24,10 @@ export function compileCss(tokens: BrandTokens): string {
   const disclosure = buildDisclosure();
   const steps = buildSteps();
   const cards = buildCards();
+  const fields = buildFields();
   const structural = buildStructural();
 
-  return [root, page, elements, content, boxed, figure, disclosure, steps, cards, structural].join("\n");
+  return [root, page, elements, content, boxed, figure, disclosure, steps, cards, fields, structural].join("\n");
 }
 
 // ---------------------------------------------------------------------------
@@ -501,6 +502,129 @@ function buildCards(): string {
 /* A bare block; children stack naturally inside the .columns wrapper.       */
 .column {
   display: block;
+}`;
+}
+
+/**
+ * API field component styling: ParamField / ResponseField (rendered as
+ * .param-field blocks) and the RequestExample / ResponseExample containers
+ * (rendered as labeled .example wrappers).
+ *
+ * Print strategy:
+ *   Each field is a flat block separated from its siblings by a hairline
+ *   top border. The head line (.param-head) carries the name + meta inline;
+ *   the body (.param-body) holds the description and any NESTED fields, which
+ *   indent via the body's left padding so the parameter hierarchy reads
+ *   naturally on paper.
+ *
+ * break-inside:
+ *   NOT applied to .param-field. A field with nested children (deep object
+ *   schemas are common in API docs) can span many lines; forcing it whole onto
+ *   one page would push a tall field to the next page and leave a blank gap.
+ *   This mirrors the table tbody-row / .tab / .accordion / .card decisions:
+ *   only reliably-short blocks are protected, and parameter trees are not.
+ *
+ * Color usage:
+ *   - .param-name uses var(--font-mono) and bold — a parameter name is an
+ *     identifier, so it scans like inline code.
+ *   - .param-type / .param-default use var(--color-muted) and a smaller size:
+ *     secondary metadata that should not compete with the name.
+ *   - .param-required / .param-deprecated are small uppercase badges. They use
+ *     restrained semantic colours (amber border+text for required, neutral
+ *     muted for deprecated) because the token set has no semantic colours yet —
+ *     these literals are future-token candidates, consistent with the
+ *     callout warning/danger/check decision.
+ *   - Hairline separator uses rgba(0,0,0,0.12), the same restrained neutral as
+ *     the disclosure panels. Future-token candidate.
+ *   - .example-label is bold + muted, matching the disclosure/step label tone.
+ */
+function buildFields(): string {
+  return `/* ---- API fields (ParamField, ResponseField) ---- */
+/* Each field is separated from the previous by a hairline top border. No     */
+/* break-inside: avoid — fields with nested children can be long, so forcing   */
+/* them whole would leave a blank-page gap (mirrors table/disclosure/card).    */
+.param-field {
+  border-top: 1px solid rgba(0,0,0,0.12);  /* hardcoded neutral: future-token candidate */
+  padding: 0.55em 0;
+  margin: 0;
+}
+/* No double border above the first field in a group. */
+.param-field:first-child {
+  border-top: none;
+  padding-top: 0;
+}
+
+/* ---- Field head line (name + inline meta) ---- */
+.param-head {
+  margin: 0 0 0.3em;
+  /* Keep the head with the start of its body so it is not orphaned. */
+  break-after: avoid;
+}
+.param-name {
+  font-weight: 700;
+  font-family: var(--font-mono);
+  /* The name is a real <code> element, so the global inline-code rule
+     (:not(pre) > code) would otherwise give it a tinted, padded pill. Reset
+     those three properties so the name reads as a clean mono label. */
+  background: transparent;
+  padding: 0;
+  border-radius: 0;
+}
+/* Secondary metadata: muted and a step smaller so it does not rival the name. */
+.param-type,
+.param-default {
+  color: var(--color-muted);
+  font-size: 0.85em;
+  margin-left: 0.5em;
+}
+
+/* ---- required / deprecated badges ---- */
+/* Small uppercase pills. The shared badge shape (size, casing, spacing, pill   */
+/* radius) is grouped on one selector — only the per-type border/colour differ, */
+/* mirroring how the disclosure section groups .tab/.accordion/.expandable.     */
+/* Semantic colours are hardcoded (no semantic-colour tokens yet): amber for    */
+/* required, neutral muted for deprecated. Both are future-token candidates,    */
+/* consistent with the callout warning/danger palette.                          */
+.param-required,
+.param-deprecated {
+  font-size: 0.7em;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-left: 0.5em;
+  padding: 0.05em 0.4em;
+  border-radius: 3px;
+}
+.param-required {
+  border: 1px solid #b45309;  /* amber — future-token candidate */
+  color: #b45309;
+}
+.param-deprecated {
+  border: 1px solid var(--color-muted);
+  color: var(--color-muted);
+  text-decoration: line-through;
+}
+
+/* ---- Field body (description + nested fields) ---- */
+/* Left indent so nested .param-field children read as a hierarchy. */
+.param-body {
+  padding-left: 1em;
+}
+.param-body > *:first-child { margin-top: 0; }
+.param-body > *:last-child { margin-bottom: 0; }
+
+/* ---- Request / Response examples ---- */
+/* No right-hand sidebar in print: children render inline under a bold label. */
+.example {
+  margin: 1em 0;
+}
+.example-label {
+  font-weight: 700;
+  font-size: 0.85em;
+  color: var(--color-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin: 0 0 0.35em;
+  break-after: avoid;
 }`;
 }
 
