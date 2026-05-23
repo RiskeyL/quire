@@ -14,6 +14,7 @@ export interface ConvertOptions {
   dryRun?: boolean;
   title?: string;
   noCover?: boolean;
+  noToc?: boolean;
 }
 
 export async function runConvert(paths: string[], options: ConvertOptions): Promise<void> {
@@ -84,14 +85,20 @@ export async function runConvert(paths: string[], options: ConvertOptions): Prom
     base = join(dirname(resolvedFirst), "document");
   }
 
-  const html = assembleDocument(tree, rendered, { title: docTitle, cover: !options.noCover });
+  // PDF gets an inline HTML TOC with target-counter page numbers; Word gets a
+  // Pandoc-native TOC via --toc instead (no inline nav in the docx HTML).
+  const useToc = !options.noToc;
+  const wantPdf = options.format === "pdf" || options.format === "both";
+  const wantDocx = options.format === "docx" || options.format === "both";
+  const pdfHtml = wantPdf ? assembleDocument(tree, rendered, { title: docTitle, cover: !options.noCover, toc: useToc }) : "";
+  const docxHtml = wantDocx ? assembleDocument(tree, rendered, { title: docTitle, cover: !options.noCover, toc: false }) : "";
 
   // Formats are exported sequentially; on partial failure the
   // already-exported file is kept (no rollback).
-  if (options.format === "pdf" || options.format === "both") {
-    await htmlToPdf(html, `${base}.pdf`);
+  if (wantPdf) {
+    await htmlToPdf(pdfHtml, `${base}.pdf`);
   }
-  if (options.format === "docx" || options.format === "both") {
-    await htmlToDocx(html, `${base}.docx`);
+  if (wantDocx) {
+    await htmlToDocx(docxHtml, `${base}.docx`, { toc: useToc });
   }
 }

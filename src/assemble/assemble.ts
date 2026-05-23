@@ -2,7 +2,7 @@ import * as cheerio from "cheerio";
 import { basename, extname, posix } from "node:path";
 import { escapeHtml, wrapHtmlDocument } from "../render/html-document.js";
 import { collectPages } from "../resolve/tree.js";
-import type { Tree, TreeNode } from "../resolve/tree.js";
+import type { PageNode, Tree, TreeNode } from "../resolve/tree.js";
 
 /**
  * Shift all heading levels in an HTML fragment down by `by` positions,
@@ -150,6 +150,43 @@ export function renderCover(title: string): string {
   return `<section class="cover"><h1 class="doc-title">${escapeHtml(title)}</h1></section>`;
 }
 
+/** Derive a human-readable title from a page node. */
+function pageTitle(node: PageNode): string {
+  return node.title ?? basename(node.file, extname(node.file));
+}
+
+/**
+ * Build a nested HTML `<nav class="toc">` from the document tree.
+ *
+ * - Section nodes render as non-linked group labels (`<li class="toc-section">`).
+ * - Page nodes render as anchored links (`<li class="toc-page">`).
+ *
+ * V1 limitation: section entries are group labels without page numbers;
+ * only page entries get target-counter page numbers via CSS.
+ *
+ * @param tree    The resolved page tree.
+ * @param anchors The anchor map produced by `assignAnchors`.
+ */
+export function buildToc(tree: Tree, anchors: Map<string, string>): string {
+  function walkNodes(nodes: TreeNode[]): string {
+    let items = "";
+    for (const node of nodes) {
+      if (node.type === "section") {
+        items += `<li class="toc-section"><span>${escapeHtml(node.title)}</span><ul>${walkNodes(node.children)}</ul></li>`;
+      } else {
+        const anchor = anchors.get(node.file);
+        if (anchor === undefined) {
+          throw new Error(`No anchor assigned for page "${node.file}".`);
+        }
+        const title = pageTitle(node);
+        items += `<li class="toc-page"><a href="#${anchor}">${escapeHtml(title)}</a></li>`;
+      }
+    }
+    return items;
+  }
+  return `<nav class="toc"><h2 class="toc-title">Contents</h2><ul>${walkNodes(tree)}</ul></nav>`;
+}
+
 /**
  * Walk the tree depth-first and combine all pages into a single HTML body
  * fragment. Section titles become headings at their depth level; page content
@@ -161,14 +198,28 @@ export function assembleBody(tree: Tree, rendered: Map<string, string>): string 
   return walkTree(tree, rendered, anchors, targets, 0);
 }
 
-/** Build the full HTML document: optional cover, then the assembled body, wrapped. */
+/**
+ * Build the full HTML document: optional cover, optional TOC, then the
+ * assembled body, wrapped in a complete HTML page.
+ *
+ * `toc` defaults to `false`; existing callers that pass `{title, cover}` are
+ * unaffected and produce no TOC. When `toc` is true, the nav is inserted
+ * between the cover and the body.
+ */
 export function assembleDocument(
   tree: Tree,
   rendered: Map<string, string>,
-  options: { title: string; cover: boolean }
+  options: { title: string; cover: boolean; toc?: boolean }
 ): string {
   const cover = options.cover ? renderCover(options.title) : "";
-  return wrapHtmlDocument(cover + assembleBody(tree, rendered), options.title);
+  let toc = "";
+  if (options.toc) {
+    // assignAnchors is deterministic over collectPages order, so calling it
+    // here and in assembleBody (via walkTree) produces identical maps.
+    const anchors = assignAnchors(tree);
+    toc = buildToc(tree, anchors);
+  }
+  return wrapHtmlDocument(cover + toc + assembleBody(tree, rendered), options.title);
 }
 
 function walkTree(
@@ -191,7 +242,7 @@ function walkTree(
       if (anchor === undefined) {
         throw new Error(`No anchor assigned for page "${node.file}".`);
       }
-      const title = node.title ?? basename(node.file, extname(node.file));
+      const title = pageTitle(node);
       const content = rendered.get(node.file);
       if (content === undefined) {
         throw new Error(`No rendered content for page "${node.file}".`);

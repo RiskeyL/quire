@@ -23,8 +23,9 @@ program
   .option("--dry-run", "resolve and print the page tree without rendering")
   .option("--title <title>", "document title for the cover page")
   .option("--no-cover", "omit the cover page")
-  .action(async (paths: string[], opts: { format: "pdf" | "docx" | "both"; out?: string; manifest?: string; dryRun?: boolean; title?: string; cover?: boolean }) => {
-    await runConvert(paths, { ...opts, noCover: opts.cover === false });
+  .option("--no-toc", "omit the table of contents")
+  .action(async (paths: string[], opts: { format: "pdf" | "docx" | "both"; out?: string; manifest?: string; dryRun?: boolean; title?: string; cover?: boolean; toc?: boolean }) => {
+    await runConvert(paths, { ...opts, noCover: opts.cover === false, noToc: opts.toc === false });
   });
 
 await program.parseAsync();

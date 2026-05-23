@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { demoteHeadings, pageAnchorId, assembleDocument, assignAnchors, buildLinkTargets, rewriteCrossLinks } from "../../src/assemble/assemble.js";
+import { demoteHeadings, pageAnchorId, assembleDocument, assignAnchors, buildLinkTargets, rewriteCrossLinks, buildToc } from "../../src/assemble/assemble.js";
 
 describe("demoteHeadings", () => {
   it("shifts heading levels down by the given amount", () => {
@@ -191,6 +191,96 @@ describe("rewriteCrossLinks", () => {
   it("leaves a relative .md link unchanged when targets map is empty", () => {
     const html = `<a href="other.md">Other</a>`;
     expect(rewriteCrossLinks(html, "a.md", new Map())).toContain(`href="other.md"`);
+  });
+});
+
+describe("buildToc", () => {
+  it("emits a nav with class toc and an h2 with class toc-title", () => {
+    const tree: Tree = [{ type: "page", file: "a.md", title: "Alpha" }];
+    const anchors = assignAnchors(tree);
+    const html = buildToc(tree, anchors);
+    expect(html).toContain('<nav class="toc">');
+    expect(html).toContain('<h2 class="toc-title">Contents</h2>');
+  });
+
+  it("renders a page as a toc-page li with a link to its anchor", () => {
+    const tree: Tree = [{ type: "page", file: "a.md", title: "Alpha" }];
+    const anchors = assignAnchors(tree);
+    const html = buildToc(tree, anchors);
+    const anchor = anchors.get("a.md")!;
+    expect(html).toContain(`<li class="toc-page"><a href="#${anchor}">Alpha</a></li>`);
+  });
+
+  it("falls back to the filename stem when page has no title", () => {
+    const tree: Tree = [{ type: "page", file: "guides/intro.md" }];
+    const anchors = assignAnchors(tree);
+    const html = buildToc(tree, anchors);
+    expect(html).toContain(">intro<");
+  });
+
+  it("renders a section as a non-linked toc-section label", () => {
+    const tree: Tree = [
+      {
+        type: "section",
+        title: "Part One",
+        children: [{ type: "page", file: "a.md", title: "Alpha" }],
+      },
+    ];
+    const anchors = assignAnchors(tree);
+    const html = buildToc(tree, anchors);
+    expect(html).toContain('<li class="toc-section">');
+    expect(html).toContain("<span>Part One</span>");
+    // Must NOT wrap the section title in an anchor
+    expect(html).not.toMatch(/<a[^>]*>Part One<\/a>/);
+  });
+
+  it("nests a page inside its parent section's child ul", () => {
+    const tree: Tree = [
+      {
+        type: "section",
+        title: "Part One",
+        children: [{ type: "page", file: "a.md", title: "Alpha" }],
+      },
+    ];
+    const anchors = assignAnchors(tree);
+    const html = buildToc(tree, anchors);
+    // Section li must contain both the span and a nested ul with the page entry.
+    const sectionPattern = /<li class="toc-section"><span>Part One<\/span><ul>.*<li class="toc-page">.*<\/li>.*<\/ul><\/li>/s;
+    expect(html).toMatch(sectionPattern);
+  });
+
+  it("HTML-escapes titles", () => {
+    const tree: Tree = [{ type: "page", file: "a.md", title: "<script>alert(1)</script>" }];
+    const anchors = assignAnchors(tree);
+    const html = buildToc(tree, anchors);
+    expect(html).not.toContain("<script>");
+    expect(html).toContain("&lt;script&gt;");
+  });
+
+  it("throws a clear error when a page has no anchor in the map", () => {
+    const tree: Tree = [{ type: "page", file: "a.md", title: "Alpha" }];
+    // Deliberately pass an empty map to trigger the error.
+    expect(() => buildToc(tree, new Map())).toThrow(/anchor/i);
+  });
+});
+
+describe("assembleDocument with toc option", () => {
+  const tree: Tree = [{ type: "page", file: "x.md", title: "X" }];
+  const rendered = new Map([["x.md", "<p>body</p>"]]);
+
+  it("includes the toc nav when toc is true", () => {
+    const html = assembleDocument(tree, rendered, { title: "My Title", cover: true, toc: true });
+    expect(html).toContain('<nav class="toc">');
+  });
+
+  it("does not include the toc nav when toc is omitted (default false)", () => {
+    const html = assembleDocument(tree, rendered, { title: "My Title", cover: true });
+    expect(html).not.toContain('<nav class="toc">');
+  });
+
+  it("does not include the toc nav when toc is false", () => {
+    const html = assembleDocument(tree, rendered, { title: "My Title", cover: true, toc: false });
+    expect(html).not.toContain('<nav class="toc">');
   });
 });
 
