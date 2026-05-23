@@ -233,17 +233,10 @@ function buildBoxed(): string {
 .callout-danger { border-left-color: #b91c1c; }
 .callout-check { border-left-color: #15803d; }
 
-/* ---- Banner ---- */
-/* Full-width emphasized bar. Banner is a docs.json site-config feature in
-   Mintlify rather than an in-content component, so the render core emits no
-   <div class="banner">; this rule styles a stray passthrough should one occur. */
-.banner {
-  padding: 0.75em 1em;
-  background: rgba(0,0,0,0.08);
-  border-radius: 4px;
-  margin: 1em 0;
-  font-weight: 600;
-}
+/* Note: Banner is a docs.json site-config feature in Mintlify, not an
+   in-content component, so the render core emits no banner element and no
+   .banner rule is defined here. A stray <Banner> falls through to the
+   data-component passthrough. */
 
 /* ---- Panel (aside) ---- */
 .panel {
