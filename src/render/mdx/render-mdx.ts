@@ -19,6 +19,7 @@ import type { Plugin } from "unified";
 import { element, type ComponentHandler } from "./hast-helpers.js";
 import { calloutHandlers } from "./components/callouts.js";
 import { boxedHandlers } from "./components/boxed.js";
+import { frameHandlers } from "./components/frame.js";
 
 /** Parsed YAML frontmatter for a page. `title`/`description` are surfaced for convenience. */
 export interface PageFrontmatter {
@@ -48,6 +49,7 @@ export interface RenderMdxOptions {
 const componentMap: Record<string, ComponentHandler> = {
   ...calloutHandlers,
   ...boxedHandlers,
+  ...frameHandlers,
 };
 
 /**

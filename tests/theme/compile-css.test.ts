@@ -397,6 +397,30 @@ describe("compileCss", () => {
     });
   });
 
+  describe("figure: Frame component", () => {
+    it("emits a .frame rule", () => {
+      expect(compileCss(DEFAULT_TOKENS)).toContain(".frame");
+    });
+
+    it(".frame uses break-inside: avoid", () => {
+      expect(compileCss(DEFAULT_TOKENS)).toMatch(
+        /\.frame\b[^{]*\{[^}]*break-inside:\s*avoid/
+      );
+    });
+
+    it(".frame has text-align: center", () => {
+      expect(compileCss(DEFAULT_TOKENS)).toMatch(
+        /\.frame\b[^{]*\{[^}]*text-align:\s*center/
+      );
+    });
+
+    it("emits a figcaption rule that uses var(--color-muted)", () => {
+      expect(compileCss(DEFAULT_TOKENS)).toMatch(
+        /figcaption[^{]*\{[^}]*color:\s*var\(--color-muted\)/
+      );
+    });
+  });
+
   describe("TOC rules are not overridden by generic list rules", () => {
     it(".toc ul rule for list-style: none is still present", () => {
       expect(compileCss(DEFAULT_TOKENS)).toContain(".toc ul");

@@ -20,9 +20,10 @@ export function compileCss(tokens: BrandTokens): string {
   const elements = buildElements();
   const content = buildContent();
   const boxed = buildBoxed();
+  const figure = buildFigure();
   const structural = buildStructural();
 
-  return [root, page, elements, content, boxed, structural].join("\n");
+  return [root, page, elements, content, boxed, figure, structural].join("\n");
 }
 
 // ---------------------------------------------------------------------------
@@ -242,6 +243,28 @@ function buildBoxed(): string {
 .update-description {
   color: var(--color-muted);
   margin: 0 0 0.5em;
+}`;
+}
+
+/**
+ * Figure / Frame component styling.
+ *
+ * The global `img` rule in `buildContent` already sets `max-width: 100%` and
+ * `height: auto`, so those are not duplicated here. Only figure-specific rules
+ * are added: centering, page-break protection, and caption styling.
+ */
+function buildFigure(): string {
+  return `/* ---- Figure (Frame component) ---- */
+.frame {
+  margin: 1.25em 0;
+  text-align: center;
+  break-inside: avoid;
+}
+figcaption {
+  color: var(--color-muted);
+  font-size: 0.875em;
+  text-align: center;
+  margin-top: 0.4em;
 }`;
 }
 

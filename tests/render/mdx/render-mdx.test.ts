@@ -31,15 +31,15 @@ describe("renderMdx", () => {
   });
 
   it("passes an unregistered capitalized component through without throwing", () => {
-    // `Frame` has no handler yet (a later component task adds it), so it must
-    // still degrade to the passthrough wrapper while preserving its children.
-    const source = "<Frame>hello there</Frame>";
+    // An unregistered component (e.g. a hypothetical <Unknown>) must degrade to
+    // the passthrough wrapper while preserving its children.
+    const source = "<Unknown>hello there</Unknown>";
     let html = "";
     expect(() => {
       html = renderMdx(source).html;
     }).not.toThrow();
     expect(html).toContain("hello there");
-    expect(html).toContain('data-component="Frame"');
+    expect(html).toContain('data-component="Unknown"');
   });
 
   it("renders lowercase HTML tags as real elements, not components", () => {
