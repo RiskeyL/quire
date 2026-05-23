@@ -209,7 +209,7 @@ export function assembleBody(tree: Tree, rendered: Map<string, string>): string 
 export function assembleDocument(
   tree: Tree,
   rendered: Map<string, string>,
-  options: { title: string; cover: boolean; toc?: boolean }
+  options: { title: string; cover: boolean; toc?: boolean; css?: string }
 ): string {
   const cover = options.cover ? renderCover(options.title) : "";
   let toc = "";
@@ -219,7 +219,11 @@ export function assembleDocument(
     const anchors = assignAnchors(tree);
     toc = buildToc(tree, anchors);
   }
-  return wrapHtmlDocument(cover + toc + assembleBody(tree, rendered), options.title);
+  return wrapHtmlDocument(
+    cover + toc + assembleBody(tree, rendered),
+    options.title,
+    options.css
+  );
 }
 
 function walkTree(

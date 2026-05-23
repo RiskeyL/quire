@@ -13,4 +13,12 @@ describe("wrapHtmlDocument", () => {
     const html = wrapHtmlDocument("<p>x</p>", 'A & B </title>');
     expect(html).toContain("<title>A &amp; B &lt;/title&gt;</title>");
   });
+
+  it("includes a non-empty default <style> block with token-driven rules", () => {
+    const html = wrapHtmlDocument("<h1>Hi</h1>", "T");
+    expect(html).toContain("<style>");
+    const styleContent = html.match(/<style>([\s\S]*?)<\/style>/)?.[1] ?? "";
+    expect(styleContent.length).toBeGreaterThan(0);
+    expect(styleContent).toContain("var(--font-body)");
+  });
 });
