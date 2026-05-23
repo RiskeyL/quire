@@ -768,4 +768,48 @@ describe("compileCss", () => {
       );
     });
   });
+
+  // ---------------------------------------------------------------------------
+  // Inline component rules: Badge, Tooltip
+  // (Color is not implemented — block-level design tool, not inline author-placeable)
+  // (Icon emits nothing, so no CSS rule needed)
+  // ---------------------------------------------------------------------------
+
+  describe("inline component rules (Badge, Tooltip)", () => {
+    it("emits a .badge rule", () => {
+      expect(compileCss(DEFAULT_TOKENS)).toMatch(/\.badge\b[^{]*\{/);
+    });
+
+    it(".badge is display: inline or inline-block (inline element)", () => {
+      const css = compileCss(DEFAULT_TOKENS);
+      // The badge selector rule must declare an inline display variant.
+      expect(css).toMatch(/\.badge\b[^{]*\{[^}]*display:\s*inline/);
+    });
+
+    it(".badge has border-radius for the pill shape", () => {
+      expect(compileCss(DEFAULT_TOKENS)).toMatch(
+        /\.badge\b[^{]*\{[^}]*border-radius:/
+      );
+    });
+
+    it(".badge uses var(--color-muted) for border or color", () => {
+      const css = compileCss(DEFAULT_TOKENS);
+      const badgeRule = css.match(/\.badge\b[^{]*\{[^}]*\}/)?.[0] ?? "";
+      expect(badgeRule).toContain("var(--color-muted)");
+    });
+
+    it("emits a .tooltip rule", () => {
+      expect(compileCss(DEFAULT_TOKENS)).toMatch(/\.tooltip\b[^{]*\{/);
+    });
+
+    it("emits a .tooltip-tip rule", () => {
+      expect(compileCss(DEFAULT_TOKENS)).toMatch(/\.tooltip-tip\b[^{]*\{/);
+    });
+
+    it(".tooltip-tip uses var(--color-muted)", () => {
+      const css = compileCss(DEFAULT_TOKENS);
+      const tipRule = css.match(/\.tooltip-tip\b[^{]*\{[^}]*\}/)?.[0] ?? "";
+      expect(tipRule).toContain("var(--color-muted)");
+    });
+  });
 });

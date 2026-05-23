@@ -26,9 +26,10 @@ export function compileCss(tokens: BrandTokens): string {
   const cards = buildCards();
   const fields = buildFields();
   const code = buildCode();
+  const inline = buildInline();
   const structural = buildStructural();
 
-  return [root, page, elements, content, boxed, figure, disclosure, steps, cards, fields, code, structural].join("\n");
+  return [root, page, elements, content, boxed, figure, disclosure, steps, cards, fields, code, inline, structural].join("\n");
 }
 
 // ---------------------------------------------------------------------------
@@ -707,6 +708,62 @@ function buildCode(): string {
   color: var(--color-muted);
   margin: 0 0 0.35em;
   break-after: avoid;
+}`;
+}
+
+/**
+ * Inline (text-level) component styling: Badge, Tooltip.
+ *
+ * Color — no CSS: block-level design tool, not author-placeable inline (skipped).
+ * Icon  — no CSS: renders nothing; empty-array handler needs no style rule.
+ *
+ * Badge:
+ *   A small inline pill for status labels. `display: inline-block` so padding
+ *   is rendered correctly without breaking flow. Font size and padding are
+ *   fixed proportional values; border uses var(--color-muted) so it adapts to
+ *   the brand token without a dedicated badge-color token.
+ *   Color modifier classes (.badge-blue, .badge-green, etc.) are not styled
+ *   here — neutral fallback is sufficient for print; authors who want colored
+ *   badges in PDF can extend via custom CSS.
+ *   `size` and `shape` props are dropped (no print analogue).
+ *
+ * Tooltip:
+ *   .tooltip is a transparent inline wrapper (no visual treatment; the trigger
+ *   text carries its own formatting). .tooltip-tip is the parenthetical tip:
+ *   smaller, muted, and italicized to read as a gloss rather than main prose.
+ *   font-style: italic is a deliberate choice here — it visually sets the tip
+ *   apart from surrounding text without adding color or weight that would
+ *   compete with the trigger.
+ */
+function buildInline(): string {
+  return `/* ---- Badge (inline status/label pill) ---- */
+/* display: inline-block so padding renders in flow without breaking lines. */
+/* size/shape props dropped — no print analogue.                             */
+.badge {
+  display: inline-block;
+  font-size: 0.75em;
+  font-weight: 600;
+  padding: 0.1em 0.45em;
+  border-radius: 3px;
+  border: 1px solid var(--color-muted);  /* token-driven neutral border */
+  color: var(--color-muted);
+  letter-spacing: 0.03em;
+  vertical-align: middle;
+}
+/* Color modifier classes (.badge-blue etc.) are intentionally unstyled in   */
+/* print — a neutral pill is sufficient; authors can extend via custom CSS.  */
+
+/* ---- Tooltip (inline trigger + parenthetical tip) ---- */
+/* .tooltip is a transparent wrapper; no visual treatment on the trigger.    */
+.tooltip {
+  display: inline;
+}
+/* .tooltip-tip: the parenthetical gloss after the trigger text.             */
+/* Italic + muted + smaller so it reads as a gloss, not main prose.          */
+.tooltip-tip {
+  color: var(--color-muted);
+  font-size: 0.9em;
+  font-style: italic;
 }`;
 }
 

@@ -25,6 +25,7 @@ import { stepsHandlers } from "./components/steps.js";
 import { cardsHandlers } from "./components/cards.js";
 import { fieldsHandlers } from "./components/fields.js";
 import { codeHandlers } from "./components/code.js";
+import { inlineHandlers } from "./components/inline.js";
 
 /** Parsed YAML frontmatter for a page. `title`/`description` are surfaced for convenience. */
 export interface PageFrontmatter {
@@ -60,6 +61,7 @@ const componentMap: Record<string, ComponentHandler> = {
   ...cardsHandlers,
   ...fieldsHandlers,
   ...codeHandlers,
+  ...inlineHandlers,
 };
 
 /**
