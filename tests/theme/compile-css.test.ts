@@ -496,7 +496,7 @@ describe("compileCss", () => {
       // declare break-inside; only the separate .expandable rule does.
       const css = compileCss(DEFAULT_TOKENS);
       const sharedPanelRule =
-        css.match(/\.tab,\s*\.accordion,\s*\.expandable\s*\{[^}]*\}/)?.[0] ?? "";
+        css.match(/\.tab,\s*\.accordion,\s*\.expandable,\s*\.view\s*\{[^}]*\}/)?.[0] ?? "";
       expect(sharedPanelRule).not.toBe("");
       expect(sharedPanelRule).not.toMatch(/break-inside:\s*avoid/);
     });
@@ -504,7 +504,7 @@ describe("compileCss", () => {
     it("disclosure labels use break-after: avoid (label stays with its body)", () => {
       const css = compileCss(DEFAULT_TOKENS);
       const labelRule =
-        css.match(/\.tab-label,\s*\.accordion-label,\s*\.expandable-label\s*\{[^}]*\}/)?.[0] ?? "";
+        css.match(/\.tab-label,\s*\.accordion-label,\s*\.expandable-label,\s*\.view-label\s*\{[^}]*\}/)?.[0] ?? "";
       expect(labelRule).toMatch(/break-after:\s*avoid/);
     });
   });

@@ -325,11 +325,13 @@ function buildDisclosure(): string {
   margin: 1em 0;
 }
 
-/* ---- Disclosure panels (.tab, .accordion, .expandable) ---- */
-/* Shared shape: hairline top border, left padding on body, vertical gap. */
+/* ---- Disclosure panels (.tab, .accordion, .expandable, .view) ---- */
+/* Shared shape: hairline top border, left padding on body, vertical gap.
+   .view is a switchable panel like .tab and shares the same treatment. */
 .tab,
 .accordion,
-.expandable {
+.expandable,
+.view {
   border-top: 1px solid rgba(0,0,0,0.12);  /* hardcoded neutral: future-token candidate */
   padding: 0.6em 0 0.6em 1em;
   margin-top: 0;
@@ -345,7 +347,8 @@ function buildDisclosure(): string {
    double border when the container itself has a top border or margin. */
 .tab:first-child,
 .accordion:first-child,
-.expandable:first-child {
+.expandable:first-child,
+.view:first-child {
   border-top: none;
   padding-top: 0;
 }
@@ -354,7 +357,8 @@ function buildDisclosure(): string {
 /* Bold, slightly smaller, with a decorative collapse hint (▾). */
 .tab-label,
 .accordion-label,
-.expandable-label {
+.expandable-label,
+.view-label {
   font-weight: 700;
   font-size: 0.9em;
   color: var(--color-muted);
@@ -364,10 +368,11 @@ function buildDisclosure(): string {
      bottom of a page (panel-level break-inside is no longer protecting it). */
   break-after: avoid;
 }
-/* Decorative hint that these were collapsible sections. */
+/* Decorative hint that these were collapsible/switchable sections. */
 .tab-label::before,
 .accordion-label::before,
-.expandable-label::before {
+.expandable-label::before,
+.view-label::before {
   content: "▾ ";
   font-size: 0.85em;
 }`;

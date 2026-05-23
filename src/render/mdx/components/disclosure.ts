@@ -42,7 +42,7 @@ import {
  *     ...children...
  *   </div>
  */
-function disclosureBlock(
+export function disclosureBlock(
   state: State,
   node: JsxComponentNode,
   prefix: string
