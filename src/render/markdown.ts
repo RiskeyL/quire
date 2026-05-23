@@ -1,10 +1,13 @@
-import { marked } from "marked";
+import { renderMdx } from "./mdx/render-mdx.js";
 
 /**
  * Render a Markdown string to an HTML fragment.
- * This is the Milestone 1 input adapter. It will be replaced by a
- * unified/remark-based MDX adapter in Milestone 5; keep the signature stable.
+ *
+ * @deprecated Use {@link renderMdx} directly. It returns parsed frontmatter
+ * alongside the HTML and handles MDX/JSX content. This thin wrapper remains
+ * only for callers that need the bare HTML and predates the Milestone 5 MDX
+ * pipeline; it discards the frontmatter.
  */
 export function renderMarkdownToHtml(markdown: string): string {
-  return marked.parse(markdown, { async: false });
+  return renderMdx(markdown).html;
 }

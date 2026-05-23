@@ -1,7 +1,8 @@
 import { readFile, mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { basename, dirname, extname, join, resolve } from "node:path";
-import { renderMarkdownToHtml } from "../render/markdown.js";
+import { renderMdx } from "../render/mdx/render-mdx.js";
+import { resolveTitle } from "../render/mdx/title.js";
 import { embedImages } from "../render/images.js";
 import { htmlToPdf } from "../export/pdf.js";
 import { htmlToDocx } from "../export/docx.js";
@@ -59,13 +60,36 @@ export async function runConvert(paths: string[], options: ConvertOptions): Prom
   const effectiveRoot = resolve(options.root ?? manifestDir ?? process.cwd());
 
   const rendered = new Map<string, string>();
+  // Per-page frontmatter descriptions, keyed by page.file. Captured here for
+  // Task 5J (page subtitles); 5A does not render the description yet.
+  // TODO(5J): render these as a subtitle under each page-title heading.
+  const descriptions = new Map<string, string>();
   for (const page of pages) {
     const resolvedPath = manifestDir
       ? resolve(manifestDir, page.file)
       : resolve(page.file);
     const markdown = await readFile(resolvedPath, "utf8");
-    const rawHtml = renderMarkdownToHtml(markdown);
-    const html = await embedImages(rawHtml, {
+    const { html: rawHtml, frontmatter } = renderMdx(markdown, {
+      onWarn: (msg) => process.stderr.write(`${msg}\n`),
+    });
+
+    // Resolve the effective title and strip the first body <h1> when it is the
+    // title source. Mutating page.title on the tree node makes assemble.ts's
+    // pageTitle/buildToc use the resolved title with no signature change
+    // (collectPages returns the live tree nodes, so this is safe).
+    const { title: resolvedTitle, html: titledHtml } = resolveTitle({
+      manifestTitle: page.title,
+      frontmatter,
+      html: rawHtml,
+      file: page.file,
+    });
+    page.title = resolvedTitle;
+
+    if (typeof frontmatter.description === "string" && frontmatter.description.trim() !== "") {
+      descriptions.set(page.file, frontmatter.description.trim());
+    }
+
+    const html = await embedImages(titledHtml, {
       baseDir: dirname(resolvedPath),
       root: effectiveRoot,
       offline: !!options.offline,
