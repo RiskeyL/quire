@@ -714,4 +714,58 @@ describe("compileCss", () => {
       );
     });
   });
+
+  describe("code: CodeGroup and Prompt components", () => {
+    it("emits a .code-group rule", () => {
+      expect(compileCss(DEFAULT_TOKENS)).toMatch(/\.code-group\b[^{]*\{/);
+    });
+
+    it(".code-group has vertical margin", () => {
+      const css = compileCss(DEFAULT_TOKENS);
+      const rule = css.match(/\.code-group\b[^{]*\{[^}]*\}/)?.[0] ?? "";
+      expect(rule).not.toBe("");
+      expect(rule).toMatch(/margin:/);
+    });
+
+    it("emits a .code-group-item rule", () => {
+      expect(compileCss(DEFAULT_TOKENS)).toMatch(/\.code-group-item\b[^{]*\{/);
+    });
+
+    it(".code-group-item has spacing between items", () => {
+      const css = compileCss(DEFAULT_TOKENS);
+      const rule = css.match(/\.code-group-item\b[^{]*\{[^}]*\}/)?.[0] ?? "";
+      expect(rule).not.toBe("");
+      expect(rule).toMatch(/(margin|padding)/);
+    });
+
+    it("emits a .code-label rule that uses var(--font-mono)", () => {
+      expect(compileCss(DEFAULT_TOKENS)).toMatch(
+        /\.code-label[^{]*\{[^}]*font-family:\s*var\(--font-mono\)/
+      );
+    });
+
+    it(".code-label uses var(--color-muted) for color", () => {
+      expect(compileCss(DEFAULT_TOKENS)).toMatch(
+        /\.code-label[^{]*\{[^}]*color:\s*var\(--color-muted\)/
+      );
+    });
+
+    it(".code-group and .code-group-item do NOT carry break-inside: avoid", () => {
+      const css = compileCss(DEFAULT_TOKENS);
+      const groupRule = css.match(/\.code-group\b[^{]*\{[^}]*\}/)?.[0] ?? "";
+      const itemRule = css.match(/\.code-group-item\b[^{]*\{[^}]*\}/)?.[0] ?? "";
+      expect(groupRule).not.toMatch(/break-inside:\s*avoid/);
+      expect(itemRule).not.toMatch(/break-inside:\s*avoid/);
+    });
+
+    it("emits a .prompt rule", () => {
+      expect(compileCss(DEFAULT_TOKENS)).toMatch(/\.prompt\b[^{]*\{/);
+    });
+
+    it("emits a .prompt-label rule that is bold", () => {
+      expect(compileCss(DEFAULT_TOKENS)).toMatch(
+        /\.prompt-label[^{]*\{[^}]*font-weight:\s*(bold|700)/
+      );
+    });
+  });
 });

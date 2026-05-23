@@ -25,9 +25,10 @@ export function compileCss(tokens: BrandTokens): string {
   const steps = buildSteps();
   const cards = buildCards();
   const fields = buildFields();
+  const code = buildCode();
   const structural = buildStructural();
 
-  return [root, page, elements, content, boxed, figure, disclosure, steps, cards, fields, structural].join("\n");
+  return [root, page, elements, content, boxed, figure, disclosure, steps, cards, fields, code, structural].join("\n");
 }
 
 // ---------------------------------------------------------------------------
@@ -623,6 +624,87 @@ function buildFields(): string {
   color: var(--color-muted);
   text-transform: uppercase;
   letter-spacing: 0.04em;
+  margin: 0 0 0.35em;
+  break-after: avoid;
+}`;
+}
+
+/**
+ * Code-group and Prompt component styling.
+ *
+ * CodeGroup — print strategy ("expand-and-label"):
+ *   On the web, CodeGroup shows code fences in a tabbed interface. Print has
+ *   no tabs, so all blocks are shown sequentially. The group container adds
+ *   light vertical rhythm and an optional outline so the blocks read as a
+ *   unit. Each item gets a small vertical gap between itself and its
+ *   neighbour. The label is mono and muted — a filename/language tag look.
+ *
+ * Prompt — a labeled prompt block:
+ *   The bold label mirrors the .example-label and .update-label conventions.
+ *
+ * break-inside:
+ *   NOT applied to .code-group or .code-group-item. Code blocks can be long;
+ *   forcing them whole onto one page would push them to the next and leave a
+ *   blank gap — the same reasoning that bars break-inside from .tab/.accordion/
+ *   .card/.step. This is the consistent project decision: only reliably-short
+ *   blocks are protected.
+ *
+ * Color usage:
+ *   - .code-label uses var(--font-mono) so filename/language labels scan like
+ *     code identifiers, and var(--color-muted) so they are visually secondary
+ *     to the code block content they annotate. Both are token-driven.
+ *   - .code-group border uses rgba(0,0,0,0.08) — a very light neutral surface
+ *     that visually groups the blocks without competing with the code content.
+ *     Hardcoded neutral; future-token candidate once a surface-color token exists.
+ *   - .prompt-label is bold; no additional color token is applied — the bold
+ *     weight alone provides sufficient visual hierarchy for a prompt header.
+ */
+function buildCode(): string {
+  return `/* ---- CodeGroup (multiple code blocks as labeled sequence) ---- */
+/* No break-inside: avoid — code blocks can be long; forcing them whole       */
+/* would leave a blank gap (mirrors .tab/.accordion/.card/.step decisions).   */
+.code-group {
+  margin: 1em 0;
+  border: 1px solid rgba(0,0,0,0.08);  /* light grouping outline: future-token candidate */
+  border-radius: 4px;
+  padding: 0.5em 0.75em;
+}
+
+/* Vertical gap between consecutive items; no break-inside (see above). */
+.code-group-item {
+  margin-top: 0.75em;
+}
+.code-group-item:first-child {
+  margin-top: 0;
+}
+
+/* ---- Code label (filename / language tag above each block) ---- */
+/* Mono font so filenames scan like paths; muted color so the label stays    */
+/* visually secondary to the code content it annotates.                      */
+.code-label {
+  font-family: var(--font-mono);
+  font-size: 0.8em;
+  color: var(--color-muted);
+  margin: 0 0 0.2em;
+  /* Keep the label with the start of its code block. */
+  break-after: avoid;
+}
+
+/* ---- Prompt (copyable AI prompt card) ---- */
+/* Children (prompt text) follow below the bold label.                       */
+.prompt {
+  border: 1px solid rgba(0,0,0,0.12);  /* hairline border: future-token candidate */
+  border-radius: 4px;
+  padding: 0.75em 1em;
+  margin: 1em 0;
+  background: rgba(0,0,0,0.02);
+}
+.prompt > *:first-child { margin-top: 0; }
+.prompt > *:last-child { margin-bottom: 0; }
+.prompt-label {
+  font-weight: 700;
+  font-size: 0.85em;
+  color: var(--color-muted);
   margin: 0 0 0.35em;
   break-after: avoid;
 }`;
