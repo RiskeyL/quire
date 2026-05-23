@@ -8,7 +8,7 @@ import rehypeSlug from "rehype-slug";
 import rehypeStringify from "rehype-stringify";
 import yaml from "js-yaml";
 import type { Root as MdastRoot, Yaml } from "mdast";
-import type { Element, ElementContent } from "hast";
+import type { ElementContent } from "hast";
 import type {
   MdxJsxFlowElement,
   MdxJsxTextElement,
@@ -16,6 +16,9 @@ import type {
 } from "mdast-util-mdx-jsx";
 import type { Handler, Handlers, State } from "mdast-util-to-hast";
 import type { Plugin } from "unified";
+import { element, type ComponentHandler } from "./hast-helpers.js";
+import { calloutHandlers } from "./components/callouts.js";
+import { boxedHandlers } from "./components/boxed.js";
 
 /** Parsed YAML frontmatter for a page. `title`/`description` are surfaced for convenience. */
 export interface PageFrontmatter {
@@ -38,16 +41,14 @@ export interface RenderMdxOptions {
 
 /**
  * Per-component hast handlers, keyed by component name (e.g. `Info`, `Frame`).
- * Empty for Task 5A: every Capitalized component falls back to the passthrough
- * wrapper. Later tasks (5B+) populate this map with real renderers.
+ * Populated by spreading the per-group registration objects from the
+ * `components/` modules; any Capitalized component without an entry falls back
+ * to the passthrough `data-component` wrapper.
  */
-const componentMap: Record<string, ComponentHandler> = {};
-
-/** A handler that renders a single MDX component node into hast content. */
-type ComponentHandler = (
-  state: State,
-  node: MdxJsxFlowElement | MdxJsxTextElement
-) => ElementContent | ElementContent[];
+const componentMap: Record<string, ComponentHandler> = {
+  ...calloutHandlers,
+  ...boxedHandlers,
+};
 
 /**
  * Render an MDX/Markdown source string to an HTML fragment, extracting its
@@ -208,15 +209,6 @@ function attributeValue(attr: MdxJsxAttribute): string | boolean {
   if (typeof value === "string") return value;
   // mdxJsxAttributeValueExpression: keep the raw expression text.
   return value.value;
-}
-
-/** Build a hast element node. */
-function element(
-  tagName: string,
-  properties: Record<string, string | boolean>,
-  children: ElementContent[]
-): Element {
-  return { type: "element", tagName, properties, children };
 }
 
 // ---------------------------------------------------------------------------

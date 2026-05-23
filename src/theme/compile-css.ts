@@ -19,9 +19,10 @@ export function compileCss(tokens: BrandTokens): string {
   const page = buildPage(tokens);
   const elements = buildElements();
   const content = buildContent();
+  const boxed = buildBoxed();
   const structural = buildStructural();
 
-  return [root, page, elements, content, structural].join("\n");
+  return [root, page, elements, content, boxed, structural].join("\n");
 }
 
 // ---------------------------------------------------------------------------
@@ -158,6 +159,90 @@ hr {
 
 /* ---- Images ---- */
 img { max-width: 100%; height: auto; display: block; }`;
+}
+
+/**
+ * Boxed / aside component styling: callouts (Info/Tip/Warning/Note/Check/Danger
+ * and the generic Callout), the Panel aside, and the Update changelog box.
+ *
+ * Per-type left-border colours: info/tip/note reuse existing tokens
+ * (--color-accent / --color-muted). warning/danger/check use restrained fixed
+ * semantic colours because the token set has no semantic colours yet — these
+ * three literals (amber/red/green) are candidates for future tokens once a
+ * semantic-colour set exists. Backgrounds stay as very light neutral fills.
+ */
+function buildBoxed(): string {
+  return `/* ---- Callouts ---- */
+.callout {
+  padding: 0.75em 1em;
+  border-left: 3px solid var(--color-muted);
+  background: rgba(0,0,0,0.03);
+  border-radius: 0 4px 4px 0;
+  margin: 1em 0;
+  /* Callouts are usually short, so keeping them whole avoids an orphaned label. */
+  break-inside: avoid;
+}
+.callout > *:first-child { margin-top: 0; }
+.callout > *:last-child { margin-bottom: 0; }
+.callout-label {
+  font-weight: 700;
+  font-size: 0.85em;
+  margin: 0 0 0.35em;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+/* Per-type left-border colour. info/tip/note use tokens; warning/danger/check
+   use fixed semantic colours (future-token candidates). */
+/* info and tip deliberately share --color-accent: Mintlify renders both blue,
+   so tip does not need its own token. */
+.callout-info { border-left-color: var(--color-accent); }
+.callout-tip { border-left-color: var(--color-accent); }
+.callout-note { border-left-color: var(--color-muted); }
+.callout-warning { border-left-color: #b45309; }
+.callout-danger { border-left-color: #b91c1c; }
+.callout-check { border-left-color: #15803d; }
+
+/* ---- Banner ---- */
+/* Full-width emphasized bar. Banner is a docs.json site-config feature in
+   Mintlify rather than an in-content component, so the render core emits no
+   <div class="banner">; this rule styles a stray passthrough should one occur. */
+.banner {
+  padding: 0.75em 1em;
+  background: rgba(0,0,0,0.08);
+  border-radius: 4px;
+  margin: 1em 0;
+  font-weight: 600;
+}
+
+/* ---- Panel (aside) ---- */
+.panel {
+  display: block;
+  border: 1px solid rgba(0,0,0,0.15);
+  border-radius: 4px;
+  padding: 0.85em 1em;
+  margin: 1em 0;
+  background: rgba(0,0,0,0.02);
+}
+.panel > *:first-child { margin-top: 0; }
+.panel > *:last-child { margin-bottom: 0; }
+
+/* ---- Update (changelog entry) ---- */
+.update {
+  border-left: 3px solid var(--color-muted);
+  padding-left: 1em;
+  margin: 1.25em 0;
+}
+.update > *:first-child { margin-top: 0; }
+.update > *:last-child { margin-bottom: 0; }
+.update-label {
+  font-weight: 700;
+  font-size: 0.95em;
+  margin: 0 0 0.25em;
+}
+.update-description {
+  color: var(--color-muted);
+  margin: 0 0 0.5em;
+}`;
 }
 
 function buildStructural(): string {

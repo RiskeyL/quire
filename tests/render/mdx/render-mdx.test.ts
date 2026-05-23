@@ -30,14 +30,16 @@ describe("renderMdx", () => {
     expect(html).toContain("<td>1</td>");
   });
 
-  it("passes capitalized components through without throwing", () => {
-    const source = "<Info>hello there</Info>";
+  it("passes an unregistered capitalized component through without throwing", () => {
+    // `Frame` has no handler yet (a later component task adds it), so it must
+    // still degrade to the passthrough wrapper while preserving its children.
+    const source = "<Frame>hello there</Frame>";
     let html = "";
     expect(() => {
       html = renderMdx(source).html;
     }).not.toThrow();
     expect(html).toContain("hello there");
-    expect(html).toContain('data-component="Info"');
+    expect(html).toContain('data-component="Frame"');
   });
 
   it("renders lowercase HTML tags as real elements, not components", () => {

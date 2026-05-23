@@ -335,6 +335,68 @@ describe("compileCss", () => {
     });
   });
 
+  describe("boxed: callouts", () => {
+    it("emits a base .callout rule with padding and a left border", () => {
+      const css = compileCss(DEFAULT_TOKENS);
+      expect(css).toMatch(/\.callout\b[^{]*\{[^}]*padding:/);
+      expect(css).toMatch(/\.callout\b[^{]*\{[^}]*border-left:/);
+    });
+
+    it(".callout uses break-inside: avoid", () => {
+      expect(compileCss(DEFAULT_TOKENS)).toMatch(
+        /\.callout\b[^{]*\{[^}]*break-inside:\s*avoid/
+      );
+    });
+
+    it("emits a .callout-label rule that is bold", () => {
+      expect(compileCss(DEFAULT_TOKENS)).toMatch(
+        /\.callout-label[^{]*\{[^}]*font-weight:\s*(bold|700)/
+      );
+    });
+
+    it(".callout-info border uses var(--color-accent)", () => {
+      expect(compileCss(DEFAULT_TOKENS)).toMatch(
+        /\.callout-info[^{]*\{[^}]*border-left-color:\s*var\(--color-accent\)/
+      );
+    });
+
+    it(".callout-note border uses var(--color-muted)", () => {
+      expect(compileCss(DEFAULT_TOKENS)).toMatch(
+        /\.callout-note[^{]*\{[^}]*border-left-color:\s*var\(--color-muted\)/
+      );
+    });
+
+    it(".callout-warning sets a left-border color", () => {
+      expect(compileCss(DEFAULT_TOKENS)).toMatch(
+        /\.callout-warning[^{]*\{[^}]*border-left-color:/
+      );
+    });
+
+    it(".callout-danger and .callout-check set a left-border color", () => {
+      const css = compileCss(DEFAULT_TOKENS);
+      expect(css).toMatch(/\.callout-danger[^{]*\{[^}]*border-left-color:/);
+      expect(css).toMatch(/\.callout-check[^{]*\{[^}]*border-left-color:/);
+    });
+  });
+
+  describe("boxed: panel and update", () => {
+    it("emits a .panel rule with a border", () => {
+      expect(compileCss(DEFAULT_TOKENS)).toMatch(/\.panel\b[^{]*\{[^}]*border:/);
+    });
+
+    it("emits an .update rule with a left rule", () => {
+      expect(compileCss(DEFAULT_TOKENS)).toMatch(
+        /\.update\b[^{]*\{[^}]*border-left:/
+      );
+    });
+
+    it("emits an .update-label rule that is bold", () => {
+      expect(compileCss(DEFAULT_TOKENS)).toMatch(
+        /\.update-label[^{]*\{[^}]*font-weight:\s*(bold|700)/
+      );
+    });
+  });
+
   describe("TOC rules are not overridden by generic list rules", () => {
     it(".toc ul rule for list-style: none is still present", () => {
       expect(compileCss(DEFAULT_TOKENS)).toContain(".toc ul");
