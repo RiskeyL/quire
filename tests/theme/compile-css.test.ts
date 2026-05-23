@@ -435,4 +435,77 @@ describe("compileCss", () => {
       expect(compileCss(DEFAULT_TOKENS)).toContain(".toc li");
     });
   });
+
+  describe("disclosure: Tab, Accordion, Expandable panels", () => {
+    it("emits a .tab rule", () => {
+      expect(compileCss(DEFAULT_TOKENS)).toMatch(/\.tab\b[^{]*\{/);
+    });
+
+    it(".tab has a top border or left border (hairline rule)", () => {
+      const css = compileCss(DEFAULT_TOKENS);
+      // Accept either border-top or border-left as the hairline separator
+      const tabRule = css.match(/\.tab\b[^{]*\{[^}]*\}/)?.[0] ?? "";
+      expect(tabRule).toMatch(/border-(top|left):/);
+    });
+
+    it(".tab-label is bold", () => {
+      expect(compileCss(DEFAULT_TOKENS)).toMatch(
+        /\.tab-label[^{]*\{[^}]*font-weight:\s*(bold|700)/
+      );
+    });
+
+    it("emits an .accordion rule", () => {
+      expect(compileCss(DEFAULT_TOKENS)).toMatch(/\.accordion\b[^{]*\{/);
+    });
+
+    it(".accordion-label is bold", () => {
+      expect(compileCss(DEFAULT_TOKENS)).toMatch(
+        /\.accordion-label[^{]*\{[^}]*font-weight:\s*(bold|700)/
+      );
+    });
+
+    it("emits an .expandable rule", () => {
+      expect(compileCss(DEFAULT_TOKENS)).toMatch(/\.expandable\b[^{]*\{/);
+    });
+
+    it(".expandable-label is bold", () => {
+      expect(compileCss(DEFAULT_TOKENS)).toMatch(
+        /\.expandable-label[^{]*\{[^}]*font-weight:\s*(bold|700)/
+      );
+    });
+
+    it("emits a .tabs container rule", () => {
+      expect(compileCss(DEFAULT_TOKENS)).toMatch(/\.tabs\b[^{]*\{/);
+    });
+
+    it("emits an .accordion-group container rule", () => {
+      expect(compileCss(DEFAULT_TOKENS)).toMatch(/\.accordion-group\b[^{]*\{/);
+    });
+
+    it(".expandable uses break-inside: avoid (reliably short API param sub-objects)", () => {
+      // The standalone .expandable rule carries break-inside: avoid;
+      // .tab/.accordion intentionally do not (asserted below). Scan every
+      // `.expandable { ... }` block and require at least one to declare it.
+      const css = compileCss(DEFAULT_TOKENS);
+      const expandableRules = css.match(/\.expandable\s*\{[^}]*\}/g) ?? [];
+      expect(expandableRules.some((r) => /break-inside:\s*avoid/.test(r))).toBe(true);
+    });
+
+    it(".tab/.accordion do NOT carry break-inside: avoid (tall panels may break across pages)", () => {
+      // The shared panel rule (.tab, .accordion, .expandable { ... }) must not
+      // declare break-inside; only the separate .expandable rule does.
+      const css = compileCss(DEFAULT_TOKENS);
+      const sharedPanelRule =
+        css.match(/\.tab,\s*\.accordion,\s*\.expandable\s*\{[^}]*\}/)?.[0] ?? "";
+      expect(sharedPanelRule).not.toBe("");
+      expect(sharedPanelRule).not.toMatch(/break-inside:\s*avoid/);
+    });
+
+    it("disclosure labels use break-after: avoid (label stays with its body)", () => {
+      const css = compileCss(DEFAULT_TOKENS);
+      const labelRule =
+        css.match(/\.tab-label,\s*\.accordion-label,\s*\.expandable-label\s*\{[^}]*\}/)?.[0] ?? "";
+      expect(labelRule).toMatch(/break-after:\s*avoid/);
+    });
+  });
 });

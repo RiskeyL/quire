@@ -21,9 +21,10 @@ export function compileCss(tokens: BrandTokens): string {
   const content = buildContent();
   const boxed = buildBoxed();
   const figure = buildFigure();
+  const disclosure = buildDisclosure();
   const structural = buildStructural();
 
-  return [root, page, elements, content, boxed, figure, structural].join("\n");
+  return [root, page, elements, content, boxed, figure, disclosure, structural].join("\n");
 }
 
 // ---------------------------------------------------------------------------
@@ -265,6 +266,104 @@ figcaption {
   font-size: 0.875em;
   text-align: center;
   margin-top: 0.4em;
+}`;
+}
+
+/**
+ * Disclosure component styling: the Tabs/Tab, AccordionGroup/Accordion, and
+ * Expandable families.
+ *
+ * Print strategy — "expand-and-label": every panel is shown, each preceded
+ * by a bold label so the reader can see which section they are reading.
+ *
+ * Panel blocks (.tab, .accordion, .expandable) share a common shape:
+ *   - A hairline top border as a visual separator between sibling panels.
+ *   - A modest left indent on the body content.
+ *   - Vertical spacing between panels (margin-top).
+ *
+ * break-inside scoping (mirrors the table `thead tr` decision):
+ *   break-inside: avoid is applied ONLY to .expandable. Expandable panels are
+ *   reliably short (API parameter sub-objects), so keeping them whole is cheap.
+ *   .tab and .accordion bodies in real Dify docs routinely contain multi-step
+ *   code blocks and several paragraphs; forcing a tall panel onto one page
+ *   would push it whole to the next page and leave a large blank gap. Just as
+ *   table body rows are allowed to break (only thead tr is protected), tall
+ *   tab/accordion panels are allowed to break across pages.
+ *
+ * To keep a label from being orphaned at the bottom of a page once panel-level
+ * break-inside is gone, every label carries break-after: avoid, so it stays
+ * with the start of its body.
+ *
+ * Label rules (.*-label) are bold and slightly smaller than body text.
+ * A "▾" pseudo-element hints to PDF readers that these were collapsible;
+ * it is decorative only and does not affect content.
+ *
+ * Container rules (.tabs, .accordion-group) add only vertical margin so they
+ * do not compete with the inner panel spacing.
+ *
+ * Color usage:
+ *   - Border and label use var(--color-muted) — a neutral tone that avoids
+ *     competing with callout accent colors.
+ *   - Body indentation is a plain padding value; no color token needed.
+ *   - Hardcoded neutral: the hairline top border uses rgba(0,0,0,0.12), which
+ *     is a restrained separator consistent with the table/callout palette used
+ *     elsewhere. Future-token candidate once a separator-color token exists.
+ */
+function buildDisclosure(): string {
+  return `/* ---- Disclosure containers (Tabs, AccordionGroup) ---- */
+/* Container rules add only vertical spacing; inner panel rules handle the rest. */
+.tabs {
+  margin: 1em 0;
+}
+.accordion-group {
+  margin: 1em 0;
+}
+
+/* ---- Disclosure panels (.tab, .accordion, .expandable) ---- */
+/* Shared shape: hairline top border, left padding on body, vertical gap. */
+.tab,
+.accordion,
+.expandable {
+  border-top: 1px solid rgba(0,0,0,0.12);  /* hardcoded neutral: future-token candidate */
+  padding: 0.6em 0 0.6em 1em;
+  margin-top: 0;
+}
+/* break-inside: avoid only on .expandable — these are reliably short API param
+   sub-objects. .tab/.accordion bodies can be tall (multi-step code, several
+   paragraphs); forcing them whole would leave a blank-page gap, so they are
+   allowed to break (mirrors the table thead-tr-only scoping). */
+.expandable {
+  break-inside: avoid;
+}
+/* Remove the top border from the very first panel in a group to avoid a
+   double border when the container itself has a top border or margin. */
+.tab:first-child,
+.accordion:first-child,
+.expandable:first-child {
+  border-top: none;
+  padding-top: 0;
+}
+
+/* ---- Disclosure labels (.*-label) ---- */
+/* Bold, slightly smaller, with a decorative collapse hint (▾). */
+.tab-label,
+.accordion-label,
+.expandable-label {
+  font-weight: 700;
+  font-size: 0.9em;
+  color: var(--color-muted);
+  margin: 0 0 0.3em;
+  padding: 0;
+  /* Keep the label with the start of its body so it is not orphaned at the
+     bottom of a page (panel-level break-inside is no longer protecting it). */
+  break-after: avoid;
+}
+/* Decorative hint that these were collapsible sections. */
+.tab-label::before,
+.accordion-label::before,
+.expandable-label::before {
+  content: "▾ ";
+  font-size: 0.85em;
 }`;
 }
 
