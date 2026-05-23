@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 import { Command, Option } from "commander";
 import { createRequire } from "node:module";
+import { runConvert } from "./commands/convert.js";
 
 const require = createRequire(import.meta.url);
 const { version } = require("../package.json") as { version: string };
@@ -18,8 +19,8 @@ program
   .argument("<paths...>", "Markdown/MDX files to convert")
   .addOption(new Option("-f, --format <format>", "output format").choices(["pdf", "docx", "both"]).default("both"))
   .option("-o, --out <path>", "output file base or directory")
-  .action(() => {
-    console.log("convert: not implemented yet");
+  .action(async (paths: string[], opts: { format: "pdf" | "docx" | "both"; out?: string }) => {
+    await runConvert(paths, opts);
   });
 
 await program.parseAsync();
