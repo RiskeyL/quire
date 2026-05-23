@@ -566,4 +566,77 @@ describe("compileCss", () => {
       expect(css).toMatch(/\bol\b/);
     });
   });
+
+  describe("cards: Card/CardGroup, Columns/Column, Tile", () => {
+    it("emits a .card rule with a border", () => {
+      expect(compileCss(DEFAULT_TOKENS)).toMatch(/\.card\b[^{]*\{[^}]*border:/);
+    });
+
+    it(".card has padding", () => {
+      expect(compileCss(DEFAULT_TOKENS)).toMatch(/\.card\b[^{]*\{[^}]*padding:/);
+    });
+
+    it(".card has a border-radius", () => {
+      expect(compileCss(DEFAULT_TOKENS)).toMatch(/\.card\b[^{]*\{[^}]*border-radius:/);
+    });
+
+    it(".card has vertical margin", () => {
+      expect(compileCss(DEFAULT_TOKENS)).toMatch(/\.card\b[^{]*\{[^}]*margin:/);
+    });
+
+    it("emits a .card-title rule that is bold", () => {
+      expect(compileCss(DEFAULT_TOKENS)).toMatch(
+        /\.card-title[^{]*\{[^}]*font-weight:\s*(bold|700)/
+      );
+    });
+
+    it("emits a .card-href rule that uses var(--color-muted)", () => {
+      expect(compileCss(DEFAULT_TOKENS)).toMatch(
+        /\.card-href[^{]*\{[^}]*color:\s*var\(--color-muted\)/
+      );
+    });
+
+    it(".card-href has a smaller font-size", () => {
+      expect(compileCss(DEFAULT_TOKENS)).toMatch(
+        /\.card-href[^{]*\{[^}]*font-size:/
+      );
+    });
+
+    it("emits a .card-group rule with vertical spacing", () => {
+      const css = compileCss(DEFAULT_TOKENS);
+      const rule = css.match(/\.card-group\b[^{]*\{[^}]*\}/)?.[0] ?? "";
+      expect(rule).not.toBe("");
+      expect(rule).toMatch(/(margin|gap|padding):/);
+    });
+
+    it("emits a .columns rule", () => {
+      expect(compileCss(DEFAULT_TOKENS)).toMatch(/\.columns\b[^{]*\{/);
+    });
+
+    it(".columns has vertical spacing", () => {
+      const css = compileCss(DEFAULT_TOKENS);
+      const rule = css.match(/\.columns\b[^{]*\{[^}]*\}/)?.[0] ?? "";
+      expect(rule).toMatch(/(margin|gap|padding):/);
+    });
+
+    it("emits a .column rule (block display)", () => {
+      expect(compileCss(DEFAULT_TOKENS)).toMatch(/\.column\b[^{]*\{/);
+    });
+
+    it("emits a .tile rule with a border", () => {
+      expect(compileCss(DEFAULT_TOKENS)).toMatch(/\.tile\b[^{]*\{[^}]*border:/);
+    });
+
+    it(".tile-title is bold", () => {
+      expect(compileCss(DEFAULT_TOKENS)).toMatch(
+        /\.tile-title[^{]*\{[^}]*font-weight:\s*(bold|700)/
+      );
+    });
+
+    it(".tile-href uses var(--color-muted)", () => {
+      expect(compileCss(DEFAULT_TOKENS)).toMatch(
+        /\.tile-href[^{]*\{[^}]*color:\s*var\(--color-muted\)/
+      );
+    });
+  });
 });

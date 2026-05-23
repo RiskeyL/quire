@@ -23,9 +23,10 @@ export function compileCss(tokens: BrandTokens): string {
   const figure = buildFigure();
   const disclosure = buildDisclosure();
   const steps = buildSteps();
+  const cards = buildCards();
   const structural = buildStructural();
 
-  return [root, page, elements, content, boxed, figure, disclosure, steps, structural].join("\n");
+  return [root, page, elements, content, boxed, figure, disclosure, steps, cards, structural].join("\n");
 }
 
 // ---------------------------------------------------------------------------
@@ -411,6 +412,95 @@ function buildSteps(): string {
   /* Keep the step number + title with the start of the body so it is not
      orphaned at the bottom of a page. */
   break-after: avoid;
+}`;
+}
+
+/**
+ * Card/grid component styling: Card/CardGroup, Columns/Column, and Tile.
+ *
+ * Print strategy — vertical stack:
+ *   Print has no responsive grid. All container classes (.card-group, .columns)
+ *   are plain block wrappers; children stack naturally. Layout-only props
+ *   (cols, horizontal) are dropped by the render layer.
+ *
+ * .card and .tile share the same visual shape: a hairline border, padding, a
+ * small radius, and vertical margin. They are authored separately (not via a
+ * shared selector) so either class can be styled independently in the future.
+ *
+ * break-inside:
+ *   NOT applied to .card or .tile. Card bodies in real Dify docs often contain
+ *   multi-paragraph instructions or code blocks; forcing a tall card whole onto
+ *   one page would push it to the next and leave a blank gap — the same
+ *   reasoning that bars break-inside from .tab/.accordion/.step. Short cards
+ *   (a title + one sentence) will naturally fit on a page without protection.
+ *   This mirrors the table tbody-row decision: only the header row is protected,
+ *   not the data rows.
+ *
+ * Color usage:
+ *   - .card-href / .tile-href use var(--color-muted) — visually secondary, so
+ *     they don't compete with the title.
+ *   - Borders use rgba(0,0,0,0.15) — a restrained hairline consistent with
+ *     .panel and table cells. Hardcoded neutral; future-token candidate.
+ *   - Backgrounds on .card / .tile are intentionally omitted to avoid adding
+ *     a surface-color token that doesn't exist yet. The border alone is
+ *     sufficient to visually delineate the block.
+ */
+function buildCards(): string {
+  return `/* ---- Card and Tile (bordered content blocks) ---- */
+/* Shared visual shape: hairline border, padding, radius, vertical margin.   */
+/* break-inside is intentionally absent — card/tile bodies can be long        */
+/* (multi-paragraph, code blocks), so forcing them whole would leave a blank  */
+/* gap. Mirrors the .tab/.accordion/.step decision.                           */
+.card,
+.tile {
+  border: 1px solid rgba(0,0,0,0.15);  /* hardcoded neutral: future-token candidate */
+  border-radius: 4px;
+  padding: 0.85em 1em;
+  margin: 0.75em 0;
+}
+.card > *:first-child, .tile > *:first-child { margin-top: 0; }
+.card > *:last-child,  .tile > *:last-child  { margin-bottom: 0; }
+
+/* ---- Card/tile titles ---- */
+.card-title,
+.tile-title {
+  font-weight: 700;
+  margin: 0 0 0.25em;
+}
+
+/* ---- Card/tile href display ---- */
+/* Visible URL below the title so print readers can see the link destination. */
+/* Uses var(--color-muted) to stay visually secondary. Optional mono font     */
+/* makes URLs scan naturally (same convention as code spans).                 */
+/* Hardcoded font-size 0.8em: a proportional step-down, no token needed.      */
+.card-href,
+.tile-href {
+  display: block;
+  color: var(--color-muted);
+  font-size: 0.8em;
+  font-family: var(--font-mono);
+  margin-bottom: 0.4em;
+}
+
+/* ---- Tile description ---- */
+.tile-description {
+  color: var(--color-muted);
+  font-size: 0.9em;
+  margin: 0 0 0.35em;
+}
+
+/* ---- Container wrappers (CardGroup, Columns) ---- */
+/* Vertical spacing between consecutive card/tile children.                  */
+/* No attempt at CSS columns or grid — print stacks everything vertically.   */
+.card-group,
+.columns {
+  margin: 1em 0;
+}
+
+/* ---- Column ---- */
+/* A bare block; children stack naturally inside the .columns wrapper.       */
+.column {
+  display: block;
 }`;
 }
 
