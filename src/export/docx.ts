@@ -7,7 +7,7 @@ import { run, assertBinary } from "../util/exec.js";
 export async function htmlToDocx(
   html: string,
   outPath: string,
-  options?: { toc?: boolean }
+  options?: { toc?: boolean; referenceDoc?: string }
 ): Promise<void> {
   await assertBinary("pandoc", "Install it with: brew install pandoc");
   const dir = await mkdtemp(join(tmpdir(), "quire-html-"));
@@ -17,6 +17,9 @@ export async function htmlToDocx(
     const args = [htmlPath, "-f", "html", "-o", outPath];
     if (options?.toc) {
       args.push("--toc", "--toc-depth=3");
+    }
+    if (options?.referenceDoc) {
+      args.push(`--reference-doc=${options.referenceDoc}`);
     }
     await run("pandoc", args);
   } catch (err) {
