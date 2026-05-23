@@ -21,6 +21,7 @@ import { calloutHandlers } from "./components/callouts.js";
 import { boxedHandlers } from "./components/boxed.js";
 import { frameHandlers } from "./components/frame.js";
 import { disclosureHandlers } from "./components/disclosure.js";
+import { stepsHandlers } from "./components/steps.js";
 
 /** Parsed YAML frontmatter for a page. `title`/`description` are surfaced for convenience. */
 export interface PageFrontmatter {
@@ -52,6 +53,7 @@ const componentMap: Record<string, ComponentHandler> = {
   ...boxedHandlers,
   ...frameHandlers,
   ...disclosureHandlers,
+  ...stepsHandlers,
 };
 
 /**

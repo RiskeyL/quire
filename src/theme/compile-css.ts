@@ -22,9 +22,10 @@ export function compileCss(tokens: BrandTokens): string {
   const boxed = buildBoxed();
   const figure = buildFigure();
   const disclosure = buildDisclosure();
+  const steps = buildSteps();
   const structural = buildStructural();
 
-  return [root, page, elements, content, boxed, figure, disclosure, structural].join("\n");
+  return [root, page, elements, content, boxed, figure, disclosure, steps, structural].join("\n");
 }
 
 // ---------------------------------------------------------------------------
@@ -364,6 +365,52 @@ function buildDisclosure(): string {
 .expandable-label::before {
   content: "▾ ";
   font-size: 0.85em;
+}`;
+}
+
+/**
+ * Steps component styling (Mintlify "Steps"): a numbered sequential instruction
+ * list rendered as `<ol class="steps">` with `<li class="step">` items.
+ *
+ * Design decisions:
+ *   - `.steps` is an `ol`, so the browser/print engine handles number generation.
+ *     We add padding-left to create room for the markers (overrides the generic
+ *     `ul, ol` rule via higher class-selector specificity — no !important needed).
+ *   - `.step` gets vertical spacing between items; no `break-inside: avoid` because
+ *     step bodies can be long (multi-paragraph instructions, code blocks). Forcing
+ *     a tall step onto one page would leave a blank gap — same reasoning as for
+ *     .tab/.accordion in the disclosure panel.
+ *   - `.step-title` is bold and gets `break-after: avoid` so the step number +
+ *     title is never orphaned at the bottom of a page without its body. The small
+ *     bottom margin keeps the title visually glued to the first content line.
+ *
+ * Color usage:
+ *   - `.step-title` uses `var(--color-heading)` — a natural choice for a named
+ *     step title that mirrors heading treatment without adding a new token.
+ *   - All spacing values are plain em/pt literals; no color token is needed for
+ *     the list markers (they inherit from the body color).
+ */
+function buildSteps(): string {
+  return `/* ---- Steps (numbered sequential instructions) ---- */
+.steps {
+  padding-left: 2em;  /* room for the list marker digits */
+  margin: 1em 0;
+}
+
+/* Step bodies are allowed to break across pages — they can contain multi-paragraph
+   instructions and code blocks. Forcing a tall step whole would leave a blank gap,
+   mirroring the .tab/.accordion decision for disclosure panels. */
+.step {
+  margin: 0 0 1em;
+}
+
+.step-title {
+  font-weight: 700;
+  color: var(--color-heading);
+  margin: 0 0 0.2em;  /* small bottom margin keeps title glued to body */
+  /* Keep the step number + title with the start of the body so it is not
+     orphaned at the bottom of a page. */
+  break-after: avoid;
 }`;
 }
 

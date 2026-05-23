@@ -508,4 +508,62 @@ describe("compileCss", () => {
       expect(labelRule).toMatch(/break-after:\s*avoid/);
     });
   });
+
+  describe("steps: Steps/Step component", () => {
+    it("emits a .steps rule", () => {
+      expect(compileCss(DEFAULT_TOKENS)).toMatch(/\.steps\b[^{]*\{/);
+    });
+
+    it(".steps has padding-left for number indent", () => {
+      const css = compileCss(DEFAULT_TOKENS);
+      const rule = css.match(/\.steps\b[^{]*\{[^}]*\}/)?.[0] ?? "";
+      expect(rule).toMatch(/padding-left:/);
+    });
+
+    it(".steps has vertical margin for spacing between list and surroundings", () => {
+      const css = compileCss(DEFAULT_TOKENS);
+      const rule = css.match(/\.steps\b[^{]*\{[^}]*\}/)?.[0] ?? "";
+      expect(rule).toMatch(/margin:/);
+    });
+
+    it("emits a .step rule", () => {
+      expect(compileCss(DEFAULT_TOKENS)).toMatch(/\.step\b[^{]*\{/);
+    });
+
+    it(".step has vertical spacing (margin or padding)", () => {
+      const css = compileCss(DEFAULT_TOKENS);
+      const rule = css.match(/\.step\b[^{]*\{[^}]*\}/)?.[0] ?? "";
+      expect(rule).toMatch(/(margin|padding):/);
+    });
+
+    it("emits a .step-title rule", () => {
+      expect(compileCss(DEFAULT_TOKENS)).toMatch(/\.step-title\b[^{]*\{/);
+    });
+
+    it(".step-title is bold", () => {
+      expect(compileCss(DEFAULT_TOKENS)).toMatch(
+        /\.step-title[^{]*\{[^}]*font-weight:\s*(bold|700)/
+      );
+    });
+
+    it(".step-title has break-after: avoid (keeps title with its body)", () => {
+      const css = compileCss(DEFAULT_TOKENS);
+      const rule = css.match(/\.step-title\b[^{]*\{[^}]*\}/)?.[0] ?? "";
+      expect(rule).toMatch(/break-after:\s*avoid/);
+    });
+
+    it(".step does NOT have break-inside: avoid (step bodies can be long)", () => {
+      const css = compileCss(DEFAULT_TOKENS);
+      const rule = css.match(/\.step\b[^{]*\{[^}]*\}/)?.[0] ?? "";
+      expect(rule).not.toMatch(/break-inside:\s*avoid/);
+    });
+
+    it(".steps does not conflict with generic ol rule (specificity check: .steps uses class selector)", () => {
+      // .steps is a class selector — higher specificity than the bare `ol` rule,
+      // so its padding-left wins without needing !important.
+      const css = compileCss(DEFAULT_TOKENS);
+      expect(css).toMatch(/\.steps\b/);
+      expect(css).toMatch(/\bol\b/);
+    });
+  });
 });
