@@ -1,0 +1,8 @@
+- section: "Getting Started"
+  children:
+    - file: intro.md
+    - file: quickstart.md
+      title: "Quick Start"
+- section: "Guides"
+  children:
+    - file: guides/workflows.md

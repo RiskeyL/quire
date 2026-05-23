@@ -16,10 +16,12 @@ program
 program
   .command("convert")
   .description("Convert one or more files to PDF and/or Word")
-  .argument("<paths...>", "Markdown/MDX files to convert")
+  .argument("[paths...]", "Markdown/MDX files to convert")
   .addOption(new Option("-f, --format <format>", "output format").choices(["pdf", "docx", "both"]).default("both"))
   .option("-o, --out <path>", "output file base or directory")
-  .action(async (paths: string[], opts: { format: "pdf" | "docx" | "both"; out?: string }) => {
+  .option("-m, --manifest <file>", "resolve order and hierarchy from a manifest")
+  .option("--dry-run", "resolve and print the page tree without rendering")
+  .action(async (paths: string[], opts: { format: "pdf" | "docx" | "both"; out?: string; manifest?: string; dryRun?: boolean }) => {
     await runConvert(paths, opts);
   });
 
