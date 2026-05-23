@@ -272,6 +272,19 @@ figcaption {
   font-size: 0.875em;
   text-align: center;
   margin-top: 0.4em;
+}
+
+/* ---- Mermaid diagram (rasterized PNG, embedded by renderMermaid) ---- */
+/* Centered block image. break-inside: avoid keeps a diagram whole on one page;
+   diagrams are atomic and cannot be split. When wrapped in <figure class="frame">
+   (the default), the .frame rule above already centers it, but the explicit
+   rules here also cover a bare .mermaid-diagram image. */
+.mermaid-diagram {
+  max-width: 100%;
+  height: auto;
+  display: block;
+  margin: 1em auto;
+  break-inside: avoid;
 }`;
 }
 

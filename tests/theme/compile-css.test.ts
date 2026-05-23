@@ -421,6 +421,32 @@ describe("compileCss", () => {
     });
   });
 
+  describe("mermaid: rasterized diagram image", () => {
+    it("emits a .mermaid-diagram rule", () => {
+      expect(compileCss(DEFAULT_TOKENS)).toMatch(/\.mermaid-diagram\b[^{]*\{/);
+    });
+
+    it(".mermaid-diagram is a centered block image (display: block, margin auto)", () => {
+      const css = compileCss(DEFAULT_TOKENS);
+      const rule = css.match(/\.mermaid-diagram\b[^{]*\{[^}]*\}/)?.[0] ?? "";
+      expect(rule).toMatch(/display:\s*block/);
+      expect(rule).toMatch(/margin:\s*[^;]*auto/);
+    });
+
+    it(".mermaid-diagram has max-width: 100% and height: auto", () => {
+      const css = compileCss(DEFAULT_TOKENS);
+      const rule = css.match(/\.mermaid-diagram\b[^{]*\{[^}]*\}/)?.[0] ?? "";
+      expect(rule).toMatch(/max-width:\s*100%/);
+      expect(rule).toMatch(/height:\s*auto/);
+    });
+
+    it(".mermaid-diagram uses break-inside: avoid (a diagram is atomic)", () => {
+      const css = compileCss(DEFAULT_TOKENS);
+      const rule = css.match(/\.mermaid-diagram\b[^{]*\{[^}]*\}/)?.[0] ?? "";
+      expect(rule).toMatch(/break-inside:\s*avoid/);
+    });
+  });
+
   describe("TOC rules are not overridden by generic list rules", () => {
     it(".toc ul rule for list-style: none is still present", () => {
       expect(compileCss(DEFAULT_TOKENS)).toContain(".toc ul");

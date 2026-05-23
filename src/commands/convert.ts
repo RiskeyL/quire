@@ -4,6 +4,7 @@ import { basename, dirname, extname, join, resolve } from "node:path";
 import { renderMdx } from "../render/mdx/render-mdx.js";
 import { resolveTitle } from "../render/mdx/title.js";
 import { embedImages } from "../render/images.js";
+import { renderMermaid } from "../render/mermaid.js";
 import { htmlToPdf } from "../export/pdf.js";
 import { htmlToDocx } from "../export/docx.js";
 import { loadManifest } from "../resolve/manifest.js";
@@ -89,10 +90,18 @@ export async function runConvert(paths: string[], options: ConvertOptions): Prom
       descriptions.set(page.file, frontmatter.description.trim());
     }
 
-    const html = await embedImages(titledHtml, {
+    const withImages = await embedImages(titledHtml, {
       baseDir: dirname(resolvedPath),
       root: effectiveRoot,
       offline: !!options.offline,
+    });
+
+    // Rasterize any ```mermaid fenced blocks to embedded PNG <img>s. This runs
+    // after embedImages because mermaid produces self-contained data-URI images
+    // (no external refs for embedImages to resolve). The fast path in
+    // renderMermaid means pages with no diagrams skip launching a browser.
+    const html = await renderMermaid(withImages, {
+      warn: (msg) => process.stderr.write(`${msg}\n`),
     });
     rendered.set(page.file, html);
   }
