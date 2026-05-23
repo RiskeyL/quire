@@ -1,5 +1,5 @@
 import * as cheerio from "cheerio";
-import { basename, extname } from "node:path";
+import { basename, extname, posix } from "node:path";
 import { escapeHtml, wrapHtmlDocument } from "../render/html-document.js";
 import { collectPages } from "../resolve/tree.js";
 import type { Tree, TreeNode } from "../resolve/tree.js";
@@ -53,6 +53,98 @@ export function assignAnchors(tree: Tree): Map<string, string> {
   return map;
 }
 
+/**
+ * Normalize a manifest-relative file path to a link-resolution key:
+ * POSIX-normalize the path, then strip a trailing `.md` or `.mdx` extension
+ * (case-insensitive). Used by `buildLinkTargets` and `rewriteCrossLinks`.
+ *
+ * Examples:
+ *   `./guides/intro.md`        → `guides/intro`
+ *   `guides/../guides/intro.mdx` → `guides/intro`
+ */
+function linkKey(path: string): string {
+  const normalized = posix.normalize(path);
+  return normalized.replace(/\.(md|mdx)$/i, "");
+}
+
+/**
+ * Build a lookup from normalized link key → anchor id for every included page.
+ * When two pages normalize to the same key, the first one wins.
+ *
+ * @param tree    The resolved page tree.
+ * @param anchors The anchor map produced by `assignAnchors`.
+ */
+export function buildLinkTargets(
+  tree: Tree,
+  anchors: Map<string, string>
+): Map<string, string> {
+  const targets = new Map<string, string>();
+  for (const page of collectPages(tree)) {
+    const key = linkKey(page.file);
+    if (!targets.has(key)) {
+      const anchor = anchors.get(page.file);
+      if (anchor !== undefined) targets.set(key, anchor);
+    }
+  }
+  return targets;
+}
+
+// V1 limitation: only relative links (./x, ../x, x.md) are rewritten.
+// Site-absolute links (/use-dify/x) are left unchanged because mapping a
+// site root to manifest paths requires the docs.json resolver (Milestone 6).
+
+/**
+ * Rewrite cross-links in an HTML fragment so that links pointing to other
+ * included pages resolve to in-document anchors (`#<anchor>`).
+ *
+ * Links that are absolute URLs, protocol-relative, `mailto:`/other schemes,
+ * pure-fragment (`#...`), site-absolute (`/...`), or that target a page not
+ * in the selection are left unchanged.
+ *
+ * Original `#fragment` parts are dropped when a link is rewritten; intra-page
+ * heading navigation within included pages is not preserved in v1.
+ *
+ * @param html     The HTML fragment for one page.
+ * @param fromFile The manifest-relative file path of the page being processed.
+ * @param targets  The link-targets map produced by `buildLinkTargets`.
+ */
+export function rewriteCrossLinks(
+  html: string,
+  fromFile: string,
+  targets: Map<string, string>
+): string {
+  const $ = cheerio.load(html, null, false);
+  $("a[href]").each((_, el) => {
+    const raw = $(el).attr("href") ?? "";
+
+    // Pure-fragment or empty href: leave unchanged.
+    if (raw === "" || raw.startsWith("#")) return;
+
+    // Absolute scheme (http:, mailto:, …): leave unchanged.
+    if (/^[a-zA-Z][a-zA-Z0-9+.-]*:/.test(raw)) return;
+
+    // Protocol-relative: leave unchanged.
+    if (raw.startsWith("//")) return;
+
+    // Strip fragment and query to get the path part.
+    const pathPart = raw.replace(/[?#].*$/, "");
+
+    // After stripping, nothing left (e.g. href was "?query" or "#frag" already caught above).
+    if (pathPart === "") return;
+
+    // Site-absolute: leave unchanged (v1 limitation, see comment above).
+    if (pathPart.startsWith("/")) return;
+
+    // Resolve relative to the linking page's directory.
+    const key = linkKey(posix.join(posix.dirname(fromFile), pathPart));
+
+    if (targets.has(key)) {
+      $(el).attr("href", `#${targets.get(key)}`);
+    }
+  });
+  return $.html();
+}
+
 /** Render the document cover as an HTML fragment. */
 export function renderCover(title: string): string {
   return `<section class="cover"><h1 class="doc-title">${escapeHtml(title)}</h1></section>`;
@@ -65,7 +157,8 @@ export function renderCover(title: string): string {
  */
 export function assembleBody(tree: Tree, rendered: Map<string, string>): string {
   const anchors = assignAnchors(tree);
-  return walkTree(tree, rendered, anchors, 0);
+  const targets = buildLinkTargets(tree, anchors);
+  return walkTree(tree, rendered, anchors, targets, 0);
 }
 
 /** Build the full HTML document: optional cover, then the assembled body, wrapped. */
@@ -82,6 +175,7 @@ function walkTree(
   nodes: TreeNode[],
   rendered: Map<string, string>,
   anchors: Map<string, string>,
+  targets: Map<string, string>,
   depth: number
 ): string {
   let out = "";
@@ -89,7 +183,7 @@ function walkTree(
     if (node.type === "section") {
       const L = Math.min(depth + 1, 6);
       out += `<h${L}>${escapeHtml(node.title)}</h${L}>`;
-      out += walkTree(node.children, rendered, anchors, depth + 1);
+      out += walkTree(node.children, rendered, anchors, targets, depth + 1);
     } else {
       // page node
       const L = Math.min(depth + 1, 6);
@@ -102,7 +196,8 @@ function walkTree(
       if (content === undefined) {
         throw new Error(`No rendered content for page "${node.file}".`);
       }
-      out += `<section id="${anchor}"><h${L}>${escapeHtml(title)}</h${L}>${demoteHeadings(content, depth + 1)}</section>`;
+      const linked = rewriteCrossLinks(content, node.file, targets);
+      out += `<section id="${anchor}"><h${L}>${escapeHtml(title)}</h${L}>${demoteHeadings(linked, depth + 1)}</section>`;
     }
   }
   return out;
