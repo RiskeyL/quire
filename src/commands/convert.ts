@@ -1,17 +1,19 @@
 import { readFile } from "node:fs/promises";
-import { basename, dirname, extname, join } from "node:path";
+import { basename, dirname, extname, join, resolve } from "node:path";
 import { renderMarkdownToHtml } from "../render/markdown.js";
-import { wrapHtmlDocument } from "../render/html-document.js";
 import { htmlToPdf } from "../export/pdf.js";
 import { htmlToDocx } from "../export/docx.js";
 import { loadManifest } from "../resolve/manifest.js";
 import { collectPages, formatTree, type PageNode, type Tree } from "../resolve/tree.js";
+import { assembleDocument } from "../assemble/assemble.js";
 
 export interface ConvertOptions {
   format: "pdf" | "docx" | "both";
   out?: string;
   manifest?: string;
   dryRun?: boolean;
+  title?: string;
+  noCover?: boolean;
 }
 
 export async function runConvert(paths: string[], options: ConvertOptions): Promise<void> {
@@ -33,21 +35,59 @@ export async function runConvert(paths: string[], options: ConvertOptions): Prom
   }
 
   const pages = collectPages(tree);
-  if (pages.length !== 1) {
-    throw new Error(
-      "Multi-page conversion arrives in Milestone 3. For now pass exactly one file, or use --dry-run to preview a manifest."
-    );
+  if (pages.length === 0) {
+    throw new Error("Selection resolved to no pages.");
   }
 
-  const src = pages[0].file;
-  const markdown = await readFile(src, "utf8");
-  const title = basename(src, extname(src));
-  const html = wrapHtmlDocument(renderMarkdownToHtml(markdown), title);
+  // Build a map from tree node file key -> rendered HTML.
+  // For manifest-based trees the file key is the relative path stored in the
+  // manifest node; the actual file is resolved relative to the manifest dir.
+  // For positional-path trees the key and the resolved path are the same.
+  const manifestDir = options.manifest ? dirname(resolve(options.manifest)) : undefined;
 
-  const base = options.out ?? join(dirname(src), title);
+  const rendered = new Map<string, string>();
+  for (const page of pages) {
+    const resolvedPath = manifestDir
+      ? resolve(manifestDir, page.file)
+      : resolve(page.file);
+    const markdown = await readFile(resolvedPath, "utf8");
+    rendered.set(page.file, renderMarkdownToHtml(markdown));
+  }
+
+  // Determine document title.
+  let docTitle: string;
+  if (options.title) {
+    docTitle = options.title;
+  } else if (options.manifest) {
+    docTitle = basename(options.manifest, extname(options.manifest));
+  } else if (pages.length === 1) {
+    const p = pages[0];
+    docTitle = p.title ?? basename(p.file, extname(p.file));
+  } else {
+    docTitle = "Document";
+  }
+
+  // Determine output base path.
+  let base: string;
+  if (options.out) {
+    base = options.out;
+  } else if (options.manifest) {
+    const absManifest = resolve(options.manifest);
+    base = join(dirname(absManifest), basename(absManifest, extname(absManifest)));
+  } else if (pages.length === 1) {
+    // Single positional path: place output beside the source file.
+    const resolvedFirst = resolve(pages[0].file);
+    base = join(dirname(resolvedFirst), basename(resolvedFirst, extname(resolvedFirst)));
+  } else {
+    // Multiple positional paths: use the directory of the first file.
+    const resolvedFirst = resolve(pages[0].file);
+    base = join(dirname(resolvedFirst), "document");
+  }
+
+  const html = assembleDocument(tree, rendered, { title: docTitle, cover: !options.noCover });
 
   // Formats are exported sequentially; on partial failure the
-  // already-exported file is kept (no rollback in Milestone 1).
+  // already-exported file is kept (no rollback).
   if (options.format === "pdf" || options.format === "both") {
     await htmlToPdf(html, `${base}.pdf`);
   }

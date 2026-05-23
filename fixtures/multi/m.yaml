@@ -1,0 +1,8 @@
+- section: "Part One: Basics"
+  children:
+    - file: a.md
+      title: Introduction
+- section: "Part Two: Advanced"
+  children:
+    - file: b.md
+      title: Advanced Topics
