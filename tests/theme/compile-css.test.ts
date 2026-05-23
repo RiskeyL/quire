@@ -812,4 +812,72 @@ describe("compileCss", () => {
       expect(tipRule).toContain("var(--color-muted)");
     });
   });
+
+  // ---------------------------------------------------------------------------
+  // Structural list component rules: Tree and CheckList
+  // ---------------------------------------------------------------------------
+
+  describe("structural: Tree component", () => {
+    it("emits a .tree rule", () => {
+      expect(compileCss(DEFAULT_TOKENS)).toMatch(/\.tree\b[^{]*\{/);
+    });
+
+    it(".tree has list-style: none", () => {
+      const css = compileCss(DEFAULT_TOKENS);
+      const rule = css.match(/\.tree\b[^{,]*\{[^}]*\}/)?.[0] ?? "";
+      expect(rule).toMatch(/list-style:\s*none/);
+    });
+
+    it(".tree uses var(--font-mono) for the monospace font", () => {
+      const css = compileCss(DEFAULT_TOKENS);
+      const rule = css.match(/\.tree\b[^,{]*\{[^}]*\}/)?.[0] ?? "";
+      expect(rule).toMatch(/font-family:\s*var\(--font-mono\)/);
+    });
+
+    it("nested .tree gets a left indent (padding-left)", () => {
+      const css = compileCss(DEFAULT_TOKENS);
+      // A nested selector like ".tree .tree" or ".tree > .tree" must carry padding-left
+      expect(css).toMatch(/\.tree\s+\.tree[^{]*\{[^}]*padding-left:/);
+    });
+
+    it("emits a .tree-name rule", () => {
+      expect(compileCss(DEFAULT_TOKENS)).toMatch(/\.tree-name\b[^{]*\{/);
+    });
+
+    it(".tree does NOT break TOC rules (list-style: none appears on .tree but .toc ul also has it)", () => {
+      // Both .tree and .toc ul should appear independently
+      const css = compileCss(DEFAULT_TOKENS);
+      expect(css).toContain(".tree");
+      expect(css).toContain(".toc ul");
+    });
+  });
+
+  describe("structural: CheckList component", () => {
+    it("emits a .checklist rule", () => {
+      expect(compileCss(DEFAULT_TOKENS)).toMatch(/\.checklist\b[^{]*\{/);
+    });
+
+    it(".checklist has list-style: none", () => {
+      const css = compileCss(DEFAULT_TOKENS);
+      const rule = css.match(/\.checklist\b[^{]*\{[^}]*\}/)?.[0] ?? "";
+      expect(rule).toMatch(/list-style:\s*none/);
+    });
+
+    it("emits a .checklist-item rule", () => {
+      expect(compileCss(DEFAULT_TOKENS)).toMatch(/\.checklist-item\b[^{]*\{/);
+    });
+
+    it("emits a .checklist-item::before rule with the ☐ content value", () => {
+      const css = compileCss(DEFAULT_TOKENS);
+      expect(css).toMatch(/\.checklist-item::before\s*\{/);
+      // The glyph must be present as a CSS content value
+      expect(css).toContain("☐");
+    });
+
+    it(".checklist-item::before content includes the ☐ glyph followed by a space", () => {
+      const css = compileCss(DEFAULT_TOKENS);
+      const rule = css.match(/\.checklist-item::before\s*\{[^}]*\}/)?.[0] ?? "";
+      expect(rule).toMatch(/content:\s*["']☐\s/);
+    });
+  });
 });

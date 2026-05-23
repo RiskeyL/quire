@@ -28,8 +28,9 @@ export function compileCss(tokens: BrandTokens): string {
   const code = buildCode();
   const inline = buildInline();
   const structural = buildStructural();
+  const structuralLists = buildStructuralLists();
 
-  return [root, page, elements, content, boxed, figure, disclosure, steps, cards, fields, code, inline, structural].join("\n");
+  return [root, page, elements, content, boxed, figure, disclosure, steps, cards, fields, code, inline, structural, structuralLists].join("\n");
 }
 
 // ---------------------------------------------------------------------------
@@ -789,4 +790,78 @@ function buildStructural(): string {
   padding-left: 0.5em;
 }
 .toc-section > ul { padding-left: 1.5em; }`;
+}
+
+/**
+ * Structural list component styling: Tree and CheckList/CheckListItem.
+ *
+ * Tree:
+ *   A monospace, tight-line-height list with list-style: none so bullets do not
+ *   compete with the trailing "/" folder marker. Nested .tree lists indent via
+ *   padding-left so the hierarchy reads naturally on paper. The .tree rule uses
+ *   a class selector (higher specificity than bare `ul`), so it is not overridden
+ *   by the generic `ul, ol` rule in buildContent(). The .toc ul rule in
+ *   buildStructural() also uses a class + element selector and is unaffected.
+ *
+ *   Folder/file distinction: a trailing "/" in the .tree-name text content (set
+ *   by the component handler) is sufficient; no icon or ::before marker is used.
+ *   This keeps the output purely ASCII-safe and avoids emoji encoding issues.
+ *
+ *   break-inside is not applied to .tree: a long file list can reasonably break
+ *   across pages; forcing it whole would risk leaving a large blank gap, consistent
+ *   with the project decision not to protect reliably-long blocks.
+ *
+ * CheckList:
+ *   A bare list (list-style: none, padding-left for glyph room). The ☐ glyph
+ *   is rendered exclusively via .checklist-item::before { content: "☐ " } so
+ *   it never appears as a text node and does not affect text extraction.
+ *
+ * Color usage:
+ *   - .tree uses var(--font-mono): file/folder trees read naturally in monospace.
+ *   - .checklist-item and .tree-name carry no additional color token — they
+ *     inherit the body color (var(--color-text)) for plain readability.
+ */
+function buildStructuralLists(): string {
+  return `/* ---- Tree (file/folder hierarchy) ---- */
+/* list-style: none removes bullets; "/" suffix distinguishes folders from files. */
+/* Class selector beats the generic \`ul, ol\` rule without needing !important.    */
+.tree {
+  list-style: none;
+  padding-left: 0;
+  margin: 0.5em 0;
+  font-family: var(--font-mono);
+  font-size: 0.9em;
+  line-height: 1.6;
+}
+
+/* Nested .tree: indent children to show hierarchy. */
+.tree .tree {
+  padding-left: 1.5em;
+  margin: 0;
+}
+
+/* File/folder name label. No extra color treatment — inherits body color. */
+.tree-name {
+  display: inline;
+}
+
+/* ---- CheckList (Dify-custom pre-publication checklist) ---- */
+/* list-style: none; padding-left creates room for the ::before glyph.      */
+.checklist {
+  list-style: none;
+  padding-left: 1.5em;
+  margin: 0.5em 0;
+}
+
+/* Each item inherits the standard li bottom margin from buildContent(). */
+.checklist-item {
+  position: relative;
+}
+
+/* ☐ glyph rendered via CSS so it never appears in extracted text content. */
+.checklist-item::before {
+  content: "☐ ";
+  position: absolute;
+  left: -1.5em;
+}`;
 }
