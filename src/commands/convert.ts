@@ -1,4 +1,5 @@
-import { readFile } from "node:fs/promises";
+import { readFile, mkdtemp, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
 import { basename, dirname, extname, join, resolve } from "node:path";
 import { renderMarkdownToHtml } from "../render/markdown.js";
 import { embedImages } from "../render/images.js";
@@ -7,6 +8,9 @@ import { htmlToDocx } from "../export/docx.js";
 import { loadManifest } from "../resolve/manifest.js";
 import { collectPages, formatTree, type PageNode, type Tree } from "../resolve/tree.js";
 import { assembleDocument } from "../assemble/assemble.js";
+import { loadTheme, DEFAULT_TOKENS } from "../theme/tokens.js";
+import { compileCss } from "../theme/compile-css.js";
+import { compileDocxReference, DocxReferenceError } from "../theme/compile-docx-ref.js";
 
 export interface ConvertOptions {
   format: "pdf" | "docx" | "both";
@@ -18,6 +22,7 @@ export interface ConvertOptions {
   noToc?: boolean;
   root?: string;
   offline?: boolean;
+  theme?: string;
 }
 
 export async function runConvert(paths: string[], options: ConvertOptions): Promise<void> {
@@ -98,13 +103,26 @@ export async function runConvert(paths: string[], options: ConvertOptions): Prom
     base = join(dirname(resolvedFirst), "document");
   }
 
+  // Resolve brand tokens — use user-supplied theme file when provided, otherwise defaults.
+  const tokens = options.theme ? await loadTheme(options.theme) : DEFAULT_TOKENS;
+
   // PDF gets an inline HTML TOC with target-counter page numbers; Word gets a
   // Pandoc-native TOC via --toc instead (no inline nav in the docx HTML).
   const useToc = !options.noToc;
   const wantPdf = options.format === "pdf" || options.format === "both";
   const wantDocx = options.format === "docx" || options.format === "both";
-  const pdfHtml = wantPdf ? assembleDocument(tree, rendered, { title: docTitle, cover: !options.noCover, toc: useToc }) : "";
-  const docxHtml = wantDocx ? assembleDocument(tree, rendered, { title: docTitle, cover: !options.noCover, toc: false }) : "";
+  const pdfHtml = wantPdf
+    ? assembleDocument(tree, rendered, {
+        title: docTitle,
+        cover: !options.noCover,
+        toc: useToc,
+        css: compileCss(tokens),
+        tocTitle: tokens.toc.title,
+      })
+    : "";
+  const docxHtml = wantDocx
+    ? assembleDocument(tree, rendered, { title: docTitle, cover: !options.noCover, toc: false })
+    : "";
 
   // Formats are exported sequentially; on partial failure the
   // already-exported file is kept (no rollback).
@@ -112,6 +130,29 @@ export async function runConvert(paths: string[], options: ConvertOptions): Prom
     await htmlToPdf(pdfHtml, `${base}.pdf`);
   }
   if (wantDocx) {
-    await htmlToDocx(docxHtml, `${base}.docx`, { toc: useToc });
+    // Always apply a branded reference doc so Word output matches the theme
+    // (even with default tokens, this ensures consistent heading fonts/colors).
+    // tocTitle is intentionally not passed here: the docx path uses toc:false
+    // (Pandoc builds its own native TOC and supplies its own heading), so
+    // tocTitle would have no effect and should not be added by reflex.
+    const refDir = await mkdtemp(join(tmpdir(), "quire-ref-"));
+    try {
+      const refPath = join(refDir, "reference.docx");
+      try {
+        await compileDocxReference(tokens, refPath);
+        await htmlToDocx(docxHtml, `${base}.docx`, { toc: useToc, referenceDoc: refPath });
+      } catch (err) {
+        if (err instanceof DocxReferenceError) {
+          process.stderr.write(
+            `Warning: could not apply brand to the Word output (${err.message}). Falling back to Pandoc defaults.\n`
+          );
+          await htmlToDocx(docxHtml, `${base}.docx`, { toc: useToc });
+        } else {
+          throw err;
+        }
+      }
+    } finally {
+      await rm(refDir, { recursive: true, force: true });
+    }
   }
 }

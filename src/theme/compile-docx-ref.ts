@@ -4,6 +4,19 @@ import JSZip from "jszip";
 import { assertBinary } from "../util/exec.js";
 import type { BrandTokens } from "./tokens.js";
 
+/**
+ * Thrown when the structural patches against pandoc's reference.docx cannot be
+ * applied because the styles.xml layout is unrecognized (e.g. a future pandoc
+ * version reorganized the file). Callers can catch this specifically to fall
+ * back to unbranded output rather than failing hard.
+ */
+export class DocxReferenceError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "DocxReferenceError";
+  }
+}
+
 // ---------------------------------------------------------------------------
 // Pure helpers (exported for unit testing)
 // ---------------------------------------------------------------------------
@@ -269,7 +282,7 @@ export async function compileDocxReference(tokens: BrandTokens, outPath: string)
   if (bodyFontName) {
     const afterBodyFont = patchDocDefaultsFonts(stylesXml, bodyFontName);
     if (afterBodyFont === null) {
-      throw new Error(
+      throw new DocxReferenceError(
         "compile-docx-ref: could not apply brand to pandoc's reference.docx " +
         "(unrecognized styles.xml structure; pandoc version may have changed). " +
         "Body font docDefaults anchor not found."
@@ -281,7 +294,7 @@ export async function compileDocxReference(tokens: BrandTokens, outPath: string)
   // Base size in docDefaults (core patch — must succeed)
   const afterSize = patchDocDefaultsSize(stylesXml, halfPts);
   if (afterSize === null) {
-    throw new Error(
+    throw new DocxReferenceError(
       "compile-docx-ref: could not apply brand to pandoc's reference.docx " +
       "(unrecognized styles.xml structure; pandoc version may have changed). " +
       "Base size (sz/szCs) docDefaults anchor not found."
@@ -292,7 +305,7 @@ export async function compileDocxReference(tokens: BrandTokens, outPath: string)
   // Heading font + color in heading paragraph styles (core patch — at least one must match)
   const { xml: afterHeadings, paragraphsPatched } = patchHeadingStyles(stylesXml, headingFontName, headingColorHex);
   if (paragraphsPatched === 0) {
-    throw new Error(
+    throw new DocxReferenceError(
       "compile-docx-ref: could not apply brand to pandoc's reference.docx " +
       "(unrecognized styles.xml structure; pandoc version may have changed). " +
       "Zero heading paragraph styles (Title, Heading1–Heading6) found."

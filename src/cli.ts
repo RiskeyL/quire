@@ -26,7 +26,8 @@ program
   .option("--no-toc", "omit the table of contents")
   .option("--root <dir>", "base directory for resolving root-relative image paths")
   .option("--offline", "do not fetch remote images")
-  .action(async (paths: string[], opts: { format: "pdf" | "docx" | "both"; out?: string; manifest?: string; dryRun?: boolean; title?: string; cover?: boolean; toc?: boolean; root?: string; offline?: boolean }) => {
+  .option("--theme <file>", "brand-token YAML file (colors, fonts, page size)")
+  .action(async (paths: string[], opts: { format: "pdf" | "docx" | "both"; out?: string; manifest?: string; dryRun?: boolean; title?: string; cover?: boolean; toc?: boolean; root?: string; offline?: boolean; theme?: string }) => {
     await runConvert(paths, { ...opts, noCover: opts.cover === false, noToc: opts.toc === false });
   });
 

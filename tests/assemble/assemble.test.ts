@@ -284,6 +284,51 @@ describe("assembleDocument with toc option", () => {
   });
 });
 
+describe("buildToc custom title", () => {
+  it("uses the provided title argument as the toc-title text", () => {
+    const tree: Tree = [{ type: "page", file: "a.md", title: "Alpha" }];
+    const anchors = assignAnchors(tree);
+    const html = buildToc(tree, anchors, "Inhalt");
+    expect(html).toContain('<h2 class="toc-title">Inhalt</h2>');
+    expect(html).not.toContain(">Contents<");
+  });
+
+  it("defaults to 'Contents' when no title argument is supplied", () => {
+    const tree: Tree = [{ type: "page", file: "a.md", title: "Alpha" }];
+    const anchors = assignAnchors(tree);
+    const html = buildToc(tree, anchors);
+    expect(html).toContain('<h2 class="toc-title">Contents</h2>');
+  });
+
+  it("HTML-escapes the custom title", () => {
+    const tree: Tree = [{ type: "page", file: "a.md", title: "Alpha" }];
+    const anchors = assignAnchors(tree);
+    const html = buildToc(tree, anchors, "<b>Bold</b>");
+    expect(html).not.toContain("<b>Bold</b>");
+    expect(html).toContain("&lt;b&gt;Bold&lt;/b&gt;");
+  });
+});
+
+describe("assembleDocument tocTitle option", () => {
+  const tree: Tree = [{ type: "page", file: "x.md", title: "X" }];
+  const rendered = new Map([["x.md", "<p>body</p>"]]);
+
+  it("passes tocTitle to buildToc when toc is true", () => {
+    const html = assembleDocument(tree, rendered, {
+      title: "Doc",
+      cover: true,
+      toc: true,
+      tocTitle: "Sommaire",
+    });
+    expect(html).toContain('<h2 class="toc-title">Sommaire</h2>');
+  });
+
+  it("uses default 'Contents' when tocTitle is omitted", () => {
+    const html = assembleDocument(tree, rendered, { title: "Doc", cover: true, toc: true });
+    expect(html).toContain('<h2 class="toc-title">Contents</h2>');
+  });
+});
+
 describe("assembleBody cross-link integration", () => {
   it("rewrites cross-links in a two-page tree", () => {
     const tree: Tree = [

@@ -167,7 +167,7 @@ function pageTitle(node: PageNode): string {
  * @param tree    The resolved page tree.
  * @param anchors The anchor map produced by `assignAnchors`.
  */
-export function buildToc(tree: Tree, anchors: Map<string, string>): string {
+export function buildToc(tree: Tree, anchors: Map<string, string>, title: string = "Contents"): string {
   function walkNodes(nodes: TreeNode[]): string {
     let items = "";
     for (const node of nodes) {
@@ -178,13 +178,13 @@ export function buildToc(tree: Tree, anchors: Map<string, string>): string {
         if (anchor === undefined) {
           throw new Error(`No anchor assigned for page "${node.file}".`);
         }
-        const title = pageTitle(node);
-        items += `<li class="toc-page"><a href="#${anchor}">${escapeHtml(title)}</a></li>`;
+        const tocTitle = pageTitle(node);
+        items += `<li class="toc-page"><a href="#${anchor}">${escapeHtml(tocTitle)}</a></li>`;
       }
     }
     return items;
   }
-  return `<nav class="toc"><h2 class="toc-title">Contents</h2><ul>${walkNodes(tree)}</ul></nav>`;
+  return `<nav class="toc"><h2 class="toc-title">${escapeHtml(title)}</h2><ul>${walkNodes(tree)}</ul></nav>`;
 }
 
 /**
@@ -209,7 +209,7 @@ export function assembleBody(tree: Tree, rendered: Map<string, string>): string 
 export function assembleDocument(
   tree: Tree,
   rendered: Map<string, string>,
-  options: { title: string; cover: boolean; toc?: boolean; css?: string }
+  options: { title: string; cover: boolean; toc?: boolean; css?: string; tocTitle?: string }
 ): string {
   const cover = options.cover ? renderCover(options.title) : "";
   let toc = "";
@@ -217,7 +217,7 @@ export function assembleDocument(
     // assignAnchors is deterministic over collectPages order, so calling it
     // here and in assembleBody (via walkTree) produces identical maps.
     const anchors = assignAnchors(tree);
-    toc = buildToc(tree, anchors);
+    toc = buildToc(tree, anchors, options.tocTitle);
   }
   return wrapHtmlDocument(
     cover + toc + assembleBody(tree, rendered),
