@@ -24,7 +24,9 @@ program
   .option("--title <title>", "document title for the cover page")
   .option("--no-cover", "omit the cover page")
   .option("--no-toc", "omit the table of contents")
-  .action(async (paths: string[], opts: { format: "pdf" | "docx" | "both"; out?: string; manifest?: string; dryRun?: boolean; title?: string; cover?: boolean; toc?: boolean }) => {
+  .option("--root <dir>", "base directory for resolving root-relative image paths")
+  .option("--offline", "do not fetch remote images")
+  .action(async (paths: string[], opts: { format: "pdf" | "docx" | "both"; out?: string; manifest?: string; dryRun?: boolean; title?: string; cover?: boolean; toc?: boolean; root?: string; offline?: boolean }) => {
     await runConvert(paths, { ...opts, noCover: opts.cover === false, noToc: opts.toc === false });
   });
 

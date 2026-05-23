@@ -1,6 +1,7 @@
 import { readFile } from "node:fs/promises";
 import { basename, dirname, extname, join, resolve } from "node:path";
 import { renderMarkdownToHtml } from "../render/markdown.js";
+import { embedImages } from "../render/images.js";
 import { htmlToPdf } from "../export/pdf.js";
 import { htmlToDocx } from "../export/docx.js";
 import { loadManifest } from "../resolve/manifest.js";
@@ -15,6 +16,8 @@ export interface ConvertOptions {
   title?: string;
   noCover?: boolean;
   noToc?: boolean;
+  root?: string;
+  offline?: boolean;
 }
 
 export async function runConvert(paths: string[], options: ConvertOptions): Promise<void> {
@@ -46,13 +49,23 @@ export async function runConvert(paths: string[], options: ConvertOptions): Prom
   // For positional-path trees the key and the resolved path are the same.
   const manifestDir = options.manifest ? dirname(resolve(options.manifest)) : undefined;
 
+  // Compute the effective root for resolving root-relative image paths.
+  // Priority: explicit --root option > manifest directory > cwd.
+  const effectiveRoot = resolve(options.root ?? manifestDir ?? process.cwd());
+
   const rendered = new Map<string, string>();
   for (const page of pages) {
     const resolvedPath = manifestDir
       ? resolve(manifestDir, page.file)
       : resolve(page.file);
     const markdown = await readFile(resolvedPath, "utf8");
-    rendered.set(page.file, renderMarkdownToHtml(markdown));
+    const rawHtml = renderMarkdownToHtml(markdown);
+    const html = await embedImages(rawHtml, {
+      baseDir: dirname(resolvedPath),
+      root: effectiveRoot,
+      offline: !!options.offline,
+    });
+    rendered.set(page.file, html);
   }
 
   // Determine document title.
