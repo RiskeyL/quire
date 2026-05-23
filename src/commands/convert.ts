@@ -25,6 +25,8 @@ export interface ConvertOptions {
   root?: string;
   offline?: boolean;
   theme?: string;
+  /** CLI override for the `meta.showDescription` token. `false` = `--no-description`; `undefined` = follow token. */
+  description?: boolean;
 }
 
 export async function runConvert(paths: string[], options: ConvertOptions): Promise<void> {
@@ -61,10 +63,6 @@ export async function runConvert(paths: string[], options: ConvertOptions): Prom
   const effectiveRoot = resolve(options.root ?? manifestDir ?? process.cwd());
 
   const rendered = new Map<string, string>();
-  // Per-page frontmatter descriptions, keyed by page.file. Captured here for
-  // Task 5J (page subtitles); 5A does not render the description yet.
-  // TODO(5J): render these as a subtitle under each page-title heading.
-  const descriptions = new Map<string, string>();
   for (const page of pages) {
     const resolvedPath = manifestDir
       ? resolve(manifestDir, page.file)
@@ -86,8 +84,10 @@ export async function runConvert(paths: string[], options: ConvertOptions): Prom
     });
     page.title = resolvedTitle;
 
+    // Capture the frontmatter description on the tree node so assemble.ts can
+    // render it as a lede beneath the page title (gated by showDescription).
     if (typeof frontmatter.description === "string" && frontmatter.description.trim() !== "") {
-      descriptions.set(page.file, frontmatter.description.trim());
+      page.description = frontmatter.description.trim();
     }
 
     const withImages = await embedImages(titledHtml, {
@@ -142,6 +142,9 @@ export async function runConvert(paths: string[], options: ConvertOptions): Prom
   // PDF gets an inline HTML TOC with target-counter page numbers; Word gets a
   // Pandoc-native TOC via --toc instead (no inline nav in the docx HTML).
   const useToc = !options.noToc;
+  // CLI `--no-description` (options.description === false) overrides the token default.
+  // When options.description is undefined, fall through to the token value.
+  const showDescription = options.description ?? tokens.meta.showDescription;
   const wantPdf = options.format === "pdf" || options.format === "both";
   const wantDocx = options.format === "docx" || options.format === "both";
   const pdfHtml = wantPdf
@@ -151,10 +154,16 @@ export async function runConvert(paths: string[], options: ConvertOptions): Prom
         toc: useToc,
         css: compileCss(tokens),
         tocTitle: tokens.toc.title,
+        showDescription,
       })
     : "";
   const docxHtml = wantDocx
-    ? assembleDocument(tree, rendered, { title: docTitle, cover: !options.noCover, toc: false })
+    ? assembleDocument(tree, rendered, {
+        title: docTitle,
+        cover: !options.noCover,
+        toc: false,
+        showDescription,
+      })
     : "";
 
   // Formats are exported sequentially; on partial failure the

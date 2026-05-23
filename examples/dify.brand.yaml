@@ -23,3 +23,6 @@ typography:
 
 toc:
   title: "Contents"   # Heading text displayed above the table of contents (PDF only; Word uses Pandoc's native TOC, which supplies its own heading).
+
+# meta:
+#   showDescription: true  # Render each page's frontmatter description as a visible lede beneath its title. Override per run with --no-description.

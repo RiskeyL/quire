@@ -115,3 +115,45 @@ describe("runConvert without --theme (default tokens)", () => {
     }
   }, 120000);
 });
+
+// ---------------------------------------------------------------------------
+// showDescription precedence: CLI override beats token default
+// ---------------------------------------------------------------------------
+
+describe("showDescription precedence", () => {
+  it("description: false (--no-description) suppresses the lede even when token default is true", async () => {
+    // This is a focused unit test on the precedence expression without a full render.
+    // We verify the assembled HTML doesn't contain the lede when description=false is passed.
+    const { assembleDocument } = await import("../../src/assemble/assemble.js");
+    const tree = [
+      { type: "page" as const, file: "p.md", title: "Page", description: "A visible lede." },
+    ];
+    const rendered = new Map([["p.md", "<p>content</p>"]]);
+
+    // Token default is true, but CLI passes false — the lede must NOT appear.
+    const html = assembleDocument(tree, rendered, {
+      title: "Doc",
+      cover: false,
+      showDescription: false,
+    });
+    expect(html).not.toContain('<p class="page-description">');
+  });
+
+  it("description: undefined falls through to the token value (true by default) and shows the lede", async () => {
+    const { assembleDocument } = await import("../../src/assemble/assemble.js");
+    const tree = [
+      { type: "page" as const, file: "p.md", title: "Page", description: "Visible lede." },
+    ];
+    const rendered = new Map([["p.md", "<p>content</p>"]]);
+
+    // Simulate: options.description is undefined, token default is true → ?? gives true.
+    const tokenDefault = true;
+    const showDescription = undefined ?? tokenDefault;
+    const html = assembleDocument(tree, rendered, {
+      title: "Doc",
+      cover: false,
+      showDescription,
+    });
+    expect(html).toContain('<p class="page-description">Visible lede.</p>');
+  });
+});

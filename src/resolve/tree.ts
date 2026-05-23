@@ -8,6 +8,7 @@ export interface PageNode {
   type: "page";
   file: string;
   title?: string;
+  description?: string;
 }
 
 export type TreeNode = SectionNode | PageNode;

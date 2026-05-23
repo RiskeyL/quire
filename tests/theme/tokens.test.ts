@@ -71,6 +71,30 @@ describe("parseTheme", () => {
   });
 });
 
+describe("parseTheme — meta.showDescription token", () => {
+  it("absent meta keeps showDescription at default true", () => {
+    const result = parseTheme("");
+    expect(result.meta.showDescription).toBe(true);
+  });
+
+  it("meta: { showDescription: false } overrides default true", () => {
+    const result = parseTheme("meta:\n  showDescription: false\n");
+    expect(result.meta.showDescription).toBe(false);
+    // All other sections stay at defaults
+    expect(result.colors.text).toBe(DEFAULT_TOKENS.colors.text);
+    expect(result.toc.title).toBe(DEFAULT_TOKENS.toc.title);
+  });
+
+  it("meta: { showDescription: true } keeps the default value", () => {
+    const result = parseTheme("meta:\n  showDescription: true\n");
+    expect(result.meta.showDescription).toBe(true);
+  });
+
+  it("unknown key under meta is rejected (strict schema)", () => {
+    expect(() => parseTheme("meta:\n  unknownKey: true\n")).toThrow(/unknownKey/);
+  });
+});
+
 describe("loadTheme", () => {
   it("round-trips a partial theme from a temp file", async () => {
     const tmpPath = join(tmpdir(), `quire-test-theme-${Date.now()}.yaml`);

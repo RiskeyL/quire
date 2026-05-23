@@ -18,6 +18,7 @@ export interface BrandTokens {
     lineHeight: number;
   };
   toc: { title: string };
+  meta: { showDescription: boolean };
 }
 
 // ---------------------------------------------------------------------------
@@ -42,6 +43,7 @@ export const DEFAULT_TOKENS: BrandTokens = {
     lineHeight: 1.5,
   },
   toc: { title: "Contents" },
+  meta: { showDescription: true },
 };
 
 // ---------------------------------------------------------------------------
@@ -85,12 +87,20 @@ const partialTocSchema = z
   .strict()
   .partial();
 
+const partialMetaSchema = z
+  .object({
+    showDescription: z.boolean(),
+  })
+  .strict()
+  .partial();
+
 const partialThemeSchema = z
   .object({
     page: partialPageSchema,
     colors: partialColorsSchema,
     typography: partialTypographySchema,
     toc: partialTocSchema,
+    meta: partialMetaSchema,
   })
   .strict()
   .partial();
@@ -148,6 +158,7 @@ function applyOverrides(partial: PartialTheme): BrandTokens {
     colors: mergeSection(DEFAULT_TOKENS.colors, partial.colors ?? {}),
     typography: mergeSection(DEFAULT_TOKENS.typography, partial.typography ?? {}),
     toc: mergeSection(DEFAULT_TOKENS.toc, partial.toc ?? {}),
+    meta: mergeSection(DEFAULT_TOKENS.meta, partial.meta ?? {}),
   };
 }
 

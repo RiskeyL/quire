@@ -353,6 +353,93 @@ describe("assembleDocument tocTitle option", () => {
   });
 });
 
+describe("assembleDocument with showDescription option", () => {
+  it("emits .page-description after the page title heading when showDescription is true and the page has a description", () => {
+    const tree: Tree = [
+      { type: "page", file: "a.md", title: "Alpha", description: "A short intro." },
+    ];
+    const rendered = new Map([["a.md", "<p>body</p>"]]);
+    const html = assembleDocument(tree, rendered, {
+      title: "Doc",
+      cover: false,
+      showDescription: true,
+    });
+    // The lede must appear immediately after the page-title heading
+    expect(html).toContain('<p class="page-description">A short intro.</p>');
+    // It must come after the heading, not before
+    const headingPos = html.indexOf('<h1 id="a-md">Alpha</h1>');
+    const ledePos = html.indexOf('<p class="page-description">');
+    expect(headingPos).toBeGreaterThanOrEqual(0);
+    expect(ledePos).toBeGreaterThan(headingPos);
+  });
+
+  it("does NOT emit .page-description when showDescription is false", () => {
+    const tree: Tree = [
+      { type: "page", file: "a.md", title: "Alpha", description: "A short intro." },
+    ];
+    const rendered = new Map([["a.md", "<p>body</p>"]]);
+    const html = assembleDocument(tree, rendered, {
+      title: "Doc",
+      cover: false,
+      showDescription: false,
+    });
+    expect(html).not.toContain('<p class="page-description">');
+  });
+
+  it("does NOT emit .page-description when the page has no description even if showDescription is true", () => {
+    const tree: Tree = [
+      { type: "page", file: "a.md", title: "Alpha" },
+    ];
+    const rendered = new Map([["a.md", "<p>body</p>"]]);
+    const html = assembleDocument(tree, rendered, {
+      title: "Doc",
+      cover: false,
+      showDescription: true,
+    });
+    expect(html).not.toContain('<p class="page-description">');
+  });
+
+  it("HTML-escapes the description to prevent XSS", () => {
+    const tree: Tree = [
+      { type: "page", file: "a.md", title: "Alpha", description: '<script>alert("xss")</script>' },
+    ];
+    const rendered = new Map([["a.md", "<p>body</p>"]]);
+    const html = assembleDocument(tree, rendered, {
+      title: "Doc",
+      cover: false,
+      showDescription: true,
+    });
+    expect(html).not.toContain("<script>alert");
+    expect(html).toContain("&lt;script&gt;");
+  });
+
+  it("does NOT emit .page-description for section nodes (sections have no description)", () => {
+    const tree: Tree = [
+      {
+        type: "section",
+        title: "My Section",
+        children: [{ type: "page", file: "a.md", title: "Alpha" }],
+      },
+    ];
+    const rendered = new Map([["a.md", "<p>body</p>"]]);
+    const html = assembleDocument(tree, rendered, {
+      title: "Doc",
+      cover: false,
+      showDescription: true,
+    });
+    expect(html).not.toContain('<p class="page-description">');
+  });
+
+  it("omitting showDescription from options produces no .page-description (backward-compat)", () => {
+    const tree: Tree = [
+      { type: "page", file: "a.md", title: "Alpha", description: "Some desc." },
+    ];
+    const rendered = new Map([["a.md", "<p>body</p>"]]);
+    const html = assembleDocument(tree, rendered, { title: "Doc", cover: false });
+    expect(html).not.toContain('<p class="page-description">');
+  });
+});
+
 describe("assembleBody cross-link integration", () => {
   it("rewrites cross-links in a two-page tree", () => {
     const tree: Tree = [

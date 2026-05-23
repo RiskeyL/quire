@@ -206,14 +206,18 @@ export function buildToc(tree: Tree, anchors: Map<string, string>, title: string
  * fragment. Section titles become headings at their depth level; page content
  * has its headings demoted to prevent conflicts with the structural headings.
  */
-export function assembleBody(tree: Tree, rendered: Map<string, string>): string {
+export function assembleBody(
+  tree: Tree,
+  rendered: Map<string, string>,
+  showDescription?: boolean
+): string {
   const anchors = assignAnchors(tree);
   const targets = buildLinkTargets(tree, anchors);
   // idState is threaded through the recursion so each section heading gets a
   // unique "quire-section-N" id. pagedjs uses these ids as PDF outline
   // destinations. The "quire-section-" prefix won't collide with page anchors
   // (filename slugs) as long as no file is literally named "section-N.md".
-  return walkTree(tree, rendered, anchors, targets, 0, { section: 0 });
+  return walkTree(tree, rendered, anchors, targets, 0, { section: 0 }, showDescription);
 }
 
 /**
@@ -223,11 +227,22 @@ export function assembleBody(tree: Tree, rendered: Map<string, string>): string 
  * `toc` defaults to `false`; existing callers that pass `{title, cover}` are
  * unaffected and produce no TOC. When `toc` is true, the nav is inserted
  * between the cover and the body.
+ *
+ * `showDescription` controls whether a page node's `description` field is
+ * rendered as a `<p class="page-description">` lede beneath the page title.
+ * When omitted, no lede is emitted (preserves backward compatibility).
  */
 export function assembleDocument(
   tree: Tree,
   rendered: Map<string, string>,
-  options: { title: string; cover: boolean; toc?: boolean; css?: string; tocTitle?: string }
+  options: {
+    title: string;
+    cover: boolean;
+    toc?: boolean;
+    css?: string;
+    tocTitle?: string;
+    showDescription?: boolean;
+  }
 ): string {
   const cover = options.cover ? renderCover(options.title) : "";
   let toc = "";
@@ -238,7 +253,7 @@ export function assembleDocument(
     toc = buildToc(tree, anchors, options.tocTitle);
   }
   return wrapHtmlDocument(
-    cover + toc + assembleBody(tree, rendered),
+    cover + toc + assembleBody(tree, rendered, options.showDescription),
     options.title,
     options.css
   );
@@ -250,7 +265,8 @@ function walkTree(
   anchors: Map<string, string>,
   targets: Map<string, string>,
   depth: number,
-  idState: { section: number }
+  idState: { section: number },
+  showDescription?: boolean
 ): string {
   let out = "";
   for (const node of nodes) {
@@ -262,7 +278,7 @@ function walkTree(
       // ids — per-heading ids are an M5 / rehype-slug concern.
       const sectionId = `quire-section-${++idState.section}`;
       out += `<h${L} id="${sectionId}">${escapeHtml(node.title)}</h${L}>`;
-      out += walkTree(node.children, rendered, anchors, targets, depth + 1, idState);
+      out += walkTree(node.children, rendered, anchors, targets, depth + 1, idState, showDescription);
     } else {
       // page node
       const L = Math.min(depth + 1, 6);
@@ -280,7 +296,11 @@ function walkTree(
       // pagedjs registers it as the PDF outline destination for this entry.
       // The TOC and cross-links already target "#anchor" — fragment resolution
       // works the same regardless of which element carries the id.
-      out += `<section><h${L} id="${anchor}">${escapeHtml(title)}</h${L}>${demoteHeadings(linked, depth + 1)}</section>`;
+      const lede =
+        showDescription && node.description && node.description.trim() !== ""
+          ? `<p class="page-description">${escapeHtml(node.description)}</p>`
+          : "";
+      out += `<section><h${L} id="${anchor}">${escapeHtml(title)}</h${L}>${lede}${demoteHeadings(linked, depth + 1)}</section>`;
     }
   }
   return out;

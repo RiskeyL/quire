@@ -30,7 +30,9 @@ export function compileCss(tokens: BrandTokens): string {
   const structural = buildStructural();
   const structuralLists = buildStructuralLists();
 
-  return [root, page, elements, content, boxed, figure, disclosure, steps, cards, fields, code, inline, structural, structuralLists].join("\n");
+  const pageDescription = buildPageDescription();
+
+  return [root, page, elements, content, pageDescription, boxed, figure, disclosure, steps, cards, fields, code, inline, structural, structuralLists].join("\n");
 }
 
 // ---------------------------------------------------------------------------
@@ -167,6 +169,27 @@ hr {
 
 /* ---- Images ---- */
 img { max-width: 100%; height: auto; display: block; }`;
+}
+
+/**
+ * Page-description lede rule.
+ *
+ * Rendered beneath each page-title heading when `meta.showDescription` is true
+ * (or the CLI `--no-description` flag has not been passed). Styled as a lede:
+ * muted color, slightly larger or italicized, with tightened top margin so it
+ * reads as a continuation of the heading and a margin-bottom before the body.
+ */
+function buildPageDescription(): string {
+  return `/* ---- Page description lede ---- */
+/* Rendered immediately after each page-title heading when showDescription is enabled. */
+/* Muted color, italic, tightened top margin so it reads as a heading continuation. */
+.page-description {
+  color: var(--color-muted);
+  font-style: italic;
+  font-size: 1.05em;
+  margin-top: 0.15em;
+  margin-bottom: 0.75em;
+}`;
 }
 
 /**

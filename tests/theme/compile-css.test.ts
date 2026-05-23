@@ -878,6 +878,24 @@ describe("compileCss", () => {
     });
   });
 
+  describe("page-description lede rule", () => {
+    it("emits a .page-description rule", () => {
+      expect(compileCss(DEFAULT_TOKENS)).toMatch(/\.page-description\b[^{]*\{/);
+    });
+
+    it(".page-description uses var(--color-muted) for color", () => {
+      const css = compileCss(DEFAULT_TOKENS);
+      const rule = css.match(/\.page-description\b[^{]*\{[^}]*\}/)?.[0] ?? "";
+      expect(rule).toContain("var(--color-muted)");
+    });
+
+    it(".page-description has a margin-bottom (space below the lede)", () => {
+      const css = compileCss(DEFAULT_TOKENS);
+      const rule = css.match(/\.page-description\b[^{]*\{[^}]*\}/)?.[0] ?? "";
+      expect(rule).toMatch(/margin-bottom:/);
+    });
+  });
+
   describe("structural: CheckList component", () => {
     it("emits a .checklist rule", () => {
       expect(compileCss(DEFAULT_TOKENS)).toMatch(/\.checklist\b[^{]*\{/);
