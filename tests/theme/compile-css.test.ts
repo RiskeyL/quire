@@ -192,4 +192,161 @@ describe("compileCss", () => {
       expect(compileCss(DEFAULT_TOKENS)).toMatch(/h6/);
     });
   });
+
+  describe("content: heading scale", () => {
+    it("h1 has a font-size in em", () => {
+      expect(compileCss(DEFAULT_TOKENS)).toMatch(/h1\b[^{]*\{[^}]*font-size:\s*2em/);
+    });
+
+    it("h6 has a font-size in em", () => {
+      expect(compileCss(DEFAULT_TOKENS)).toMatch(/h6\b[^{]*\{[^}]*font-size:\s*0\.85em/);
+    });
+
+    it("headings have break-after: avoid", () => {
+      expect(compileCss(DEFAULT_TOKENS)).toContain("break-after: avoid");
+    });
+
+    it("h6 uses var(--color-muted)", () => {
+      // h6 is rendered in muted tone
+      expect(compileCss(DEFAULT_TOKENS)).toMatch(/h6\b[^{]*\{[^}]*color:\s*var\(--color-muted\)/);
+    });
+  });
+
+  describe("content: inline code and code blocks", () => {
+    it("pre has white-space: pre-wrap", () => {
+      expect(compileCss(DEFAULT_TOKENS)).toContain("white-space: pre-wrap");
+    });
+
+    it("pre has overflow-wrap: anywhere", () => {
+      expect(compileCss(DEFAULT_TOKENS)).toContain("overflow-wrap: anywhere");
+    });
+
+    it("pre has padding", () => {
+      expect(compileCss(DEFAULT_TOKENS)).toMatch(/\bpre\b[^{]*\{[^}]*padding:/);
+    });
+
+    it("pre has border-radius", () => {
+      expect(compileCss(DEFAULT_TOKENS)).toMatch(/\bpre\b[^{]*\{[^}]*border-radius:/);
+    });
+
+    it("inline code has a background", () => {
+      // A code rule (not pre code) that sets background
+      const css = compileCss(DEFAULT_TOKENS);
+      // The inline code rule should set a background; pre code resets it
+      expect(css).toMatch(/:not\(pre\)\s*>\s*code[^{]*\{[^}]*background/);
+    });
+
+    it("pre code resets background to transparent", () => {
+      expect(compileCss(DEFAULT_TOKENS)).toMatch(/pre\s+code[^{]*\{[^}]*background:\s*transparent/);
+    });
+
+    it("pre code resets padding to 0", () => {
+      expect(compileCss(DEFAULT_TOKENS)).toMatch(/pre\s+code[^{]*\{[^}]*padding:\s*0/);
+    });
+  });
+
+  describe("content: tables", () => {
+    it("table has border-collapse: collapse", () => {
+      expect(compileCss(DEFAULT_TOKENS)).toContain("border-collapse: collapse");
+    });
+
+    it("table has width: 100%", () => {
+      expect(compileCss(DEFAULT_TOKENS)).toMatch(/\btable\b[^{]*\{[^}]*width:\s*100%/);
+    });
+
+    it("th and td have padding", () => {
+      expect(compileCss(DEFAULT_TOKENS)).toMatch(/th\b[^,{]*,\s*td\b[^{]*\{[^}]*padding:/);
+    });
+
+    it("th and td have a border", () => {
+      expect(compileCss(DEFAULT_TOKENS)).toMatch(/th\b[^,{]*,\s*td\b[^{]*\{[^}]*border:/);
+    });
+
+    it("th has a background", () => {
+      expect(compileCss(DEFAULT_TOKENS)).toMatch(/\bth\b[^{]*\{[^}]*background:/);
+    });
+
+    it("only the header row is protected from breaking (thead tr)", () => {
+      // Body rows are allowed to break so a tall tbody cell does not leave a gap.
+      expect(compileCss(DEFAULT_TOKENS)).toMatch(/thead\s+tr[^{]*\{[^}]*break-inside:\s*avoid/);
+    });
+  });
+
+  describe("content: blockquote", () => {
+    it("blockquote uses var(--color-accent) for border-left", () => {
+      expect(compileCss(DEFAULT_TOKENS)).toMatch(
+        /blockquote[^{]*\{[^}]*border-left[^:]*:[^;]*var\(--color-accent\)/
+      );
+    });
+
+    it("blockquote uses var(--color-muted) for color", () => {
+      expect(compileCss(DEFAULT_TOKENS)).toMatch(
+        /blockquote[^{]*\{[^}]*color:\s*var\(--color-muted\)/
+      );
+    });
+
+    it("blockquote has padding-left", () => {
+      expect(compileCss(DEFAULT_TOKENS)).toMatch(/blockquote[^{]*\{[^}]*padding-left:/);
+    });
+  });
+
+  describe("content: lists", () => {
+    it("ul and ol have padding-left", () => {
+      expect(compileCss(DEFAULT_TOKENS)).toMatch(/\bul\b[^,{]*,\s*ol\b[^{]*\{[^}]*padding-left:/);
+    });
+
+    it("li has a bottom margin", () => {
+      expect(compileCss(DEFAULT_TOKENS)).toMatch(/\bli\b[^{]*\{[^}]*margin-bottom:/);
+    });
+  });
+
+  describe("content: hr", () => {
+    it("hr has border-top", () => {
+      expect(compileCss(DEFAULT_TOKENS)).toMatch(/\bhr\b[^{]*\{[^}]*border-top:/);
+    });
+
+    it("hr resets border to 0 or none on non-top sides", () => {
+      expect(compileCss(DEFAULT_TOKENS)).toMatch(/\bhr\b[^{]*\{[^}]*border:\s*(0|none)/);
+    });
+  });
+
+  describe("content: images", () => {
+    it("img has max-width: 100%", () => {
+      expect(compileCss(DEFAULT_TOKENS)).toMatch(/\bimg\b[^{]*\{[^}]*max-width:\s*100%/);
+    });
+
+    it("img has height: auto", () => {
+      expect(compileCss(DEFAULT_TOKENS)).toMatch(/\bimg\b[^{]*\{[^}]*height:\s*auto/);
+    });
+
+    it("img has display: block", () => {
+      // display: block removes the inline descender gap below images in print.
+      expect(compileCss(DEFAULT_TOKENS)).toMatch(/\bimg\b[^{]*\{[^}]*display:\s*block/);
+    });
+  });
+
+  describe("content: vertical rhythm", () => {
+    it("p has a margin-bottom", () => {
+      expect(compileCss(DEFAULT_TOKENS)).toMatch(/\bp\b[^{]*\{[^}]*margin-bottom:/);
+    });
+
+    it("section first-child top margin is reset to 0", () => {
+      expect(compileCss(DEFAULT_TOKENS)).toContain("margin-top: 0");
+    });
+  });
+
+  describe("TOC rules are not overridden by generic list rules", () => {
+    it(".toc ul rule for list-style: none is still present", () => {
+      expect(compileCss(DEFAULT_TOKENS)).toContain(".toc ul");
+      expect(compileCss(DEFAULT_TOKENS)).toContain("list-style: none");
+    });
+
+    it(".toc-section > ul rule is still present", () => {
+      expect(compileCss(DEFAULT_TOKENS)).toContain(".toc-section > ul");
+    });
+
+    it(".toc li rule is still present", () => {
+      expect(compileCss(DEFAULT_TOKENS)).toContain(".toc li");
+    });
+  });
 });
