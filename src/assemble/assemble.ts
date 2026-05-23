@@ -145,9 +145,23 @@ export function rewriteCrossLinks(
   return $.html();
 }
 
+/**
+ * Fixed id for the cover heading, used by pagedjs to build the PDF outline
+ * entry for the cover. Page anchors are filename-derived slugs, so the
+ * reserved "quire-cover" prefix won't collide with them.
+ */
+const COVER_ID = "quire-cover";
+
+/**
+ * Fixed id for the TOC title heading, used by pagedjs to build the PDF
+ * outline entry for the table of contents. The "quire-toc" prefix follows
+ * the same convention as COVER_ID and won't collide with page anchors.
+ */
+const TOC_ID = "quire-toc";
+
 /** Render the document cover as an HTML fragment. */
 export function renderCover(title: string): string {
-  return `<section class="cover"><h1 class="doc-title">${escapeHtml(title)}</h1></section>`;
+  return `<section class="cover"><h1 class="doc-title" id="${COVER_ID}">${escapeHtml(title)}</h1></section>`;
 }
 
 /** Derive a human-readable title from a page node. */
@@ -184,7 +198,7 @@ export function buildToc(tree: Tree, anchors: Map<string, string>, title: string
     }
     return items;
   }
-  return `<nav class="toc"><h2 class="toc-title">${escapeHtml(title)}</h2><ul>${walkNodes(tree)}</ul></nav>`;
+  return `<nav class="toc"><h2 class="toc-title" id="${TOC_ID}">${escapeHtml(title)}</h2><ul>${walkNodes(tree)}</ul></nav>`;
 }
 
 /**
@@ -195,7 +209,11 @@ export function buildToc(tree: Tree, anchors: Map<string, string>, title: string
 export function assembleBody(tree: Tree, rendered: Map<string, string>): string {
   const anchors = assignAnchors(tree);
   const targets = buildLinkTargets(tree, anchors);
-  return walkTree(tree, rendered, anchors, targets, 0);
+  // idState is threaded through the recursion so each section heading gets a
+  // unique "quire-section-N" id. pagedjs uses these ids as PDF outline
+  // destinations. The "quire-section-" prefix won't collide with page anchors
+  // (filename slugs) as long as no file is literally named "section-N.md".
+  return walkTree(tree, rendered, anchors, targets, 0, { section: 0 });
 }
 
 /**
@@ -231,14 +249,20 @@ function walkTree(
   rendered: Map<string, string>,
   anchors: Map<string, string>,
   targets: Map<string, string>,
-  depth: number
+  depth: number,
+  idState: { section: number }
 ): string {
   let out = "";
   for (const node of nodes) {
     if (node.type === "section") {
       const L = Math.min(depth + 1, 6);
-      out += `<h${L}>${escapeHtml(node.title)}</h${L}>`;
-      out += walkTree(node.children, rendered, anchors, targets, depth + 1);
+      // Assign a unique id so pagedjs can build a working PDF outline entry
+      // for this section heading. Content sub-headings produced by
+      // demoteHeadings (h4+ in sectioned docs) are intentionally left without
+      // ids — per-heading ids are an M5 / rehype-slug concern.
+      const sectionId = `quire-section-${++idState.section}`;
+      out += `<h${L} id="${sectionId}">${escapeHtml(node.title)}</h${L}>`;
+      out += walkTree(node.children, rendered, anchors, targets, depth + 1, idState);
     } else {
       // page node
       const L = Math.min(depth + 1, 6);
@@ -252,7 +276,11 @@ function walkTree(
         throw new Error(`No rendered content for page "${node.file}".`);
       }
       const linked = rewriteCrossLinks(content, node.file, targets);
-      out += `<section id="${anchor}"><h${L}>${escapeHtml(title)}</h${L}>${demoteHeadings(linked, depth + 1)}</section>`;
+      // The anchor id moves to the page heading (not the <section> wrapper) so
+      // pagedjs registers it as the PDF outline destination for this entry.
+      // The TOC and cross-links already target "#anchor" — fragment resolution
+      // works the same regardless of which element carries the id.
+      out += `<section><h${L} id="${anchor}">${escapeHtml(title)}</h${L}>${demoteHeadings(linked, depth + 1)}</section>`;
     }
   }
   return out;

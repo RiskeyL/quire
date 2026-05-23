@@ -33,12 +33,21 @@ describe("assembleBody", () => {
   const rendered = new Map([["guides/intro.md", "<h1>Heading in page</h1><p>body</p>"]]);
 
   it("emits the section heading at the section's depth level", () => {
-    expect(assembleBody(tree, rendered)).toContain("<h1>Guides</h1>");
+    expect(assembleBody(tree, rendered)).toContain('<h1 id="quire-section-1">Guides</h1>');
   });
-  it("wraps each page in an anchored section with a demoted heading", () => {
+
+  it("gives the section heading a quire-section-N id for PDF outline navigation", () => {
     const html = assembleBody(tree, rendered);
-    expect(html).toContain('<section id="guides-intro-md">');
-    expect(html).toContain("<h2>Intro</h2>");           // page title at depth 1 -> h2
+    expect(html).toMatch(/id="quire-section-\d+"/);
+    expect(html).toContain('<h1 id="quire-section-1">Guides</h1>');
+  });
+  it("wraps each page in a section and puts the anchor id on the page heading", () => {
+    const html = assembleBody(tree, rendered);
+    // Anchor id is on the heading, not the <section> wrapper (so pagedjs can
+    // build working PDF outline destinations from it).
+    expect(html).toContain('<h2 id="guides-intro-md">Intro</h2>');
+    expect(html).not.toContain('<section id="guides-intro-md">');
+    expect(html).toContain("<section>");                // wrapper still present, just no id
     expect(html).toContain("<h3>Heading in page</h3>"); // page content h1 demoted by 2 -> h3
   });
 });
@@ -47,6 +56,12 @@ describe("renderCover", () => {
   it("renders a cover section with the title", () => {
     expect(renderCover("My Doc")).toContain('class="cover"');
     expect(renderCover("My Doc")).toContain("My Doc");
+  });
+
+  it("puts id=\"quire-cover\" on the cover h1 so the PDF outline can navigate to it", () => {
+    expect(renderCover("My Doc")).toContain('id="quire-cover"');
+    // The id must be on the h1, not just somewhere in the output.
+    expect(renderCover("My Doc")).toContain('<h1 class="doc-title" id="quire-cover">');
   });
 });
 
@@ -59,6 +74,7 @@ describe("assembleDocument", () => {
     expect(html).toContain('class="cover"');
     expect(html).toContain("<title>My Title</title>");
     expect(html).toContain("My Title");
+    expect(html).toContain('id="quire-cover"');
   });
 
   it("omits the cover when cover is false", () => {
@@ -200,7 +216,15 @@ describe("buildToc", () => {
     const anchors = assignAnchors(tree);
     const html = buildToc(tree, anchors);
     expect(html).toContain('<nav class="toc">');
-    expect(html).toContain('<h2 class="toc-title">Contents</h2>');
+    expect(html).toContain('<h2 class="toc-title" id="quire-toc">Contents</h2>');
+  });
+
+  it("puts id=\"quire-toc\" on the toc-title h2 so the PDF outline can navigate to the TOC", () => {
+    const tree: Tree = [{ type: "page", file: "a.md", title: "Alpha" }];
+    const anchors = assignAnchors(tree);
+    const html = buildToc(tree, anchors);
+    expect(html).toContain('id="quire-toc"');
+    expect(html).toContain('<h2 class="toc-title" id="quire-toc">');
   });
 
   it("renders a page as a toc-page li with a link to its anchor", () => {
@@ -289,7 +313,7 @@ describe("buildToc custom title", () => {
     const tree: Tree = [{ type: "page", file: "a.md", title: "Alpha" }];
     const anchors = assignAnchors(tree);
     const html = buildToc(tree, anchors, "Inhalt");
-    expect(html).toContain('<h2 class="toc-title">Inhalt</h2>');
+    expect(html).toContain('<h2 class="toc-title" id="quire-toc">Inhalt</h2>');
     expect(html).not.toContain(">Contents<");
   });
 
@@ -297,7 +321,7 @@ describe("buildToc custom title", () => {
     const tree: Tree = [{ type: "page", file: "a.md", title: "Alpha" }];
     const anchors = assignAnchors(tree);
     const html = buildToc(tree, anchors);
-    expect(html).toContain('<h2 class="toc-title">Contents</h2>');
+    expect(html).toContain('<h2 class="toc-title" id="quire-toc">Contents</h2>');
   });
 
   it("HTML-escapes the custom title", () => {
@@ -320,12 +344,12 @@ describe("assembleDocument tocTitle option", () => {
       toc: true,
       tocTitle: "Sommaire",
     });
-    expect(html).toContain('<h2 class="toc-title">Sommaire</h2>');
+    expect(html).toContain('<h2 class="toc-title" id="quire-toc">Sommaire</h2>');
   });
 
   it("uses default 'Contents' when tocTitle is omitted", () => {
     const html = assembleDocument(tree, rendered, { title: "Doc", cover: true, toc: true });
-    expect(html).toContain('<h2 class="toc-title">Contents</h2>');
+    expect(html).toContain('<h2 class="toc-title" id="quire-toc">Contents</h2>');
   });
 });
 
@@ -345,8 +369,9 @@ describe("assembleBody cross-link integration", () => {
     const anchors = assignAnchors(tree);
     const bAnchor = anchors.get("b.md")!;   // "b-md"
 
-    // The assembled body must include b's section
-    expect(html).toContain(`id="${bAnchor}"`);
+    // The anchor must be on the heading, not the <section> wrapper
+    expect(html).toContain(`<h1 id="${bAnchor}">`);
+    expect(html).not.toContain(`<section id="${bAnchor}">`);
 
     // The cross-link in a.md must point at b's anchor
     expect(html).toContain(`href="#${bAnchor}"`);
