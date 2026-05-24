@@ -644,6 +644,28 @@ function patchPageDescriptionStyle(xml: string, mutedHex: string | null): string
   return xml.replace("</w:styles>", `${style}</w:styles>`);
 }
 
+/**
+ * Inject a "Quire Cover" paragraph style (centered, heading color, slightly
+ * enlarged) before `</w:styles>`. The assembler tags the Word cover with
+ * `custom-style="Quire Cover"`, so every cover line maps to this style; without
+ * it Pandoc would leave the cover as default left-aligned body text. The title
+ * line is additionally bold (via `<strong>` in the HTML), so it stands out within
+ * the shared cover style. Idempotent and best-effort (needs the `</w:styles>`
+ * anchor).
+ */
+function patchCoverStyle(xml: string, headingHex: string | null): string {
+  if (xml.includes('w:styleId="QuireCover"') || !xml.includes("</w:styles>")) return xml;
+  const colorEl = headingHex ? `<w:color w:val="${headingHex}" />` : "";
+  const style =
+    `<w:style w:type="paragraph" w:styleId="QuireCover">` +
+    `<w:name w:val="Quire Cover" />` +
+    `<w:basedOn w:val="BodyText" />` +
+    `<w:pPr><w:jc w:val="center" /><w:spacing w:before="120" w:after="120" /></w:pPr>` +
+    `<w:rPr>${colorEl}<w:sz w:val="28" /><w:szCs w:val="28" /></w:rPr>` +
+    `</w:style>`;
+  return xml.replace("</w:styles>", `${style}</w:styles>`);
+}
+
 // ---------------------------------------------------------------------------
 // Page furniture: header/footer parts and section-properties wiring
 // ---------------------------------------------------------------------------
@@ -950,6 +972,7 @@ export async function compileDocxReference(
   stylesXml = patchBlockquote(stylesXml, hexColor(tokens.colors.accent), hexColor(tokens.colors.muted));
   stylesXml = patchInlineCodeShading(stylesXml);
   stylesXml = patchPageDescriptionStyle(stylesXml, hexColor(tokens.colors.muted));
+  stylesXml = patchCoverStyle(stylesXml, hexColor(tokens.colors.heading));
 
   zip.file("word/styles.xml", stylesXml);
 

@@ -11,5 +11,8 @@
 # toc: true                    # false = omit the table of contents
 # description: true            # false = suppress the page-description lede
 # title: "My Document"         # cover + running-header title (else manifest filename)
+# docVersion: "1.14.2"         # release/version label printed on the cover
+# date: "2026-05-25"           # publish date printed on the cover (quote it; never auto-filled)
+# baseUrl: https://docs.dify.ai  # rewrite out-of-bundle /en/... links to live external URLs
 # manifest: quire/self-host-guide.yaml
 # out: build/my-document       # output base path (no extension; Quire adds .pdf/.docx)

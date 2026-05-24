@@ -20,6 +20,12 @@ export interface BrandTokens {
   toc: { title: string };
   meta: { showDescription: boolean };
   tables: { layout: "fixed" | "auto" };
+  /**
+   * Brand identity shown on the cover. Both fields are optional: a brand may
+   * have no logo, and the product name is omitted when absent. `logo` is a path
+   * (resolved and embedded at convert time); `productName` is plain text.
+   */
+  brand: { logo?: string; productName?: string };
 }
 
 // ---------------------------------------------------------------------------
@@ -54,6 +60,9 @@ export const DEFAULT_TOKENS: BrandTokens = {
   // content wrap, so a long unbreakable token can't force a column wider than the
   // page and clip the last column. "auto" reverts to content-driven sizing.
   tables: { layout: "fixed" },
+  // No logo or product name by default; the cover then shows just the title
+  // (plus any per-run version/date).
+  brand: {},
 };
 
 // ---------------------------------------------------------------------------
@@ -111,6 +120,14 @@ const partialTablesSchema = z
   .strict()
   .partial();
 
+const partialBrandSchema = z
+  .object({
+    logo: z.string(),
+    productName: z.string(),
+  })
+  .strict()
+  .partial();
+
 const partialThemeSchema = z
   .object({
     page: partialPageSchema,
@@ -119,6 +136,7 @@ const partialThemeSchema = z
     toc: partialTocSchema,
     meta: partialMetaSchema,
     tables: partialTablesSchema,
+    brand: partialBrandSchema,
   })
   .strict()
   .partial();
@@ -178,6 +196,7 @@ function applyOverrides(partial: PartialTheme): BrandTokens {
     toc: mergeSection(DEFAULT_TOKENS.toc, partial.toc ?? {}),
     meta: mergeSection(DEFAULT_TOKENS.meta, partial.meta ?? {}),
     tables: mergeSection(DEFAULT_TOKENS.tables, partial.tables ?? {}),
+    brand: mergeSection(DEFAULT_TOKENS.brand, partial.brand ?? {}),
   };
 }
 

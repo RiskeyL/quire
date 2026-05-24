@@ -13,6 +13,8 @@ export async function htmlToDocx(
     referenceDoc?: string;
     frontMatterBreak?: boolean;
     updateFields?: boolean;
+    /** Relocate the cover ahead of the TOC and drop Pandoc's auto Title para. */
+    moveCover?: boolean;
   }
 ): Promise<void> {
   await assertBinary("pandoc", "Install it with: brew install pandoc");
@@ -31,10 +33,11 @@ export async function htmlToDocx(
     // Post-process the generated docx in a single zip pass: split the front
     // matter into its own header/footerless section, and/or flag fields for
     // update so Word populates the TOC on open.
-    if (options?.frontMatterBreak || options?.updateFields) {
+    if (options?.frontMatterBreak || options?.updateFields || options?.moveCover) {
       await applyDocxPostProcessing(outPath, {
         frontMatterBreak: options?.frontMatterBreak ?? false,
         updateFields: options?.updateFields ?? false,
+        moveCover: options?.moveCover ?? false,
       });
     }
   } catch (err) {
@@ -121,6 +124,66 @@ export function enableUpdateFields(settingsXml: string): string {
   );
 }
 
+/** Remove the first `<w:p>…</w:p>` paragraph whose pStyle matches `styleMarker`. */
+function removeParagraphByStyle(xml: string, styleMarker: string): string {
+  const idx = xml.indexOf(styleMarker);
+  if (idx === -1) return xml;
+  const open = Math.max(xml.lastIndexOf("<w:p>", idx), xml.lastIndexOf("<w:p ", idx));
+  if (open === -1) return xml;
+  const close = xml.indexOf("</w:p>", idx);
+  if (close === -1) return xml;
+  return xml.slice(0, open) + xml.slice(close + "</w:p>".length);
+}
+
+/**
+ * Move the cover to the front of the document so it precedes the table of
+ * contents in the Word output.
+ *
+ * Pandoc emits, in order: a metadata Title paragraph (from the HTML `<title>`),
+ * the TOC (a `<w:sdt>` block), then the body. The cover is authored as a
+ * `custom-style="Quire Cover"` div, so its paragraphs carry `pStyle="QuireCover"`
+ * and land in the body, AFTER the TOC. This relocates the contiguous run of
+ * cover paragraphs to the very top of `<w:body>`, drops Pandoc's now-redundant
+ * Title paragraph (the manual title lives on the cover; `dc:title` in core.xml is
+ * untouched), and adds a page break so the cover occupies its own page. The
+ * subsequent `insertFrontMatterSection` then makes the cover + TOC the
+ * furniture-free front matter.
+ *
+ * Pure + best-effort: returns the input unchanged when there is no cover block or
+ * no `<w:body>`. Exported for unit testing.
+ */
+export function moveCoverToFront(documentXml: string): string {
+  const COVER_STYLE = 'w:val="QuireCover"';
+  const firstStyle = documentXml.indexOf(COVER_STYLE);
+  if (firstStyle === -1) return documentXml;
+  const lastStyle = documentXml.lastIndexOf(COVER_STYLE);
+
+  // Span the contiguous cover run: from the <w:p> opening the first cover
+  // paragraph to the </w:p> closing the last one.
+  const coverStart = Math.max(
+    documentXml.lastIndexOf("<w:p>", firstStyle),
+    documentXml.lastIndexOf("<w:p ", firstStyle)
+  );
+  if (coverStart === -1) return documentXml;
+  const lastClose = documentXml.indexOf("</w:p>", lastStyle);
+  if (lastClose === -1) return documentXml;
+  const coverEnd = lastClose + "</w:p>".length;
+
+  const coverBlock = documentXml.slice(coverStart, coverEnd);
+
+  // Remove the cover block, then Pandoc's auto Title paragraph (which sits before
+  // the cover, so removing the cover first does not shift its index).
+  let xml = documentXml.slice(0, coverStart) + documentXml.slice(coverEnd);
+  xml = removeParagraphByStyle(xml, 'w:val="Title"');
+
+  // Re-insert the cover (plus a page break) at the very start of the body.
+  const bodyOpen = xml.indexOf("<w:body>");
+  if (bodyOpen === -1) return documentXml;
+  const insertAt = bodyOpen + "<w:body>".length;
+  const pageBreak = `<w:p><w:r><w:br w:type="page" /></w:r></w:p>`;
+  return xml.slice(0, insertAt) + coverBlock + pageBreak + xml.slice(insertAt);
+}
+
 /**
  * Strip the base64 data: URIs that Pandoc copies into each picture's `descr`
  * (alt-text) attribute. When an `<img src="data:...">` has no `alt`, Pandoc both
@@ -147,7 +210,7 @@ export function stripDataUriDescriptions(documentXml: string): string {
  */
 async function applyDocxPostProcessing(
   docxPath: string,
-  opts: { frontMatterBreak: boolean; updateFields: boolean }
+  opts: { frontMatterBreak: boolean; updateFields: boolean; moveCover: boolean }
 ): Promise<void> {
   const zip = await JSZip.loadAsync(await readFile(docxPath));
   let changed = false;
@@ -156,6 +219,10 @@ async function applyDocxPostProcessing(
   if (docFile) {
     const xml = await docFile.async("string");
     let patched = stripDataUriDescriptions(xml);
+    // Relocate the cover before the front-matter split: the cover must already
+    // sit ahead of the TOC so the split (before the first Heading1) puts both in
+    // the furniture-free front-matter section.
+    if (opts.moveCover) patched = moveCoverToFront(patched);
     if (opts.frontMatterBreak) patched = insertFrontMatterSection(patched);
     if (patched !== xml) {
       zip.file("word/document.xml", patched);

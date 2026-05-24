@@ -218,9 +218,61 @@ const COVER_ID = "quire-cover";
  */
 const TOC_ID = "quire-toc";
 
-/** Render the document cover as an HTML fragment. */
-export function renderCover(title: string): string {
-  return `<section class="cover"><h1 class="doc-title" id="${COVER_ID}">${escapeHtml(title)}</h1></section>`;
+/** Cover metadata: the manual title plus optional brand and release fields. */
+export interface CoverMeta {
+  /** The manual/document title (always shown). */
+  title: string;
+  /** Brand product name shown above the title (omitted when blank). */
+  productName?: string;
+  /** Release/version label shown below the title (omitted when blank). */
+  version?: string;
+  /** Publish date shown below the version (omitted when blank). */
+  date?: string;
+  /** Embedded logo image as a `data:` URI (omitted when absent). */
+  logoDataUri?: string;
+  /**
+   * Render for Word rather than the PDF. The title becomes a styled paragraph
+   * (`.cover-title`) instead of an `<h1>`, and the whole cover carries
+   * `custom-style="Quire Cover"` so Pandoc stamps a paragraph style we can find
+   * and relocate. An `<h1>` would otherwise become a `Heading1` that pollutes
+   * the Word TOC and the running-header STYLEREF.
+   */
+  forWord?: boolean;
+}
+
+/** True when an optional cover field has visible content. */
+function hasText(value: string | undefined): value is string {
+  return value !== undefined && value.trim() !== "";
+}
+
+/**
+ * Render the document cover as an HTML fragment. The title always appears; the
+ * logo, product name, version, and date appear only when provided. The PDF and
+ * Word variants differ only in how the title is marked up (see `forWord`).
+ */
+export function renderCover(meta: CoverMeta): string {
+  const parts: string[] = [];
+  if (hasText(meta.logoDataUri)) {
+    parts.push(
+      `<p class="cover-logo"><img src="${meta.logoDataUri}" alt="${escapeHtml(meta.productName ?? "")}" /></p>`
+    );
+  }
+  if (hasText(meta.productName)) {
+    parts.push(`<p class="cover-product">${escapeHtml(meta.productName)}</p>`);
+  }
+  parts.push(
+    meta.forWord
+      ? `<p class="cover-title"><strong>${escapeHtml(meta.title)}</strong></p>`
+      : `<h1 class="doc-title" id="${COVER_ID}">${escapeHtml(meta.title)}</h1>`
+  );
+  if (hasText(meta.version)) {
+    parts.push(`<p class="cover-version">${escapeHtml(meta.version)}</p>`);
+  }
+  if (hasText(meta.date)) {
+    parts.push(`<p class="cover-date">${escapeHtml(meta.date)}</p>`);
+  }
+  const attrs = meta.forWord ? `class="cover" custom-style="Quire Cover"` : `class="cover"`;
+  return `<section ${attrs}>${parts.join("")}</section>`;
 }
 
 /** Derive a human-readable title from a page node. */
@@ -414,9 +466,25 @@ export function assembleDocument(
     tocTitle?: string;
     showDescription?: boolean;
     baseUrl?: string;
+    /** Optional cover metadata (product name, version, date, embedded logo). */
+    productName?: string;
+    version?: string;
+    date?: string;
+    logoDataUri?: string;
+    /** Render the cover for Word (title as a styled paragraph, not an `<h1>`). */
+    coverForWord?: boolean;
   }
 ): string {
-  const cover = options.cover ? renderCover(options.title) : "";
+  const cover = options.cover
+    ? renderCover({
+        title: options.title,
+        productName: options.productName,
+        version: options.version,
+        date: options.date,
+        logoDataUri: options.logoDataUri,
+        forWord: options.coverForWord,
+      })
+    : "";
   // Assemble the body first so the TOC can be built from its actual headings
   // (which carry ids from rehype-slug + structural-heading ids from walkTree).
   const body = assembleBody(tree, rendered, options.showDescription, options.baseUrl);

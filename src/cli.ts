@@ -30,11 +30,13 @@ program
   .option("--offline", "do not fetch remote images")
   .option("--theme <file>", "brand-token YAML file (colors, fonts, page size)")
   .option("--base-url <url>", "published-site base (e.g. https://docs.dify.ai); rewrites out-of-bundle /en/... links to live external URLs")
+  .option("--doc-version <version>", "release/version label printed on the cover")
+  .option("--date <date>", "publish date printed on the cover")
   .option("--no-description", "suppress the page-description lede (default: follows theme token meta.showDescription)")
   .option("-c, --config <file>", "run-config YAML supplying defaults; CLI flags override it")
   .action(async (
     paths: string[],
-    opts: { format: "pdf" | "docx" | "both"; out?: string; manifest?: string; dryRun?: boolean; title?: string; cover?: boolean; toc?: boolean; root?: string; offline?: boolean; theme?: string; description?: boolean; baseUrl?: string; config?: string },
+    opts: { format: "pdf" | "docx" | "both"; out?: string; manifest?: string; dryRun?: boolean; title?: string; cover?: boolean; toc?: boolean; root?: string; offline?: boolean; theme?: string; description?: boolean; baseUrl?: string; docVersion?: string; date?: string; config?: string },
     command: Command
   ) => {
     // A run-config file supplies defaults; an explicitly-set CLI flag wins over
@@ -59,6 +61,8 @@ program
       noToc: m.toc === false,
       description: m.description === false ? false : undefined,
       baseUrl: m.baseUrl as string | undefined,
+      docVersion: m.docVersion as string | undefined,
+      date: m.date as string | undefined,
     });
   });
 

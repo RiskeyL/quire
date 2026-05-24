@@ -2,7 +2,7 @@ import { describe, it, expect } from "vitest";
 import { readFile, mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { htmlToDocx, insertFrontMatterSection, enableUpdateFields, stripDataUriDescriptions } from "../../src/export/docx.js";
+import { htmlToDocx, insertFrontMatterSection, enableUpdateFields, stripDataUriDescriptions, moveCoverToFront } from "../../src/export/docx.js";
 import JSZip from "jszip";
 import { compileDocxReference } from "../../src/theme/compile-docx-ref.js";
 import type { BrandTokens } from "../../src/theme/tokens.js";
@@ -193,5 +193,59 @@ describe("insertFrontMatterSection", () => {
       '<w:p><w:pPr><w:pStyle w:val="Heading1" /></w:pPr><w:r><w:t>Ch</w:t></w:r></w:p>' +
       "</w:body></w:document>";
     expect(insertFrontMatterSection(noSect)).toBe(noSect);
+  });
+});
+
+describe("moveCoverToFront", () => {
+  // Mirrors the real Pandoc order: a metadata Title paragraph, then the TOC sdt,
+  // then the cover paragraphs (custom-style "Quire Cover" -> pStyle QuireCover),
+  // then the body Heading1s.
+  const doc =
+    "<w:document><w:body>" +
+    '<w:p><w:pPr><w:pStyle w:val="Title" /></w:pPr><w:r><w:t>My Manual</w:t></w:r></w:p>' +
+    "<w:sdt><w:sdtContent>" +
+    '<w:p><w:pPr><w:pStyle w:val="TOCHeading" /></w:pPr><w:r><w:t>Contents</w:t></w:r></w:p>' +
+    "</w:sdtContent></w:sdt>" +
+    '<w:p><w:pPr><w:pStyle w:val="QuireCover" /></w:pPr><w:r><w:t>ACME</w:t></w:r></w:p>' +
+    '<w:p><w:pPr><w:pStyle w:val="QuireCover" /></w:pPr><w:r><w:t>My Manual</w:t></w:r></w:p>' +
+    '<w:p><w:pPr><w:pStyle w:val="QuireCover" /></w:pPr><w:r><w:t>v1.2.3</w:t></w:r></w:p>' +
+    '<w:p><w:pPr><w:pStyle w:val="Heading1" /></w:pPr><w:r><w:t>Chapter One</w:t></w:r></w:p>' +
+    "</w:body></w:document>";
+
+  it("moves the cover block ahead of the TOC", () => {
+    const out = moveCoverToFront(doc);
+    const firstCover = out.indexOf('w:val="QuireCover"');
+    const toc = out.indexOf("<w:sdt>");
+    expect(firstCover).toBeLessThan(toc);
+  });
+
+  it("removes Pandoc's auto Title paragraph", () => {
+    const out = moveCoverToFront(doc);
+    expect(out).not.toContain('w:val="Title"');
+    // All three cover paragraphs survive.
+    expect(out.match(/w:val="QuireCover"/g) ?? []).toHaveLength(3);
+  });
+
+  it("inserts a page break between the cover and the TOC", () => {
+    const out = moveCoverToFront(doc);
+    const pageBreak = out.indexOf('<w:br w:type="page"');
+    const lastCover = out.lastIndexOf('w:val="QuireCover"');
+    const toc = out.indexOf("<w:sdt>");
+    expect(lastCover).toBeLessThan(pageBreak);
+    expect(pageBreak).toBeLessThan(toc);
+  });
+
+  it("keeps the body Heading1 after the TOC", () => {
+    const out = moveCoverToFront(doc);
+    expect(out.indexOf("<w:sdt>")).toBeLessThan(out.indexOf('w:val="Heading1"'));
+  });
+
+  it("returns the input unchanged when there is no cover block", () => {
+    const noCover =
+      "<w:document><w:body>" +
+      '<w:p><w:pPr><w:pStyle w:val="Title" /></w:pPr><w:r><w:t>T</w:t></w:r></w:p>' +
+      '<w:p><w:pPr><w:pStyle w:val="Heading1" /></w:pPr><w:r><w:t>Ch</w:t></w:r></w:p>' +
+      "</w:body></w:document>";
+    expect(moveCoverToFront(noCover)).toBe(noCover);
   });
 });

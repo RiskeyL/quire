@@ -891,6 +891,35 @@ function buildStructural(): string {
 .cover > *:first-child { margin-top: 0; }
 .toc { break-after: page; }
 
+/* Cover title block: centered, pushed into the upper-middle of the page. A top
+   padding (rather than flex centering, which Paged.js handles unreliably) gives
+   a predictable position on both A4 and Letter. The logo, product name, version,
+   and date are optional; only the title is always present. */
+.cover { text-align: center; padding-top: 5cm; }
+.cover-logo { margin: 0 0 2em; }
+/* The global content rule sets img { display: block }, so center the logo with
+   auto side margins rather than relying on the cover's text-align. */
+.cover-logo img { display: block; margin: 0 auto; max-width: 48%; max-height: 6cm; }
+.cover-product {
+  font-family: var(--font-heading);
+  font-size: 1.3em;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--color-muted);
+  margin: 0 0 0.4em;
+}
+.cover .doc-title,
+.cover .cover-title {
+  font-family: var(--font-heading);
+  font-size: 2.6em;
+  line-height: 1.15;
+  font-weight: 700;
+  color: var(--color-heading);
+  margin: 0.3em 0;
+}
+.cover-version { font-size: 1.15em; color: var(--color-muted); margin: 1.2em 0 0; }
+.cover-date { font-size: 1em; color: var(--color-muted); margin: 0.3em 0 0; }
+
 /* Each top-level (depth-0) chapter starts on a fresh page. Only depth-0
    structural headings carry .chapter-start (set in walkTree); nested
    sections/pages do not, so sub-content flows continuously. The body's first

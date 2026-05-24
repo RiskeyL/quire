@@ -31,6 +31,21 @@ describe("parseTheme", () => {
     expect(result.toc.title).toBe(DEFAULT_TOKENS.toc.title);
   });
 
+  it("parses a brand group with logo and productName", () => {
+    const result = parseTheme("brand:\n  logo: ./logo.png\n  productName: Dify\n");
+    expect(result.brand).toEqual({ logo: "./logo.png", productName: "Dify" });
+  });
+
+  it("brand defaults to an empty object", () => {
+    expect(parseTheme("").brand).toEqual({});
+    expect(DEFAULT_TOKENS.brand).toEqual({});
+  });
+
+  it("brand accepts productName alone (logo optional)", () => {
+    const result = parseTheme("brand:\n  productName: Dify\n");
+    expect(result.brand).toEqual({ productName: "Dify" });
+  });
+
   it("partial override: typography.lineHeight only", () => {
     const result = parseTheme("typography:\n  lineHeight: 1.8\n");
     expect(result.typography.lineHeight).toBe(1.8);

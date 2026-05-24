@@ -21,6 +21,17 @@ const runConfigSchema = z
     theme: z.string().optional(),
     description: z.boolean().optional(),
     baseUrl: z.string().optional(),
+    // YAML auto-types unquoted scalars: `1.14` parses as a number and a bare
+    // `2026-05-25` as a Date. Accept those and normalize to a string so the user
+    // need not remember to quote the cover's version/date.
+    docVersion: z
+      .union([z.string(), z.number()])
+      .transform((v) => String(v))
+      .optional(),
+    date: z
+      .union([z.string(), z.date()])
+      .transform((v) => (typeof v === "string" ? v : v.toISOString().slice(0, 10)))
+      .optional(),
   })
   .strict();
 
@@ -39,6 +50,8 @@ export const RUN_CONFIG_KEYS = [
   "theme",
   "description",
   "baseUrl",
+  "docVersion",
+  "date",
 ] as const;
 
 /** Convert zod issues into a single human-readable message (mirrors tokens.ts). */

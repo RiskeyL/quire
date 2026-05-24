@@ -24,6 +24,13 @@ typography:
 toc:
   title: "Contents"   # Heading text displayed above the table of contents (PDF only; Word uses Pandoc's native TOC, which supplies its own heading).
 
+# brand:
+#   logo: ./logo.png       # Cover logo. Path is relative to THIS theme file (or absolute). PNG/JPG render in both PDF and Word; SVG is reliable in the PDF but iffy in Word.
+#   productName: Dify      # Product name shown above the title on the cover (both formats). Omitted when unset.
+# The release version and publish date are per-run, not brand-level: pass
+#   --doc-version <v> and --date <d> (or set docVersion/date in a --config file).
+# They print on the cover only when provided (the date is never auto-filled).
+
 # tables:
 #   layout: fixed  # Table column sizing for BOTH the PDF and Word: "fixed" (default) gives every table equal-width columns (via an injected colgroup) so a long token can't crush its neighbours or clip the last column; "auto" sizes columns to content. Cell text wraps in both.
 

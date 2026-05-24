@@ -98,14 +98,51 @@ describe("assembleBody chapter-start on flat page lists", () => {
 
 describe("renderCover", () => {
   it("renders a cover section with the title", () => {
-    expect(renderCover("My Doc")).toContain('class="cover"');
-    expect(renderCover("My Doc")).toContain("My Doc");
+    expect(renderCover({ title: "My Doc" })).toContain('class="cover"');
+    expect(renderCover({ title: "My Doc" })).toContain("My Doc");
   });
 
   it("puts id=\"quire-cover\" on the cover h1 so the PDF outline can navigate to it", () => {
-    expect(renderCover("My Doc")).toContain('id="quire-cover"');
+    const html = renderCover({ title: "My Doc" });
+    expect(html).toContain('id="quire-cover"');
     // The id must be on the h1, not just somewhere in the output.
-    expect(renderCover("My Doc")).toContain('<h1 class="doc-title" id="quire-cover">');
+    expect(html).toContain('<h1 class="doc-title" id="quire-cover">');
+  });
+
+  it("renders product name, version, and date when provided", () => {
+    const html = renderCover({
+      title: "My Doc",
+      productName: "Dify",
+      version: "1.2.3",
+      date: "2026-05-25",
+    });
+    expect(html).toMatch(/class="cover-product"[^>]*>Dify</);
+    expect(html).toMatch(/class="cover-version"[^>]*>1\.2\.3</);
+    expect(html).toMatch(/class="cover-date"[^>]*>2026-05-25</);
+  });
+
+  it("omits product, version, and date when absent or blank", () => {
+    const html = renderCover({ title: "My Doc", productName: "  ", version: "" });
+    expect(html).not.toContain("cover-product");
+    expect(html).not.toContain("cover-version");
+    expect(html).not.toContain("cover-date");
+  });
+
+  it("embeds the logo image when a data URI is given", () => {
+    const html = renderCover({ title: "My Doc", logoDataUri: "data:image/png;base64,AAA" });
+    expect(html).toMatch(/class="cover-logo"/);
+    expect(html).toContain('src="data:image/png;base64,AAA"');
+  });
+
+  it("escapes the title", () => {
+    expect(renderCover({ title: "A & B <x>" })).toContain("A &amp; B &lt;x&gt;");
+  });
+
+  it("for Word: title is a styled paragraph, not an h1, inside a custom-style cover", () => {
+    const html = renderCover({ title: "My Doc", forWord: true });
+    expect(html).toContain('custom-style="Quire Cover"');
+    expect(html).toContain('class="cover-title"');
+    expect(html).not.toContain("<h1");
   });
 });
 

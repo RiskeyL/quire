@@ -21,6 +21,13 @@ describe("parseRunConfig", () => {
     });
   });
 
+  it("accepts docVersion and date strings for the cover", () => {
+    expect(parseRunConfig("docVersion: 1.14.2\ndate: 2026-05-25")).toEqual({
+      docVersion: "1.14.2",
+      date: "2026-05-25",
+    });
+  });
+
   it("treats an empty or null document as an empty config", () => {
     expect(parseRunConfig("")).toEqual({});
     expect(parseRunConfig("# just a comment\n")).toEqual({});

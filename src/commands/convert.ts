@@ -1,6 +1,6 @@
 import { readFile, mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { basename, dirname, extname, join, resolve } from "node:path";
+import { basename, dirname, extname, isAbsolute, join, resolve } from "node:path";
 import { renderMdx } from "../render/mdx/render-mdx.js";
 import { resolveTitle } from "../render/mdx/title.js";
 import { stripPageChrome } from "../render/strip-chrome.js";
@@ -36,6 +36,10 @@ export interface ConvertOptions {
    * to in-document anchors.
    */
   baseUrl?: string;
+  /** Release/version label printed on the cover (omitted when absent). */
+  docVersion?: string;
+  /** Publish date printed on the cover (omitted when absent; never auto-filled). */
+  date?: string;
 }
 
 export async function runConvert(paths: string[], options: ConvertOptions): Promise<void> {
@@ -74,6 +78,18 @@ export async function runConvert(paths: string[], options: ConvertOptions): Prom
   // Resolve brand tokens up front: the per-page render loop needs tables.layout
   // to decide whether to inject fixed-width <colgroup>s into tables.
   const tokens = options.theme ? await loadTheme(options.theme) : DEFAULT_TOKENS;
+
+  // Embed the brand logo (if any) as a self-contained data URI for the cover.
+  // A relative path is resolved against the theme file's directory (where it is
+  // authored); an absolute path is used as-is. A missing/unreadable logo warns
+  // and is omitted rather than failing the run. (This reads the file directly
+  // rather than via embedImages, whose leading-"/" paths mean site-root-relative,
+  // which would mangle an absolute filesystem path.)
+  let logoDataUri: string | undefined;
+  if (tokens.brand.logo) {
+    const themeDir = options.theme ? dirname(resolve(options.theme)) : effectiveRoot;
+    logoDataUri = await embedLogo(tokens.brand.logo, themeDir);
+  }
 
   const rendered = new Map<string, string>();
   for (const page of pages) {
@@ -179,21 +195,31 @@ export async function runConvert(paths: string[], options: ConvertOptions): Prom
         tocTitle: tokens.toc.title,
         showDescription,
         baseUrl: options.baseUrl,
+        productName: tokens.brand.productName,
+        version: options.docVersion,
+        date: options.date,
+        logoDataUri,
       })
     : "";
+  // The Word cover is rendered with custom-style="Quire Cover" (coverForWord),
+  // then relocated ahead of Pandoc's TOC in post-processing (moveCoverToFront),
+  // which also drops Pandoc's metadata Title paragraph so the title is not
+  // duplicated. With --no-cover the cover is omitted and Pandoc's plain Title
+  // block stands in. The HTML still carries no inline TOC (toc:false); Pandoc
+  // builds the field-based TOC via --toc.
+  const wantCover = !options.noCover;
   const docxHtml = wantDocx
     ? assembleDocument(tree, rendered, {
         title: docTitle,
-        // Word uses Pandoc's metadata Title block (rendered from the HTML <title>,
-        // set by wrapHtmlDocument to docTitle) as the document title. An inline
-        // cover <h1> would duplicate that title AND, because Pandoc inserts its
-        // native --toc right after the metadata block, push the inline cover below
-        // the auto-TOC. Suppressing the cover here yields: Title, then TOC, then
-        // chapters. The PDF path keeps its dedicated cover page (cover: !options.noCover above).
-        cover: false,
+        cover: wantCover,
         toc: false,
         showDescription,
         baseUrl: options.baseUrl,
+        productName: tokens.brand.productName,
+        version: options.docVersion,
+        date: options.date,
+        logoDataUri,
+        coverForWord: true,
       })
     : "";
 
@@ -225,13 +251,16 @@ export async function runConvert(paths: string[], options: ConvertOptions): Prom
           // Flag fields for update so Word populates the (otherwise empty) TOC
           // field and its page numbers on open.
           updateFields: true,
+          // Relocate the cover ahead of the TOC (and drop Pandoc's auto Title
+          // para) when a cover was rendered.
+          moveCover: wantCover,
         });
       } catch (err) {
         if (err instanceof DocxReferenceError) {
           process.stderr.write(
             `Warning: could not apply brand to the Word output (${err.message}). Falling back to Pandoc defaults.\n`
           );
-          await htmlToDocx(docxHtml, `${base}.docx`, { toc: useToc, updateFields: true });
+          await htmlToDocx(docxHtml, `${base}.docx`, { toc: useToc, updateFields: true, moveCover: wantCover });
         } else {
           throw err;
         }
@@ -239,5 +268,40 @@ export async function runConvert(paths: string[], options: ConvertOptions): Prom
     } finally {
       await rm(refDir, { recursive: true, force: true });
     }
+  }
+}
+
+/** MIME type for a logo file, inferred from its extension (defaults to PNG). */
+function logoMime(ext: string): string {
+  switch (ext.toLowerCase()) {
+    case ".svg":
+      return "image/svg+xml";
+    case ".jpg":
+    case ".jpeg":
+      return "image/jpeg";
+    case ".gif":
+      return "image/gif";
+    case ".webp":
+      return "image/webp";
+    default:
+      return "image/png";
+  }
+}
+
+/**
+ * Read a brand logo and return it as a `data:` URI, or `undefined` (with a
+ * warning) when it cannot be read. A relative path resolves against `baseDir`
+ * (the theme file's directory); an absolute path is used as-is.
+ */
+async function embedLogo(logoPath: string, baseDir: string): Promise<string | undefined> {
+  const resolved = isAbsolute(logoPath) ? logoPath : resolve(baseDir, logoPath);
+  try {
+    const buf = await readFile(resolved);
+    return `data:${logoMime(extname(resolved))};base64,${buf.toString("base64")}`;
+  } catch {
+    process.stderr.write(
+      `Warning: could not read brand logo "${logoPath}"; the cover will omit it.\n`
+    );
+    return undefined;
   }
 }
