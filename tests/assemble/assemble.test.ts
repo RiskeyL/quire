@@ -126,6 +126,12 @@ describe("assembleDocument", () => {
     expect(html).not.toContain('class="cover"');
     expect(html).toContain("<title>My Title</title>"); // title still in <head>
   });
+
+  it("wraps the body in a .doc-body container (the PDF page-counter reset hook)", () => {
+    const html = assembleDocument(tree, rendered, { title: "My Title", cover: true });
+    expect(html).toContain('<div class="doc-body">');
+    expect(html).toContain("<p>body</p>"); // page content lives inside the wrapper
+  });
 });
 
 describe("assignAnchors", () => {

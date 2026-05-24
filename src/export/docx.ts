@@ -38,7 +38,8 @@ export async function htmlToDocx(
 
 /**
  * Make the cover/TOC front matter a separate Word section with NO running
- * header/footer, so the furniture only appears from the body.
+ * header/footer (so the furniture only appears from the body) and restart the
+ * body section's page numbering at 1 (the cover/TOC are unnumbered front matter).
  *
  * Word headers/footers are per-section, but Pandoc emits a single section, so
  * we split the document: insert a section break (a `<w:sectPr>` carrying the
@@ -59,12 +60,6 @@ export function insertFrontMatterSection(documentXml: string): string {
   )?.[0];
   if (!bodySectPr) return documentXml;
 
-  // Front-matter section = body section minus the header/footer references.
-  // (A first section with no header/footer reference shows neither in Word.)
-  const frontMatterSectPr = bodySectPr
-    .replace(/<w:headerReference\b[^>]*\/>/g, "")
-    .replace(/<w:footerReference\b[^>]*\/>/g, "");
-
   // Insert the break before the paragraph that opens the first Heading1 (the
   // first body chapter). TOC entries use TOC1/TOC2 styles and the title uses the
   // Title style, so the first Heading1 is reliably the first body content.
@@ -78,8 +73,25 @@ export function insertFrontMatterSection(documentXml: string): string {
   );
   if (pOpen === -1) return documentXml;
 
+  // Front-matter section = body section minus the header/footer references, so
+  // the cover/TOC show no furniture. It keeps default numbering (its pages are
+  // unnumbered because there is no footer, so this is moot).
+  const frontMatterSectPr = bodySectPr
+    .replace(/<w:headerReference\b[^>]*\/>/g, "")
+    .replace(/<w:footerReference\b[^>]*\/>/g, "");
+
+  // Body section: restart page numbering at 1, so the first body page shows "1"
+  // (the cover/TOC are unnumbered front matter). pgNumType is appended before
+  // </w:sectPr>; Word reads sectPr children order-independently.
+  const bodySectPrNumbered = bodySectPr.includes("<w:pgNumType")
+    ? bodySectPr
+    : bodySectPr.replace("</w:sectPr>", '<w:pgNumType w:start="1" /></w:sectPr>');
+
+  // The body sectPr sits after the first Heading1, so swapping it does not shift
+  // pOpen. Apply the numbering change, then insert the front-matter break.
+  const numbered = documentXml.replace(bodySectPr, bodySectPrNumbered);
   const breakPara = `<w:p><w:pPr>${frontMatterSectPr}</w:pPr></w:p>`;
-  return documentXml.slice(0, pOpen) + breakPara + documentXml.slice(pOpen);
+  return numbered.slice(0, pOpen) + breakPara + numbered.slice(pOpen);
 }
 
 /** Apply {@link insertFrontMatterSection} to the generated docx in place. */

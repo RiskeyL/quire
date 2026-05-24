@@ -109,6 +109,16 @@ describe("insertFrontMatterSection", () => {
     expect(bodySect).toContain("headerReference");
   });
 
+  it("restarts the body section's page numbering at 1 (front matter keeps default)", () => {
+    const out = insertFrontMatterSection(doc(bodySectPr));
+    // The body (final) section restarts numbering at 1.
+    const bodySect = out.slice(out.lastIndexOf("<w:sectPr"));
+    expect(bodySect).toContain('<w:pgNumType w:start="1" />');
+    // The front-matter section has no pgNumType (its pages are unnumbered anyway).
+    const frontSect = out.slice(out.indexOf("<w:sectPr"), out.indexOf("</w:sectPr>") + 11);
+    expect(frontSect).not.toContain("pgNumType");
+  });
+
   it("returns the input unchanged when there is no Heading1", () => {
     const noH1 =
       "<w:document><w:body>" +

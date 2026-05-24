@@ -121,7 +121,14 @@ function buildPageFurniture(): string {
   @top-left { content: none; }
   @top-right { content: none; }
   @bottom-center { content: none; }
-}`;
+}
+
+/* The body restarts page numbering at 1: the cover and TOC are unnumbered front
+   matter. .doc-body wraps the body (see assembleDocument) and begins on a fresh
+   page after the TOC's break-after, so resetting the page counter here makes the
+   first body page "1". The TOC's target-counter entries then resolve to these
+   body-relative numbers. */
+.doc-body { counter-reset: page 1; }`;
 }
 
 function buildElements(): string {

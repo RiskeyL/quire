@@ -349,7 +349,17 @@ export function assembleDocument(
   const toc = options.toc
     ? buildTocFromHeadings(body, { title: options.tocTitle ?? "Contents" })
     : "";
-  return wrapHtmlDocument(cover + toc + body, options.title, options.css);
+  // Wrap the body so the PDF can restart page numbering at 1 here: the cover and
+  // TOC are unnumbered front matter, and `.doc-body { counter-reset: page }`
+  // (see compile-css) resets the page counter where this wrapper begins. The
+  // wrapper is inert in Word (Pandoc emits its contents); the Word body section
+  // restarts numbering via pgNumType instead. The TOC is built from the unwrapped
+  // body above, so the wrapper does not affect heading scanning.
+  return wrapHtmlDocument(
+    cover + toc + `<div class="doc-body">${body}</div>`,
+    options.title,
+    options.css
+  );
 }
 
 function walkTree(

@@ -151,6 +151,12 @@ describe("compileCss", () => {
       expect(tocBlock).toMatch(/@top-right\s*\{[^}]*content:\s*none/);
       expect(tocBlock).toMatch(/@bottom-center\s*\{[^}]*content:\s*none/);
     });
+
+    it("restarts page numbering at the body via .doc-body { counter-reset: page 1 }", () => {
+      expect(compileCss(DEFAULT_TOKENS)).toMatch(
+        /\.doc-body\s*\{[^}]*counter-reset:\s*page\s+1/
+      );
+    });
   });
 
   describe("default tokens: token-driven body rules use custom properties", () => {
