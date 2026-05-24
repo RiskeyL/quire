@@ -139,6 +139,18 @@ describe("compileCss", () => {
       expect(coverBlock).toMatch(/@top-right\s*\{[^}]*content:\s*none/);
       expect(coverBlock).toMatch(/@bottom-center\s*\{[^}]*content:\s*none/);
     });
+
+    it("gives the TOC its own named page that suppresses the furniture", () => {
+      const css = compileCss(DEFAULT_TOKENS);
+      expect(css).toMatch(/\.toc[^{]*\{[^}]*page:\s*toc/);
+      expect(css).toContain("@page toc");
+      // All three margin boxes are emptied on the TOC, like the cover, so the
+      // running header/footer only appears from the body.
+      const tocBlock = css.slice(css.indexOf("@page toc"));
+      expect(tocBlock).toMatch(/@top-left\s*\{[^}]*content:\s*none/);
+      expect(tocBlock).toMatch(/@top-right\s*\{[^}]*content:\s*none/);
+      expect(tocBlock).toMatch(/@bottom-center\s*\{[^}]*content:\s*none/);
+    });
   });
 
   describe("default tokens: token-driven body rules use custom properties", () => {

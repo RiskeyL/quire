@@ -106,9 +106,18 @@ function buildPageFurniture(): string {
   @bottom-center { content: counter(page); font-size: 9pt; color: #6b7280; }
 }
 
-/* The cover gets its own named page so the furniture is suppressed there. */
+/* The cover and the TOC are front matter: each gets its own named page that
+   suppresses the running header/footer, so the furniture only starts on the
+   body pages. The page counter still increments on these pages (it is just not
+   printed), so body page numbers stay continuous with their physical position. */
 .cover { page: cover; }
 @page cover {
+  @top-left { content: none; }
+  @top-right { content: none; }
+  @bottom-center { content: none; }
+}
+.toc { page: toc; }
+@page toc {
   @top-left { content: none; }
   @top-right { content: none; }
   @bottom-center { content: none; }

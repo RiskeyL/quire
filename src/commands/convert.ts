@@ -206,7 +206,14 @@ export async function runConvert(paths: string[], options: ConvertOptions): Prom
         // Thread docTitle so the Word running header shows the document title
         // (flush-left), mirroring the PDF's @top-left furniture.
         await compileDocxReference(tokens, refPath, { docTitle });
-        await htmlToDocx(docxHtml, `${base}.docx`, { toc: useToc, referenceDoc: refPath });
+        // frontMatterBreak splits the Title block + TOC into a header/footerless
+        // first section, so the running header/footer (from the reference doc)
+        // only appears from the body. Mirrors the PDF's named-page suppression.
+        await htmlToDocx(docxHtml, `${base}.docx`, {
+          toc: useToc,
+          referenceDoc: refPath,
+          frontMatterBreak: true,
+        });
       } catch (err) {
         if (err instanceof DocxReferenceError) {
           process.stderr.write(
