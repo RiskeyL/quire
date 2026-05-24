@@ -6,6 +6,7 @@ import { resolveTitle } from "../render/mdx/title.js";
 import { stripPageChrome } from "../render/strip-chrome.js";
 import { embedImages } from "../render/images.js";
 import { renderMermaid } from "../render/mermaid.js";
+import { setTableColumnWidths } from "../render/tables.js";
 import { htmlToPdf } from "../export/pdf.js";
 import { htmlToDocx } from "../export/docx.js";
 import { loadManifest } from "../resolve/manifest.js";
@@ -63,6 +64,10 @@ export async function runConvert(paths: string[], options: ConvertOptions): Prom
   // Priority: explicit --root option > manifest directory > cwd.
   const effectiveRoot = resolve(options.root ?? manifestDir ?? process.cwd());
 
+  // Resolve brand tokens up front: the per-page render loop needs tables.layout
+  // to decide whether to inject fixed-width <colgroup>s into tables.
+  const tokens = options.theme ? await loadTheme(options.theme) : DEFAULT_TOKENS;
+
   const rendered = new Map<string, string>();
   for (const page of pages) {
     const resolvedPath = manifestDir
@@ -109,7 +114,15 @@ export async function runConvert(paths: string[], options: ConvertOptions): Prom
     const html = await renderMermaid(withImages, {
       warn: (msg) => process.stderr.write(`${msg}\n`),
     });
-    rendered.set(page.file, html);
+
+    // With tables.layout "fixed" (default), give every table an equal-width
+    // <colgroup>. This makes BOTH outputs use fixed, evenly-distributed columns:
+    // Chromium honors the widths under `table-layout: fixed`, and Pandoc emits a
+    // fixed-layout docx table with equal gridCols. Without it, Word's autofit
+    // starves a column to a sliver when another holds a long unbreakable token.
+    const withTables =
+      tokens.tables.layout === "fixed" ? setTableColumnWidths(html) : html;
+    rendered.set(page.file, withTables);
   }
 
   // Determine document title.
@@ -141,17 +154,6 @@ export async function runConvert(paths: string[], options: ConvertOptions): Prom
     const resolvedFirst = resolve(pages[0].file);
     base = join(dirname(resolvedFirst), "document");
   }
-
-  // Resolve brand tokens — use user-supplied theme file when provided, otherwise defaults.
-  // Note on tables.layout: this token governs the PDF only (compileCss emits
-  // `table-layout: <layout>`). It does NOT need to touch the Word path. Pandoc
-  // emits docx tables as tblW type="auto" with no explicit <w:tblLayout>, so Word
-  // applies its default autofit algorithm: it fits the table to the page text
-  // column and WRAPS cell text within each column. Verified empirically against
-  // the env-vars table (gridCols sum 7920 twips inside a 9638-twip A4 text column;
-  // the long worker-class token wraps, the Description column is not truncated).
-  // So no fragile per-table docx post-processing is added — Word wraps by default.
-  const tokens = options.theme ? await loadTheme(options.theme) : DEFAULT_TOKENS;
 
   // PDF gets an inline HTML TOC with target-counter page numbers; Word gets a
   // Pandoc-native TOC via --toc instead (no inline nav in the docx HTML).

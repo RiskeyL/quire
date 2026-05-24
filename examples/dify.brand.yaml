@@ -17,7 +17,7 @@ colors:
 typography:
   bodyFont: "Georgia, 'Times New Roman', serif"      # Body font stack — PDF uses full stack; Word uses the first family name
   headingFont: "Helvetica, Arial, sans-serif"        # Heading font stack — PDF and Word heading styles
-  monoFont: "'SFMono-Regular', Consolas, monospace"  # Code/pre font stack — PDF and Word VerbatimChar style
+  monoFont: "Consolas, 'SF Mono', Menlo, monospace"  # Code/pre font stack. Consolas leads so Word's VerbatimChar resolves a real mono; the PDF (Chromium) falls through to SF Mono / Menlo.
   baseSize: "11pt"    # Base body font size — PDF (CSS font-size) and Word (docDefaults sz)
   lineHeight: 1.5     # Body line height — PDF only (Word uses its own paragraph spacing)
 
@@ -25,7 +25,7 @@ toc:
   title: "Contents"   # Heading text displayed above the table of contents (PDF only; Word uses Pandoc's native TOC, which supplies its own heading).
 
 # tables:
-#   layout: fixed  # Table column sizing in the PDF: "fixed" (default) spreads columns evenly so a long token can't widen a column past the page edge and clip the last column; "auto" sizes columns to content. Cell content wraps in both layouts. PDF only; Word wraps cell text within the page by default.
+#   layout: fixed  # Table column sizing for BOTH the PDF and Word: "fixed" (default) gives every table equal-width columns (via an injected colgroup) so a long token can't crush its neighbours or clip the last column; "auto" sizes columns to content. Cell text wraps in both.
 
 # meta:
 #   showDescription: true  # Render each page's frontmatter description as a visible lede beneath its title. Override per run with --no-description.
