@@ -2,6 +2,7 @@
 import { Command, Option } from "commander";
 import { createRequire } from "node:module";
 import { runConvert } from "./commands/convert.js";
+import { runInit } from "./commands/init.js";
 import { loadRunConfig, mergeRunConfig } from "./commands/run-config.js";
 
 const require = createRequire(import.meta.url);
@@ -59,6 +60,15 @@ program
       description: m.description === false ? false : undefined,
       baseUrl: m.baseUrl as string | undefined,
     });
+  });
+
+program
+  .command("init")
+  .description("Scaffold a starter manifest by scanning a docs folder")
+  .argument("[dir]", "directory to scan for .md/.mdx files", ".")
+  .option("-o, --out <file>", "write the manifest to a file (default: stdout)")
+  .action(async (dir: string, opts: { out?: string }) => {
+    await runInit(dir, { out: opts.out });
   });
 
 await program.parseAsync();
