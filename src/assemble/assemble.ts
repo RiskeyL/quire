@@ -231,11 +231,14 @@ export interface CoverMeta {
   /** Embedded logo image as a `data:` URI (omitted when absent). */
   logoDataUri?: string;
   /**
-   * Render for Word rather than the PDF. The title becomes a styled paragraph
-   * (`.cover-title`) instead of an `<h1>`, and the whole cover carries
-   * `custom-style="Quire Cover"` so Pandoc stamps a paragraph style we can find
-   * and relocate. An `<h1>` would otherwise become a `Heading1` that pollutes
-   * the Word TOC and the running-header STYLEREF.
+   * Render for Word rather than the PDF. Each cover element becomes its own
+   * paragraph wrapped in a div carrying a per-element `custom-style`
+   * (`Quire Cover Logo`/`Product`/`Title`/`Version`/`Date`), so Pandoc stamps a
+   * distinct paragraph style on each line and Word can size them into a real
+   * hierarchy. The title is a styled paragraph, never an `<h1>` (an `<h1>` would
+   * become a `Heading1` that pollutes the Word TOC and the running-header
+   * STYLEREF). All five styles share the `QuireCover` prefix, so the export step
+   * can find and relocate the contiguous run (see `moveCoverToFront`).
    */
   forWord?: boolean;
 }
@@ -247,32 +250,59 @@ function hasText(value: string | undefined): value is string {
 
 /**
  * Render the document cover as an HTML fragment. The title always appears; the
- * logo, product name, version, and date appear only when provided. The PDF and
- * Word variants differ only in how the title is marked up (see `forWord`).
+ * logo, product name, version, and date appear only when provided.
+ *
+ * For Word (`forWord`), each present element is wrapped in a div carrying its
+ * own `custom-style` so Pandoc stamps a distinct paragraph style per line, which
+ * `compile-docx-ref` defines with a size hierarchy. For the PDF, the elements are
+ * plain `<p>`s (the title an `<h1 id="quire-cover">` for the PDF outline), styled
+ * by the cover CSS in `compile-css`.
  */
 export function renderCover(meta: CoverMeta): string {
+  const w = meta.forWord === true;
   const parts: string[] = [];
   if (hasText(meta.logoDataUri)) {
+    const img = `<img src="${meta.logoDataUri}" alt="${escapeHtml(meta.productName ?? "")}" />`;
     parts.push(
-      `<p class="cover-logo"><img src="${meta.logoDataUri}" alt="${escapeHtml(meta.productName ?? "")}" /></p>`
+      w
+        ? `<div class="cover-logo" custom-style="Quire Cover Logo"><p>${img}</p></div>`
+        : `<p class="cover-logo">${img}</p>`
     );
   }
   if (hasText(meta.productName)) {
-    parts.push(`<p class="cover-product">${escapeHtml(meta.productName)}</p>`);
+    const t = escapeHtml(meta.productName);
+    parts.push(
+      w
+        ? `<div class="cover-product" custom-style="Quire Cover Product"><p>${t}</p></div>`
+        : `<p class="cover-product">${t}</p>`
+    );
   }
+  // The title is always present.
+  const titleText = escapeHtml(meta.title);
   parts.push(
-    meta.forWord
-      ? `<p class="cover-title"><strong>${escapeHtml(meta.title)}</strong></p>`
-      : `<h1 class="doc-title" id="${COVER_ID}">${escapeHtml(meta.title)}</h1>`
+    w
+      ? `<div class="cover-title" custom-style="Quire Cover Title"><p>${titleText}</p></div>`
+      : `<h1 class="doc-title" id="${COVER_ID}">${titleText}</h1>`
   );
   if (hasText(meta.version)) {
-    parts.push(`<p class="cover-version">${escapeHtml(meta.version)}</p>`);
+    const t = escapeHtml(meta.version);
+    parts.push(
+      w
+        ? `<div class="cover-version" custom-style="Quire Cover Version"><p>${t}</p></div>`
+        : `<p class="cover-version">${t}</p>`
+    );
   }
   if (hasText(meta.date)) {
-    parts.push(`<p class="cover-date">${escapeHtml(meta.date)}</p>`);
+    const t = escapeHtml(meta.date);
+    parts.push(
+      w
+        ? `<div class="cover-date" custom-style="Quire Cover Date"><p>${t}</p></div>`
+        : `<p class="cover-date">${t}</p>`
+    );
   }
-  const attrs = meta.forWord ? `class="cover" custom-style="Quire Cover"` : `class="cover"`;
-  return `<section ${attrs}>${parts.join("")}</section>`;
+  // The section itself carries no custom-style: in the Word path each child div
+  // applies its own, and a bare wrapper style would have nothing to attach to.
+  return `<section class="cover">${parts.join("")}</section>`;
 }
 
 /** Derive a human-readable title from a page node. */

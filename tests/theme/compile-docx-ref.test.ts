@@ -198,6 +198,52 @@ describe("compileDocxReference", () => {
     }
   });
 
+  it("injects per-element cover styles (logo, product, title, version, date) with a size hierarchy", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "quire-cdr-cover-"));
+    const out = join(dir, "ref.docx");
+    try {
+      await compileDocxReference(CUSTOM_TOKENS, out);
+      const zip = await JSZip.loadAsync(await readFile(out));
+      const stylesXml = await zip.file("word/styles.xml")!.async("string");
+
+      // All five cover element styles must exist.
+      for (const id of [
+        "QuireCoverLogo",
+        "QuireCoverProduct",
+        "QuireCoverTitle",
+        "QuireCoverVersion",
+        "QuireCoverDate",
+      ]) {
+        expect(stylesXml).toContain(`w:styleId="${id}"`);
+      }
+
+      const styleBlock = (id: string) =>
+        stylesXml.match(
+          new RegExp(`<w:style[^>]*w:styleId="${id}"[^>]*>[\\s\\S]*?<\\/w:style>`)
+        )![0];
+
+      // The title is the largest line: bold, heading color (FF0000), centered.
+      const title = styleBlock("QuireCoverTitle");
+      expect(title).toContain("<w:b ");
+      expect(title).toContain('w:val="FF0000"');
+      expect(title).toContain('<w:jc w:val="center"');
+
+      // The product, version, and date lines are muted (6B7280) and smaller than
+      // the title, establishing the hierarchy.
+      const product = styleBlock("QuireCoverProduct");
+      expect(product).toContain('w:val="6B7280"');
+      const titleSz = Number(title.match(/<w:sz w:val="(\d+)"/)![1]);
+      const productSz = Number(product.match(/<w:sz w:val="(\d+)"/)![1]);
+      const versionSz = Number(styleBlock("QuireCoverVersion").match(/<w:sz w:val="(\d+)"/)![1]);
+      const dateSz = Number(styleBlock("QuireCoverDate").match(/<w:sz w:val="(\d+)"/)![1]);
+      expect(titleSz).toBeGreaterThan(productSz);
+      expect(productSz).toBeGreaterThanOrEqual(versionSz);
+      expect(versionSz).toBeGreaterThanOrEqual(dateSz);
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
+
   it("adds a header part with the doc title and a STYLEREF Heading 1 field", async () => {
     const dir = await mkdtemp(join(tmpdir(), "quire-cdr-hdr-"));
     const out = join(dir, "ref.docx");

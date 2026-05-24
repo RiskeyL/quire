@@ -140,20 +140,27 @@ function removeParagraphByStyle(xml: string, styleMarker: string): string {
  * contents in the Word output.
  *
  * Pandoc emits, in order: a metadata Title paragraph (from the HTML `<title>`),
- * the TOC (a `<w:sdt>` block), then the body. The cover is authored as a
- * `custom-style="Quire Cover"` div, so its paragraphs carry `pStyle="QuireCover"`
- * and land in the body, AFTER the TOC. This relocates the contiguous run of
- * cover paragraphs to the very top of `<w:body>`, drops Pandoc's now-redundant
- * Title paragraph (the manual title lives on the cover; `dc:title` in core.xml is
- * untouched), and adds a page break so the cover occupies its own page. The
- * subsequent `insertFrontMatterSection` then makes the cover + TOC the
- * furniture-free front matter.
+ * the TOC (a `<w:sdt>` block), then the body. The cover is authored as per-element
+ * `custom-style="Quire Cover …"` divs, so its paragraphs carry distinct
+ * `pStyle="QuireCover<Element>"` values (Logo/Product/Title/Version/Date) and land
+ * in the body, AFTER the TOC. This relocates the contiguous run of cover paragraphs
+ * to the very top of `<w:body>`, drops Pandoc's now-redundant Title paragraph (the
+ * manual title lives on the cover; `dc:title` in core.xml is untouched), and adds a
+ * page break so the cover occupies its own page. The subsequent
+ * `insertFrontMatterSection` then makes the cover + TOC the furniture-free front
+ * matter.
+ *
+ * The cover run is detected by the shared `w:val="QuireCover` style-id PREFIX, so
+ * it spans all the distinct per-element styles (and still matches the legacy
+ * single `QuireCover` style). The `w:val="Title"` removal uses an exact match
+ * (closing quote included), so it never catches the `QuireCoverTitle` line.
  *
  * Pure + best-effort: returns the input unchanged when there is no cover block or
  * no `<w:body>`. Exported for unit testing.
  */
 export function moveCoverToFront(documentXml: string): string {
-  const COVER_STYLE = 'w:val="QuireCover"';
+  // Style-id prefix shared by every cover paragraph (QuireCoverLogo, …Title, …).
+  const COVER_STYLE = 'w:val="QuireCover';
   const firstStyle = documentXml.indexOf(COVER_STYLE);
   if (firstStyle === -1) return documentXml;
   const lastStyle = documentXml.lastIndexOf(COVER_STYLE);

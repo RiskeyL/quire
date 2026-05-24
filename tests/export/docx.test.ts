@@ -198,38 +198,45 @@ describe("insertFrontMatterSection", () => {
 
 describe("moveCoverToFront", () => {
   // Mirrors the real Pandoc order: a metadata Title paragraph, then the TOC sdt,
-  // then the cover paragraphs (custom-style "Quire Cover" -> pStyle QuireCover),
-  // then the body Heading1s.
+  // then the cover paragraphs, then the body Heading1s. The cover now uses one
+  // per-element custom-style each (Quire Cover Product/Title/Version -> pStyle
+  // QuireCoverProduct/Title/Version), so the relocated run spans DISTINCT styles
+  // that share the "QuireCover" prefix, not a single repeated style.
   const doc =
     "<w:document><w:body>" +
     '<w:p><w:pPr><w:pStyle w:val="Title" /></w:pPr><w:r><w:t>My Manual</w:t></w:r></w:p>' +
     "<w:sdt><w:sdtContent>" +
     '<w:p><w:pPr><w:pStyle w:val="TOCHeading" /></w:pPr><w:r><w:t>Contents</w:t></w:r></w:p>' +
     "</w:sdtContent></w:sdt>" +
-    '<w:p><w:pPr><w:pStyle w:val="QuireCover" /></w:pPr><w:r><w:t>ACME</w:t></w:r></w:p>' +
-    '<w:p><w:pPr><w:pStyle w:val="QuireCover" /></w:pPr><w:r><w:t>My Manual</w:t></w:r></w:p>' +
-    '<w:p><w:pPr><w:pStyle w:val="QuireCover" /></w:pPr><w:r><w:t>v1.2.3</w:t></w:r></w:p>' +
+    '<w:p><w:pPr><w:pStyle w:val="QuireCoverProduct" /></w:pPr><w:r><w:t>ACME</w:t></w:r></w:p>' +
+    '<w:p><w:pPr><w:pStyle w:val="QuireCoverTitle" /></w:pPr><w:r><w:t>My Manual</w:t></w:r></w:p>' +
+    '<w:p><w:pPr><w:pStyle w:val="QuireCoverVersion" /></w:pPr><w:r><w:t>v1.2.3</w:t></w:r></w:p>' +
     '<w:p><w:pPr><w:pStyle w:val="Heading1" /></w:pPr><w:r><w:t>Chapter One</w:t></w:r></w:p>' +
     "</w:body></w:document>";
 
+  // Matches any cover paragraph style (QuireCoverProduct, QuireCoverTitle, ...).
+  const coverStyle = /w:val="QuireCover[A-Za-z]*"/g;
+
   it("moves the cover block ahead of the TOC", () => {
     const out = moveCoverToFront(doc);
-    const firstCover = out.indexOf('w:val="QuireCover"');
+    const firstCover = out.search(coverStyle);
     const toc = out.indexOf("<w:sdt>");
     expect(firstCover).toBeLessThan(toc);
   });
 
   it("removes Pandoc's auto Title paragraph", () => {
     const out = moveCoverToFront(doc);
+    // The metadata Title para is gone, but the QuireCoverTitle style (which only
+    // contains "Title" as a substring) must survive.
     expect(out).not.toContain('w:val="Title"');
-    // All three cover paragraphs survive.
-    expect(out.match(/w:val="QuireCover"/g) ?? []).toHaveLength(3);
+    // All three cover paragraphs survive, each with its own style.
+    expect(out.match(coverStyle) ?? []).toHaveLength(3);
   });
 
   it("inserts a page break between the cover and the TOC", () => {
     const out = moveCoverToFront(doc);
     const pageBreak = out.indexOf('<w:br w:type="page"');
-    const lastCover = out.lastIndexOf('w:val="QuireCover"');
+    const lastCover = [...out.matchAll(coverStyle)].at(-1)!.index;
     const toc = out.indexOf("<w:sdt>");
     expect(lastCover).toBeLessThan(pageBreak);
     expect(pageBreak).toBeLessThan(toc);

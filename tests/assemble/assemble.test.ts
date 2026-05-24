@@ -138,11 +138,37 @@ describe("renderCover", () => {
     expect(renderCover({ title: "A & B <x>" })).toContain("A &amp; B &lt;x&gt;");
   });
 
-  it("for Word: title is a styled paragraph, not an h1, inside a custom-style cover", () => {
-    const html = renderCover({ title: "My Doc", forWord: true });
-    expect(html).toContain('custom-style="Quire Cover"');
-    expect(html).toContain('class="cover-title"');
+  it("for Word: each present element is its own per-element custom-style paragraph, not an h1", () => {
+    const html = renderCover({
+      title: "My Doc",
+      productName: "Dify",
+      version: "v1.2.3",
+      date: "2026-05-25",
+      logoDataUri: "data:image/png;base64,AAA",
+      forWord: true,
+    });
+    // The title is a styled paragraph, never an h1 (an h1 would pollute the
+    // Word TOC and the running-header STYLEREF).
     expect(html).not.toContain("<h1");
+    expect(html).toContain('class="cover-title"');
+    // Each element carries its OWN custom-style so Word can size them distinctly
+    // (a single shared "Quire Cover" style cannot express a size hierarchy).
+    expect(html).toContain('custom-style="Quire Cover Logo"');
+    expect(html).toContain('custom-style="Quire Cover Product"');
+    expect(html).toContain('custom-style="Quire Cover Title"');
+    expect(html).toContain('custom-style="Quire Cover Version"');
+    expect(html).toContain('custom-style="Quire Cover Date"');
+    // No bare shared wrapper style.
+    expect(html).not.toMatch(/custom-style="Quire Cover"/);
+  });
+
+  it("for Word: emits a per-element style only for the fields that are present", () => {
+    const html = renderCover({ title: "My Doc", forWord: true });
+    expect(html).toContain('custom-style="Quire Cover Title"');
+    expect(html).not.toContain("Quire Cover Logo");
+    expect(html).not.toContain("Quire Cover Product");
+    expect(html).not.toContain("Quire Cover Version");
+    expect(html).not.toContain("Quire Cover Date");
   });
 });
 
