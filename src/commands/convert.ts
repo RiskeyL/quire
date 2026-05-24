@@ -29,6 +29,13 @@ export interface ConvertOptions {
   theme?: string;
   /** CLI override for the `meta.showDescription` token. `false` = `--no-description`; `undefined` = follow token. */
   description?: boolean;
+  /**
+   * Published-site base URL (e.g. `https://docs.dify.ai`). When set, site-absolute
+   * links (`/en/...`) to pages NOT in the bundle are rebuilt as live external URLs
+   * instead of being left as dead site-relative paths. In-bundle links still resolve
+   * to in-document anchors.
+   */
+  baseUrl?: string;
 }
 
 export async function runConvert(paths: string[], options: ConvertOptions): Promise<void> {
@@ -171,6 +178,7 @@ export async function runConvert(paths: string[], options: ConvertOptions): Prom
         css: compileCss(tokens),
         tocTitle: tokens.toc.title,
         showDescription,
+        baseUrl: options.baseUrl,
       })
     : "";
   const docxHtml = wantDocx
@@ -185,6 +193,7 @@ export async function runConvert(paths: string[], options: ConvertOptions): Prom
         cover: false,
         toc: false,
         showDescription,
+        baseUrl: options.baseUrl,
       })
     : "";
 

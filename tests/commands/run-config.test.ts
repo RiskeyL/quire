@@ -15,6 +15,12 @@ describe("parseRunConfig", () => {
     });
   });
 
+  it("accepts a baseUrl string", () => {
+    expect(parseRunConfig("baseUrl: https://docs.dify.ai")).toEqual({
+      baseUrl: "https://docs.dify.ai",
+    });
+  });
+
   it("treats an empty or null document as an empty config", () => {
     expect(parseRunConfig("")).toEqual({});
     expect(parseRunConfig("# just a comment\n")).toEqual({});

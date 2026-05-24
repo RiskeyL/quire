@@ -123,26 +123,43 @@ function resolveSiteAbsolute(
 }
 
 /**
+ * Join a base URL with a site-absolute path, avoiding a double slash. The base
+ * URL's trailing slash (if any) is stripped; `path` always starts with `/`, so
+ * the result is `<base><path>` with exactly one slash at the seam.
+ */
+function joinBaseUrl(baseUrl: string, path: string): string {
+  return baseUrl.replace(/\/+$/, "") + path;
+}
+
+/**
  * Rewrite cross-links in an HTML fragment so that links pointing to other
  * included pages resolve to in-document anchors (`#<anchor>`).
  *
  * Links that are absolute URLs, protocol-relative, `mailto:`/other schemes, or
  * pure-fragment (`#...`) are left unchanged. Site-absolute links (`/...`) are
- * resolved to a bundled page by suffix match (see `resolveSiteAbsolute`) and
- * left unchanged when no bundled page matches; relative links that target a page
- * not in the selection are likewise left unchanged.
+ * resolved to a bundled page by suffix match (see `resolveSiteAbsolute`); when
+ * no bundled page matches they are left unchanged, UNLESS `baseUrl` is set, in
+ * which case the site-absolute path (with its original query/fragment) is joined
+ * onto `baseUrl` to form a live external URL to the published site. Relative
+ * links that target a page not in the selection are left unchanged (they have no
+ * site path to rebuild against `baseUrl`).
  *
- * Original `#fragment` parts are dropped when a link is rewritten; intra-page
- * heading navigation within included pages is not preserved in v1.
+ * Original `#fragment` parts are dropped when a link is rewritten to an in-document
+ * anchor; intra-page heading navigation within included pages is not preserved in
+ * v1. When a site-absolute link is rebuilt onto `baseUrl`, its query/fragment ARE
+ * preserved (a heading anchor on the external page is still meaningful).
  *
  * @param html     The HTML fragment for one page.
  * @param fromFile The manifest-relative file path of the page being processed.
  * @param targets  The link-targets map produced by `buildLinkTargets`.
+ * @param baseUrl  Optional published-site base (e.g. `https://docs.dify.ai`);
+ *                 when set, out-of-bundle site-absolute links become external URLs.
  */
 export function rewriteCrossLinks(
   html: string,
   fromFile: string,
-  targets: Map<string, string>
+  targets: Map<string, string>,
+  baseUrl?: string
 ): string {
   const $ = cheerio.load(html, null, false);
   $("a[href]").each((_, el) => {
@@ -164,10 +181,16 @@ export function rewriteCrossLinks(
     if (pathPart === "") return;
 
     // Site-absolute: resolve to a bundled page by suffix match. Rewrite when a
-    // unique page matches; leave external/unmatched site links unchanged.
+    // unique page matches; otherwise, when baseUrl is set, rebuild it as a live
+    // external URL to the published site (preserving the original query/fragment
+    // in `raw`); else leave it unchanged.
     if (pathPart.startsWith("/")) {
       const anchor = resolveSiteAbsolute(pathPart, targets);
-      if (anchor !== undefined) $(el).attr("href", `#${anchor}`);
+      if (anchor !== undefined) {
+        $(el).attr("href", `#${anchor}`);
+      } else if (baseUrl !== undefined) {
+        $(el).attr("href", joinBaseUrl(baseUrl, raw));
+      }
       return;
     }
 
@@ -324,7 +347,8 @@ function renderTocList(entries: Array<{ tier: number; id: string; text: string }
 export function assembleBody(
   tree: Tree,
   rendered: Map<string, string>,
-  showDescription?: boolean
+  showDescription?: boolean,
+  baseUrl?: string
 ): string {
   const anchors = assignAnchors(tree);
   const targets = buildLinkTargets(tree, anchors);
@@ -332,7 +356,7 @@ export function assembleBody(
   // unique "quire-section-N" id. pagedjs uses these ids as PDF outline
   // destinations. The "quire-section-" prefix won't collide with page anchors
   // (filename slugs) as long as no file is literally named "section-N.md".
-  const body = walkTree(tree, rendered, anchors, targets, 0, { section: 0 }, showDescription);
+  const body = walkTree(tree, rendered, anchors, targets, 0, { section: 0 }, showDescription, baseUrl);
   return deduplicateIds(body);
 }
 
@@ -389,12 +413,13 @@ export function assembleDocument(
     css?: string;
     tocTitle?: string;
     showDescription?: boolean;
+    baseUrl?: string;
   }
 ): string {
   const cover = options.cover ? renderCover(options.title) : "";
   // Assemble the body first so the TOC can be built from its actual headings
   // (which carry ids from rehype-slug + structural-heading ids from walkTree).
-  const body = assembleBody(tree, rendered, options.showDescription);
+  const body = assembleBody(tree, rendered, options.showDescription, options.baseUrl);
   const toc = options.toc
     ? buildTocFromHeadings(body, { title: options.tocTitle ?? "Contents" })
     : "";
@@ -418,7 +443,8 @@ function walkTree(
   targets: Map<string, string>,
   depth: number,
   idState: { section: number },
-  showDescription?: boolean
+  showDescription?: boolean,
+  baseUrl?: string
 ): string {
   let out = "";
   for (const node of nodes) {
@@ -437,7 +463,7 @@ function walkTree(
       // (CSS `break-before: page` in the PDF). Nested sections/pages do not.
       const sectionClass = depth === 0 ? "chapter-heading chapter-start" : "chapter-heading";
       out += `<h${L} class="${sectionClass}" id="${sectionId}">${escapeHtml(node.title)}</h${L}>`;
-      out += walkTree(node.children, rendered, anchors, targets, depth + 1, idState, showDescription);
+      out += walkTree(node.children, rendered, anchors, targets, depth + 1, idState, showDescription, baseUrl);
     } else {
       // page node
       const L = Math.min(depth + 1, 6);
@@ -450,7 +476,7 @@ function walkTree(
       if (content === undefined) {
         throw new Error(`No rendered content for page "${node.file}".`);
       }
-      const linked = rewriteCrossLinks(content, node.file, targets);
+      const linked = rewriteCrossLinks(content, node.file, targets, baseUrl);
       // The anchor id moves to the page heading (not the <section> wrapper) so
       // pagedjs registers it as the PDF outline destination for this entry.
       // The TOC and cross-links already target "#anchor" — fragment resolution

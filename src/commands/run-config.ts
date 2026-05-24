@@ -20,6 +20,7 @@ const runConfigSchema = z
     offline: z.boolean().optional(),
     theme: z.string().optional(),
     description: z.boolean().optional(),
+    baseUrl: z.string().optional(),
   })
   .strict();
 
@@ -37,6 +38,7 @@ export const RUN_CONFIG_KEYS = [
   "offline",
   "theme",
   "description",
+  "baseUrl",
 ] as const;
 
 /** Convert zod issues into a single human-readable message (mirrors tokens.ts). */

@@ -304,6 +304,51 @@ describe("rewriteCrossLinks site-absolute resolution", () => {
   });
 });
 
+describe("rewriteCrossLinks with baseUrl", () => {
+  // Same bundle as the site-absolute suffix tests: one bundled page, plus
+  // out-of-bundle site-absolute links that only baseUrl can resolve.
+  const tree: Tree = [
+    { type: "page", file: "/repo/en/develop-plugin/dev-guides/tool-plugin.mdx" },
+  ];
+  const anchors = assignAnchors(tree);
+  const targets = buildLinkTargets(tree, anchors);
+  const from = "/repo/en/develop-plugin/dev-guides/tool-plugin.mdx";
+
+  it("rewrites an out-of-bundle site-absolute link to an absolute URL", () => {
+    const html = `<a href="/en/use-dify/workflow/overview">x</a>`;
+    const result = rewriteCrossLinks(html, from, targets, "https://docs.dify.ai");
+    expect(result).toContain(`href="https://docs.dify.ai/en/use-dify/workflow/overview"`);
+  });
+
+  it("preserves the fragment of an out-of-bundle link when joining baseUrl", () => {
+    const html = `<a href="/en/use-dify/workflow/overview#triggers">x</a>`;
+    const result = rewriteCrossLinks(html, from, targets, "https://docs.dify.ai");
+    expect(result).toContain(`href="https://docs.dify.ai/en/use-dify/workflow/overview#triggers"`);
+  });
+
+  it("strips a trailing slash from baseUrl so the join has no double slash", () => {
+    const html = `<a href="/en/use-dify/workflow/overview">x</a>`;
+    const result = rewriteCrossLinks(html, from, targets, "https://docs.dify.ai/");
+    expect(result).toContain(`href="https://docs.dify.ai/en/use-dify/workflow/overview"`);
+  });
+
+  it("still prefers an in-bundle anchor over baseUrl", () => {
+    const html = `<a href="/en/develop-plugin/dev-guides/tool-plugin">x</a>`;
+    const result = rewriteCrossLinks(html, from, targets, "https://docs.dify.ai");
+    const anchor = anchors.get("/repo/en/develop-plugin/dev-guides/tool-plugin.mdx");
+    expect(result).toContain(`href="#${anchor}"`);
+    expect(result).not.toContain("docs.dify.ai");
+  });
+
+  it("leaves relative out-of-bundle links untouched even when baseUrl is set", () => {
+    // baseUrl only rebuilds site-absolute paths; a bare relative link has no
+    // site path to append, so it stays as-is.
+    const html = `<a href="../other/page.md">x</a>`;
+    const result = rewriteCrossLinks(html, from, targets, "https://docs.dify.ai");
+    expect(result).toContain(`href="../other/page.md"`);
+  });
+});
+
 describe("assembleDocument with toc option", () => {
   const tree: Tree = [{ type: "page", file: "x.md", title: "X" }];
   const rendered = new Map([["x.md", "<p>body</p>"]]);
@@ -520,5 +565,29 @@ describe("assembleBody cross-link integration", () => {
 
     // The cross-link in a.md must point at b's anchor
     expect(html).toContain(`href="#${bAnchor}"`);
+  });
+
+  it("rebuilds out-of-bundle site-absolute links onto baseUrl when set", () => {
+    const tree: Tree = [{ type: "page", file: "a.md", title: "A" }];
+    const rendered = new Map([
+      ["a.md", `<p><a href="/en/use-dify/workflow/overview">WF</a></p>`],
+    ]);
+    const html = assembleBody(tree, rendered, undefined, "https://docs.dify.ai");
+    expect(html).toContain(`href="https://docs.dify.ai/en/use-dify/workflow/overview"`);
+  });
+});
+
+describe("assembleDocument with baseUrl option", () => {
+  it("rebuilds out-of-bundle site-absolute links onto baseUrl", () => {
+    const tree: Tree = [{ type: "page", file: "a.md", title: "A" }];
+    const rendered = new Map([
+      ["a.md", `<p><a href="/en/use-dify/workflow/overview">WF</a></p>`],
+    ]);
+    const html = assembleDocument(tree, rendered, {
+      title: "Doc",
+      cover: false,
+      baseUrl: "https://docs.dify.ai",
+    });
+    expect(html).toContain(`href="https://docs.dify.ai/en/use-dify/workflow/overview"`);
   });
 });
