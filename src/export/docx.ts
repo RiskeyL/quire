@@ -8,7 +8,12 @@ import { run, assertBinary } from "../util/exec.js";
 export async function htmlToDocx(
   html: string,
   outPath: string,
-  options?: { toc?: boolean; referenceDoc?: string; frontMatterBreak?: boolean }
+  options?: {
+    toc?: boolean;
+    referenceDoc?: string;
+    frontMatterBreak?: boolean;
+    updateFields?: boolean;
+  }
 ): Promise<void> {
   await assertBinary("pandoc", "Install it with: brew install pandoc");
   const dir = await mkdtemp(join(tmpdir(), "quire-html-"));
@@ -23,10 +28,14 @@ export async function htmlToDocx(
       args.push(`--reference-doc=${options.referenceDoc}`);
     }
     await run("pandoc", args);
-    // Split the front matter (Title block + TOC) into its own header/footerless
-    // Word section, so the running header/footer only appears from the body.
-    if (options?.frontMatterBreak) {
-      await applyFrontMatterSection(outPath);
+    // Post-process the generated docx in a single zip pass: split the front
+    // matter into its own header/footerless section, and/or flag fields for
+    // update so Word populates the TOC on open.
+    if (options?.frontMatterBreak || options?.updateFields) {
+      await applyDocxPostProcessing(outPath, {
+        frontMatterBreak: options?.frontMatterBreak ?? false,
+        updateFields: options?.updateFields ?? false,
+      });
     }
   } catch (err) {
     await rm(outPath, { force: true }).catch(() => {});
@@ -94,14 +103,63 @@ export function insertFrontMatterSection(documentXml: string): string {
   return numbered.slice(0, pOpen) + breakPara + numbered.slice(pOpen);
 }
 
-/** Apply {@link insertFrontMatterSection} to the generated docx in place. */
-async function applyFrontMatterSection(docxPath: string): Promise<void> {
+/**
+ * Flag the document's fields for update so Word recomputes them on open. Pandoc
+ * emits the TOC as an empty field (no cached page numbers) and a `PAGE`/STYLEREF
+ * header/footer with placeholder values; `<w:updateFields w:val="true"/>` in
+ * settings.xml makes Word offer to update them when the file is opened, so the
+ * TOC and its page numbers populate without the reader running "update field"
+ * manually. The element is inserted right after the `<w:settings>` root (Word
+ * reads settings.xml order-tolerantly). Idempotent (skips if already present)
+ * and best-effort (returns the input unchanged if there is no settings root).
+ */
+export function enableUpdateFields(settingsXml: string): string {
+  if (settingsXml.includes("<w:updateFields")) return settingsXml;
+  return settingsXml.replace(
+    /(<w:settings\b[^>]*>)/,
+    `$1<w:updateFields w:val="true" />`
+  );
+}
+
+/**
+ * Apply the post-pandoc patches to the generated docx in a single read/write
+ * zip pass (cheaper than reopening the archive per patch, which matters for
+ * large image-heavy documents): the front-matter section split on
+ * word/document.xml and/or the update-fields flag on word/settings.xml. Only
+ * rewrites the archive if something actually changed.
+ */
+async function applyDocxPostProcessing(
+  docxPath: string,
+  opts: { frontMatterBreak: boolean; updateFields: boolean }
+): Promise<void> {
   const zip = await JSZip.loadAsync(await readFile(docxPath));
-  const docFile = zip.file("word/document.xml");
-  if (!docFile) return;
-  const xml = await docFile.async("string");
-  const patched = insertFrontMatterSection(xml);
-  if (patched === xml) return; // no-op (no body sectPr or no Heading1)
-  zip.file("word/document.xml", patched);
-  await writeFile(docxPath, await zip.generateAsync({ type: "nodebuffer" }));
+  let changed = false;
+
+  if (opts.frontMatterBreak) {
+    const docFile = zip.file("word/document.xml");
+    if (docFile) {
+      const xml = await docFile.async("string");
+      const patched = insertFrontMatterSection(xml);
+      if (patched !== xml) {
+        zip.file("word/document.xml", patched);
+        changed = true;
+      }
+    }
+  }
+
+  if (opts.updateFields) {
+    const settingsFile = zip.file("word/settings.xml");
+    if (settingsFile) {
+      const xml = await settingsFile.async("string");
+      const patched = enableUpdateFields(xml);
+      if (patched !== xml) {
+        zip.file("word/settings.xml", patched);
+        changed = true;
+      }
+    }
+  }
+
+  if (changed) {
+    await writeFile(docxPath, await zip.generateAsync({ type: "nodebuffer" }));
+  }
 }

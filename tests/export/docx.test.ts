@@ -2,7 +2,8 @@ import { describe, it, expect } from "vitest";
 import { readFile, mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { htmlToDocx, insertFrontMatterSection } from "../../src/export/docx.js";
+import { htmlToDocx, insertFrontMatterSection, enableUpdateFields } from "../../src/export/docx.js";
+import JSZip from "jszip";
 import { compileDocxReference } from "../../src/theme/compile-docx-ref.js";
 import type { BrandTokens } from "../../src/theme/tokens.js";
 
@@ -64,6 +65,41 @@ describe("htmlToDocx", () => {
     expect(bytes.length).toBeGreaterThan(0);
     expect(bytes.subarray(0, 2).toString("latin1")).toBe("PK");
 
+    await rm(dir, { recursive: true, force: true });
+  });
+});
+
+describe("enableUpdateFields", () => {
+  it("inserts updateFields right after the settings root when absent", () => {
+    const xml =
+      '<?xml version="1.0"?><w:settings xmlns:w="x"><w:zoom w:percent="100" /></w:settings>';
+    const out = enableUpdateFields(xml);
+    expect(out).toContain('<w:updateFields w:val="true" />');
+    // It must sit before the first existing child so Word reads it.
+    expect(out.indexOf("<w:updateFields")).toBeLessThan(out.indexOf("<w:zoom"));
+  });
+
+  it("is idempotent (does not add a second element)", () => {
+    const xml =
+      '<w:settings xmlns:w="x"><w:updateFields w:val="true" /><w:zoom /></w:settings>';
+    expect(enableUpdateFields(xml)).toBe(xml);
+  });
+
+  it("returns the input unchanged when there is no settings root", () => {
+    const xml = "<w:notSettings />";
+    expect(enableUpdateFields(xml)).toBe(xml);
+  });
+});
+
+describe("htmlToDocx updateFields", () => {
+  it("bakes updateFields into settings.xml when requested", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "quire-docx-uf-"));
+    const out = join(dir, "out.docx");
+    const html = "<!doctype html><html><body><h1>A</h1><p>x</p></body></html>";
+    await htmlToDocx(html, out, { toc: true, updateFields: true });
+    const zip = await JSZip.loadAsync(await readFile(out));
+    const settings = await zip.file("word/settings.xml")!.async("string");
+    expect(settings).toContain('<w:updateFields w:val="true"');
     await rm(dir, { recursive: true, force: true });
   });
 });

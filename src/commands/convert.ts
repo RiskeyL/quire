@@ -213,13 +213,16 @@ export async function runConvert(paths: string[], options: ConvertOptions): Prom
           toc: useToc,
           referenceDoc: refPath,
           frontMatterBreak: true,
+          // Flag fields for update so Word populates the (otherwise empty) TOC
+          // field and its page numbers on open.
+          updateFields: true,
         });
       } catch (err) {
         if (err instanceof DocxReferenceError) {
           process.stderr.write(
             `Warning: could not apply brand to the Word output (${err.message}). Falling back to Pandoc defaults.\n`
           );
-          await htmlToDocx(docxHtml, `${base}.docx`, { toc: useToc });
+          await htmlToDocx(docxHtml, `${base}.docx`, { toc: useToc, updateFields: true });
         } else {
           throw err;
         }
