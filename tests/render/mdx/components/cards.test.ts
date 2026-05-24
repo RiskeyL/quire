@@ -72,13 +72,22 @@ describe("card/grid components", () => {
       expect(html).toMatch(/<a[^>]+href="\/x"[^>]*>Models<\/a>/);
     });
 
-    it("renders the href as visible text in a .card-href element", () => {
+    it("does not render a .card-href path for an internal href", () => {
+      // Internal paths (/x, ./x, ../x, x.md) become in-document anchors at
+      // assembly time, so surfacing the raw path as visible text is noise.
       const { html } = renderMdx(
         `<Card title="Models" href="/x">body</Card>`
       );
+      expect(html).not.toContain('class="card-href"');
+    });
+
+    it("renders the href as visible text in a .card-href element for an external URL", () => {
+      // A real external URL is genuinely useful on paper, so it is kept.
+      const { html } = renderMdx(
+        `<Card title="Docs" href="https://example.com/page">body</Card>`
+      );
       expect(html).toContain('class="card-href"');
-      // The href destination must appear as readable text
-      expect(html).toMatch(/class="card-href"[^>]*>\/x</);
+      expect(html).toMatch(/class="card-href"[^>]*>https:\/\/example\.com\/page</);
     });
 
     it("renders body content alongside the link", () => {
@@ -88,13 +97,12 @@ describe("card/grid components", () => {
       expect(html).toContain("body");
     });
 
-    it("renders the href and body but no title paragraph when href has no title", () => {
+    it("renders the body but no title paragraph and no internal href when href has no title", () => {
       const { html } = renderMdx(`<Card href="/x">body</Card>`);
       // No title means no .card-title paragraph...
       expect(html).not.toContain('class="card-title"');
-      // ...but the href is still surfaced as visible text...
-      expect(html).toContain('class="card-href"');
-      expect(html).toMatch(/class="card-href"[^>]*>\/x</);
+      // ...the internal path is not surfaced as visible text...
+      expect(html).not.toContain('class="card-href"');
       // ...and the body still renders.
       expect(html).toContain("body");
     });
@@ -197,12 +205,19 @@ describe("card/grid components", () => {
       expect(html).toMatch(/<a[^>]+href="\/guide"[^>]*>Guide<\/a>/);
     });
 
-    it("renders the href as visible text in a .tile-href element", () => {
+    it("does not render a .tile-href path for an internal href", () => {
       const { html } = renderMdx(
         `<Tile href="/guide" title="Guide">content</Tile>`
       );
+      expect(html).not.toContain('class="tile-href"');
+    });
+
+    it("renders the href as visible text in a .tile-href element for an external URL", () => {
+      const { html } = renderMdx(
+        `<Tile href="https://example.com/guide" title="Guide">content</Tile>`
+      );
       expect(html).toContain('class="tile-href"');
-      expect(html).toMatch(/class="tile-href"[^>]*>\/guide</);
+      expect(html).toMatch(/class="tile-href"[^>]*>https:\/\/example\.com\/guide</);
     });
 
     it("renders description when provided", () => {

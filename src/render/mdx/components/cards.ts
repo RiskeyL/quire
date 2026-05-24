@@ -30,10 +30,13 @@ import {
  *   (`card` / `tile`) so the output classes stay distinct without duplicating logic.
  *
  * href display (print readability decision):
- *   On screen, cards and tiles are clickable. On paper, a bare link without a
- *   visible destination is useless. When `href` is present the title text
- *   becomes an `<a>` and the URL is also appended as muted text in a
- *   `.{prefix}-href` span so print readers can see where it points.
+ *   On screen, cards and tiles are clickable. The title text always becomes an
+ *   `<a>` so the link is live (internal hrefs are rewritten to in-document
+ *   anchors at assembly time; external URLs stay as-is). The destination is
+ *   surfaced as muted text in a `.{prefix}-href` span ONLY for external URLs
+ *   (http/https/mailto/protocol-relative): an external URL is genuinely useful
+ *   on paper, but an internal site path is noise once the link resolves to an
+ *   anchor, so it is suppressed (see `isExternalUrl`).
  *
  * Tile — `description` prop:
  *   Tile supports an optional `description` string (a short caption below the
@@ -44,6 +47,16 @@ import {
  *   Mintlify documents no `<Tiles>` wrapper component. Tiles are author-placed
  *   standalone or nested inside `<Columns>`. No `Tiles` handler is registered.
  */
+
+/**
+ * An href is "external" when it carries a URL scheme (http:, https:, mailto:, …)
+ * or is protocol-relative (`//host/...`). Everything else (site-absolute `/x`,
+ * relative `./x`/`../x`, or a bare `x.md`) is an internal doc path that becomes
+ * an in-document anchor at assembly time, so its raw form is not shown on paper.
+ */
+function isExternalUrl(href: string): boolean {
+  return /^[a-zA-Z][a-zA-Z0-9+.-]*:/.test(href) || href.startsWith("//");
+}
 
 /** Options controlling which optional prop paths `cardBlock` renders. */
 interface CardBlockOptions {
@@ -61,7 +74,7 @@ interface CardBlockOptions {
  * Output when title + href are present (and `description` opted in):
  *   <div class="{prefix}">
  *     <p class="{prefix}-title"><a href="{href}">{title}</a></p>
- *     <span class="{prefix}-href">{href}</span>
+ *     <span class="{prefix}-href">{href}</span>            (only for external URLs)
  *     [<p class="{prefix}-description">{description}</p>]   (only if opts.description)
  *     ...children...
  *   </div>
@@ -96,10 +109,10 @@ function cardBlock(
     children.push(element("p", { class: `${prefix}-title` }, [titleContent]));
   }
 
-  if (href !== undefined) {
-    // Append the link destination as muted visible text so print readers can
-    // see where the link points. This is the only way a hyperlink is useful
-    // in a paper document.
+  if (href !== undefined && isExternalUrl(href)) {
+    // Surface an external URL as muted visible text so print readers can see
+    // where it points. Internal paths are omitted: they resolve to in-document
+    // anchors, so showing the raw path would be noise on paper.
     children.push(element("span", { class: `${prefix}-href` }, [text(href)]));
   }
 

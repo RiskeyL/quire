@@ -90,17 +90,47 @@ export function buildLinkTargets(
   return targets;
 }
 
-// V1 limitation: only relative links (./x, ../x, x.md) are rewritten.
-// Site-absolute links (/use-dify/x) are left unchanged because mapping a
-// site root to manifest paths requires the docs.json resolver (Milestone 6).
+/**
+ * Resolve a site-absolute link (e.g. `/en/develop-plugin/.../tool-plugin`) to a
+ * bundled page's anchor, or `undefined` when none matches.
+ *
+ * The site root is unknown, so a site-absolute link matches a page when the
+ * page's file key ENDS WITH the site path (the site path is the page's tail
+ * after whatever site root the manifest paths carry). The leading `/` enforces a
+ * segment boundary, so `/en/foo/bar` matches `.../en/foo/bar` but not
+ * `.../x-en/foo/bar`. A bare equality also matches when manifest paths happen to
+ * be site-rooted already.
+ *
+ * The match must be UNIQUE: if two bundled pages share the suffix, the link is
+ * ambiguous and is left unchanged rather than guessed.
+ */
+function resolveSiteAbsolute(
+  pathPart: string,
+  targets: Map<string, string>
+): string | undefined {
+  const sitePath = linkKey(pathPart.replace(/^\/+/, ""));
+  if (sitePath === "") return undefined;
+  const suffix = `/${sitePath}`;
+  let found: string | undefined;
+  let matches = 0;
+  for (const [key, anchor] of targets) {
+    if (key === sitePath || key.endsWith(suffix)) {
+      found = anchor;
+      matches++;
+    }
+  }
+  return matches === 1 ? found : undefined;
+}
 
 /**
  * Rewrite cross-links in an HTML fragment so that links pointing to other
  * included pages resolve to in-document anchors (`#<anchor>`).
  *
- * Links that are absolute URLs, protocol-relative, `mailto:`/other schemes,
- * pure-fragment (`#...`), site-absolute (`/...`), or that target a page not
- * in the selection are left unchanged.
+ * Links that are absolute URLs, protocol-relative, `mailto:`/other schemes, or
+ * pure-fragment (`#...`) are left unchanged. Site-absolute links (`/...`) are
+ * resolved to a bundled page by suffix match (see `resolveSiteAbsolute`) and
+ * left unchanged when no bundled page matches; relative links that target a page
+ * not in the selection are likewise left unchanged.
  *
  * Original `#fragment` parts are dropped when a link is rewritten; intra-page
  * heading navigation within included pages is not preserved in v1.
@@ -133,8 +163,13 @@ export function rewriteCrossLinks(
     // After stripping, nothing left (e.g. href was "?query" or "#frag" already caught above).
     if (pathPart === "") return;
 
-    // Site-absolute: leave unchanged (v1 limitation, see comment above).
-    if (pathPart.startsWith("/")) return;
+    // Site-absolute: resolve to a bundled page by suffix match. Rewrite when a
+    // unique page matches; leave external/unmatched site links unchanged.
+    if (pathPart.startsWith("/")) {
+      const anchor = resolveSiteAbsolute(pathPart, targets);
+      if (anchor !== undefined) $(el).attr("href", `#${anchor}`);
+      return;
+    }
 
     // Resolve relative to the linking page's directory.
     const key = linkKey(posix.join(posix.dirname(fromFile), pathPart));
@@ -168,6 +203,20 @@ export function renderCover(title: string): string {
 /** Derive a human-readable title from a page node. */
 function pageTitle(node: PageNode): string {
   return node.title ?? basename(node.file, extname(node.file));
+}
+
+/**
+ * Flatten Markdown inline-link syntax `[text](url)` to just its link text.
+ *
+ * A page's `description` frontmatter is rendered as a plain-text lede (escaped,
+ * not parsed as Markdown). When an author writes Markdown links in the
+ * description, the raw `[text](url)` would otherwise appear verbatim in the
+ * lede, exposing a file path the reader can neither click nor use. Keeping the
+ * link text and dropping the URL yields a clean, path-free summary line in both
+ * the PDF and the Word output. Exported for unit testing.
+ */
+export function flattenDescriptionMarkdown(description: string): string {
+  return description.replace(/\[([^\]]+)\]\([^)]*\)/g, "$1");
 }
 
 /**
@@ -411,7 +460,7 @@ function walkTree(
       // The class still drives the PDF (the attribute is inert there).
       const lede =
         showDescription && node.description && node.description.trim() !== ""
-          ? `<div class="page-description" custom-style="Page Description">${escapeHtml(node.description)}</div>`
+          ? `<div class="page-description" custom-style="Page Description">${escapeHtml(flattenDescriptionMarkdown(node.description))}</div>`
           : "";
       // The page-title heading is a structural heading, so it carries
       // class="chapter-heading" to update the top-right running header. Content

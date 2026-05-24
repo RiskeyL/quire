@@ -260,6 +260,50 @@ describe("rewriteCrossLinks", () => {
   });
 });
 
+describe("rewriteCrossLinks site-absolute resolution", () => {
+  // Manifests usually carry absolute (or site-rooted) file paths, while in-content
+  // links are written site-absolute (e.g. /en/develop-plugin/.../tool-plugin).
+  // A site-absolute link resolves to a bundled page when that page's file path
+  // ENDS WITH the site path (the site path is the page's tail after the site root).
+  const tree: Tree = [
+    { type: "page", file: "/repo/en/develop-plugin/dev-guides/tool-plugin.mdx" },
+    { type: "page", file: "/repo/en/develop-plugin/getting-started/cli.mdx" },
+  ];
+  const anchors = assignAnchors(tree);
+  const targets = buildLinkTargets(tree, anchors);
+
+  it("rewrites a site-absolute link to a bundled page by suffix match", () => {
+    const html = `<a href="/en/develop-plugin/dev-guides/tool-plugin">Learn more</a>`;
+    const result = rewriteCrossLinks(html, "/repo/en/develop-plugin/getting-started/cli.mdx", targets);
+    const anchor = anchors.get("/repo/en/develop-plugin/dev-guides/tool-plugin.mdx");
+    expect(result).toContain(`href="#${anchor}"`);
+  });
+
+  it("drops the fragment when rewriting a site-absolute link", () => {
+    const html = `<a href="/en/develop-plugin/dev-guides/tool-plugin#install">x</a>`;
+    const result = rewriteCrossLinks(html, "/repo/en/develop-plugin/getting-started/cli.mdx", targets);
+    expect(result).not.toContain("install");
+  });
+
+  it("leaves a site-absolute link to a non-bundled page unchanged", () => {
+    const html = `<a href="/en/use-dify/workflow/overview">x</a>`;
+    const result = rewriteCrossLinks(html, "/repo/en/develop-plugin/getting-started/cli.mdx", targets);
+    expect(result).toContain(`href="/en/use-dify/workflow/overview"`);
+  });
+
+  it("leaves an ambiguous site-absolute link unchanged (two pages share the suffix)", () => {
+    const ambiguous: Tree = [
+      { type: "page", file: "/a/en/foo/bar.mdx" },
+      { type: "page", file: "/b/en/foo/bar.mdx" },
+    ];
+    const ambAnchors = assignAnchors(ambiguous);
+    const ambTargets = buildLinkTargets(ambiguous, ambAnchors);
+    const html = `<a href="/en/foo/bar">x</a>`;
+    const result = rewriteCrossLinks(html, "/a/en/foo/bar.mdx", ambTargets);
+    expect(result).toContain(`href="/en/foo/bar"`);
+  });
+});
+
 describe("assembleDocument with toc option", () => {
   const tree: Tree = [{ type: "page", file: "x.md", title: "X" }];
   const rendered = new Map([["x.md", "<p>body</p>"]]);
@@ -323,6 +367,31 @@ describe("assembleDocument with showDescription option", () => {
     const ledePos = html.indexOf('class="page-description"');
     expect(headingPos).toBeGreaterThanOrEqual(0);
     expect(ledePos).toBeGreaterThan(headingPos);
+  });
+
+  it("flattens Markdown link syntax in the description to plain link text (no URL or brackets)", () => {
+    // Some `description` frontmatter contains Markdown links. The lede is emitted
+    // as escaped plain text, so without flattening the raw "[text](/path)" would
+    // show verbatim, exposing a file path the reader can neither click nor use.
+    const tree: Tree = [
+      {
+        type: "page",
+        file: "a.md",
+        title: "Alpha",
+        description: "See [Basic Concepts](/en/develop-plugin/getting-started/x) for more.",
+      },
+    ];
+    const rendered = new Map([["a.md", "<p>body</p>"]]);
+    const html = assembleDocument(tree, rendered, {
+      title: "Doc",
+      cover: false,
+      showDescription: true,
+    });
+    expect(html).toContain(
+      '<div class="page-description" custom-style="Page Description">See Basic Concepts for more.</div>'
+    );
+    expect(html).not.toContain("/en/develop-plugin");
+    expect(html).not.toContain("[Basic Concepts]");
   });
 
   it("does NOT emit .page-description when showDescription is false", () => {

@@ -96,29 +96,37 @@ function fieldBlock(
   name: string | undefined
 ): ElementContent {
   const head: ElementContent[] = [];
+  // Separate consecutive head pieces with a literal space. The PDF spaces them
+  // via CSS margin-left, but Pandoc drops that margin in Word, so without a real
+  // space the inline pieces run together ("labelobject", "en_USstringrequired").
+  // A literal space reads correctly in both formats.
+  const pushPart = (part: ElementContent): void => {
+    if (head.length > 0) head.push(text(" "));
+    head.push(part);
+  };
 
   if (name !== undefined) {
-    head.push(element("code", { class: "param-name" }, [text(name)]));
+    pushPart(element("code", { class: "param-name" }, [text(name)]));
   }
 
   const type = getStringAttr(node, "type");
   if (type !== undefined) {
-    head.push(element("span", { class: "param-type" }, [text(type)]));
+    pushPart(element("span", { class: "param-type" }, [text(type)]));
   }
 
   if (hasAttr(node, "required")) {
-    head.push(element("span", { class: "param-required" }, [text("required")]));
+    pushPart(element("span", { class: "param-required" }, [text("required")]));
   }
 
   if (hasAttr(node, "deprecated")) {
-    head.push(
+    pushPart(
       element("span", { class: "param-deprecated" }, [text("deprecated")])
     );
   }
 
   const defaultValue = getStringAttr(node, "default");
   if (defaultValue !== undefined) {
-    head.push(
+    pushPart(
       element("span", { class: "param-default" }, [
         text(`default: ${defaultValue}`),
       ])

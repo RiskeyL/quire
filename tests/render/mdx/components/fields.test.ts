@@ -31,6 +31,17 @@ describe("API field components", () => {
       expect(html).toContain('class="param-required"');
     });
 
+    it("separates the head meta with whitespace so name/type/required do not run together", () => {
+      // CSS margin-left spaces these in the PDF but Pandoc drops it in Word, so
+      // the head pieces must carry literal whitespace between them to stay legible
+      // in both formats (otherwise: "labelobject", "en_USstringrequired").
+      const { html } = renderMdx(
+        `<ParamField path="label" type="object" required>desc</ParamField>`
+      );
+      expect(html).toMatch(/label<\/code>\s+<span[^>]*class="param-type"/);
+      expect(html).toMatch(/object<\/span>\s+<span[^>]*class="param-required"/);
+    });
+
     it("renders the body content in a .param-body", () => {
       const { html } = renderMdx(
         `<ParamField path="label" type="object" required>desc</ParamField>`
