@@ -70,4 +70,48 @@ describe("callout components", () => {
       expect(html).toContain("<strong>bold</strong>");
     });
   });
+
+  // Word ignores the callout CSS, so the docx path leans on Pandoc's
+  // `custom-style` attribute: each callout div is tagged with a per-type style
+  // name that a matching paragraph style in the reference doc turns into a
+  // bordered, tinted box. The attribute is inert in the PDF (the CSS class
+  // still drives that), so it lives on the shared rendered HTML.
+  describe("Word custom-style mapping", () => {
+    const cases: ReadonlyArray<readonly [string, string]> = [
+      ["Info", "Info"],
+      ["Tip", "Tip"],
+      ["Warning", "Warning"],
+      ["Note", "Note"],
+      ["Check", "Check"],
+      ["Danger", "Danger"],
+    ];
+
+    for (const [name, title] of cases) {
+      it(`tags <${name}> with custom-style="Callout ${title}" for Pandoc`, () => {
+        const { html } = renderMdx(`<${name}>body</${name}>`);
+        expect(html).toContain(`custom-style="Callout ${title}"`);
+      });
+    }
+
+    it("normalizes the generic Callout's type into the custom-style name", () => {
+      const { html } = renderMdx(`<Callout type="warning">x</Callout>`);
+      expect(html).toContain(`custom-style="Callout Warning"`);
+    });
+
+    it("defaults an unknown generic Callout type to Note", () => {
+      const { html } = renderMdx(`<Callout type="bogus">y</Callout>`);
+      expect(html).toContain(`custom-style="Callout Note"`);
+    });
+
+    it("emits the callout label as a bold run so Word shows it bold", () => {
+      const { html } = renderMdx(`<Tip>hello</Tip>`);
+      expect(html).toContain("<strong>Tip</strong>");
+    });
+
+    it("bolds the Check callout's Success label", () => {
+      const { html } = renderMdx(`<Check>ok</Check>`);
+      expect(html).toContain("<strong>Success</strong>");
+      expect(html).toContain(`custom-style="Callout Check"`);
+    });
+  });
 });

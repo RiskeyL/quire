@@ -11,7 +11,7 @@ colors:
   text: "#1a1a1a"     # Body text color — PDF (CSS color) and Word (Normal style)
   heading: "#111827"  # Heading color — PDF headings and Word Heading1–Heading6 styles
   link: "#2563eb"     # Hyperlink color — PDF only (Word preserves its own link style)
-  accent: "#2563eb"   # Reserved for rules and accent elements — PDF only
+  accent: "#2563eb"   # Rules and accent elements — PDF, plus the Word Info callout border
   muted: "#6b7280"    # Captions and secondary descriptions — PDF only
 
 typography:

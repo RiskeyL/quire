@@ -345,6 +345,89 @@ describe("compileDocxReference", () => {
       await rm(dir, { recursive: true, force: true });
     }
   });
+
+  it("injects per-type callout paragraph styles with a colored left border and fill", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "quire-cdr-callout-"));
+    const out = join(dir, "ref.docx");
+    try {
+      await compileDocxReference(CUSTOM_TOKENS, out);
+      const zip = await JSZip.loadAsync(await readFile(out));
+      const stylesXml = await zip.file("word/styles.xml")!.async("string");
+
+      const styleBlock = (id: string): string => {
+        const m = stylesXml.match(
+          new RegExp(`<w:style[^>]*w:styleId="${id}"[^>]*>[\\s\\S]*?<\\/w:style>`)
+        );
+        expect(m, `style ${id} should exist`).not.toBeNull();
+        return m![0];
+      };
+
+      // Tip = green, with a real border box and a fill.
+      const tip = styleBlock("CalloutTip");
+      expect(tip).toContain('w:name w:val="Callout Tip"');
+      expect(tip).toContain("<w:pBdr>");
+      expect(tip).toContain('w:color="15803D"');
+      expect(tip).toContain("<w:shd");
+      // Note = brown, Warning = red, Danger = red, Check = green.
+      expect(styleBlock("CalloutNote")).toContain('w:color="B45309"');
+      expect(styleBlock("CalloutWarning")).toContain('w:color="B91C1C"');
+      expect(styleBlock("CalloutDanger")).toContain('w:color="B91C1C"');
+      expect(styleBlock("CalloutCheck")).toContain('w:color="15803D"');
+      // Info uses the accent token (#2563eb → 2563EB).
+      expect(styleBlock("CalloutInfo")).toContain('w:color="2563EB"');
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("shades the table header row via a firstRow conditional band on the Table style", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "quire-cdr-thead-"));
+    const out = join(dir, "ref.docx");
+    try {
+      await compileDocxReference(CUSTOM_TOKENS, out);
+      const zip = await JSZip.loadAsync(await readFile(out));
+      const stylesXml = await zip.file("word/styles.xml")!.async("string");
+      const tableBlock = stylesXml.match(
+        /<w:style\b[^>]*w:styleId="Table"[^>]*>[\s\S]*?<\/w:style>/
+      )![0];
+      const band = tableBlock.match(
+        /<w:tblStylePr[^>]*w:type="firstRow"[\s\S]*?<\/w:tblStylePr>/
+      );
+      expect(band, "firstRow conditional band should exist").not.toBeNull();
+      // The band fills the header cells and bolds their text.
+      expect(band![0]).toContain('w:fill="F0F0F0"');
+      expect(band![0]).toContain("<w:b ");
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("end-to-end: a callout div maps to the branded CalloutTip style with its border preserved", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "quire-cdr-callout-e2e-"));
+    const ref = join(dir, "ref.docx");
+    const out = join(dir, "out.docx");
+    try {
+      await compileDocxReference(CUSTOM_TOKENS, ref, { docTitle: "T" });
+      const html =
+        '<!doctype html><html><body><h1>C</h1>' +
+        '<div class="callout callout-tip" custom-style="Callout Tip">' +
+        '<p class="callout-label"><strong>Tip</strong></p><p>body</p></div>' +
+        "</body></html>";
+      await htmlToDocx(html, out, { referenceDoc: ref });
+      const zip = await JSZip.loadAsync(await readFile(out));
+      const doc = await zip.file("word/document.xml")!.async("string");
+      // Pandoc stamps the per-type style on the callout's paragraphs.
+      expect(doc).toMatch(/<w:pStyle w:val="CalloutTip"\s*\/>/);
+      // The branded border survives into the output's styles.xml.
+      const styles = await zip.file("word/styles.xml")!.async("string");
+      const tip = styles.match(
+        /<w:style[^>]*w:styleId="CalloutTip"[^>]*>[\s\S]*?<\/w:style>/
+      )![0];
+      expect(tip).toContain('w:color="15803D"');
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
 });
 
 // ---------------------------------------------------------------------------

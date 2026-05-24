@@ -360,6 +360,141 @@ function patchTableBorders(xml: string): string {
   );
 }
 
+/**
+ * Per-type left-border color for the Word callout boxes, mirroring the PDF
+ * callout palette (see compile-css `buildBoxed`): green for tip/check, brown for
+ * note, red for warning/danger. Info is intentionally absent here because it
+ * uses the brand accent token (resolved at call time).
+ */
+const CALLOUT_BORDER_HEX: Record<string, string> = {
+  Tip: "15803D",
+  Check: "15803D",
+  Note: "B45309",
+  Warning: "B91C1C",
+  Danger: "B91C1C",
+};
+
+/** Deterministic order of callout types (drives the injected style block). */
+const CALLOUT_TYPES = ["Info", "Tip", "Note", "Warning", "Danger", "Check"] as const;
+
+/**
+ * Build one callout paragraph style ("Callout {Title}"). The box is a thin
+ * neutral border on three sides with a thick colored left accent bar plus a
+ * light fill, matching the PDF's left-accent-bar-over-neutral-tint look. Word
+ * merges the borders of consecutive same-style paragraphs into one continuous
+ * box (so a multi-paragraph callout reads as a single box); `<w:between>` is set
+ * to `nil` to suppress internal lines.
+ */
+function buildCalloutStyle(title: string, borderHex: string): string {
+  return (
+    `<w:style w:type="paragraph" w:styleId="Callout${title}">` +
+    `<w:name w:val="Callout ${title}" />` +
+    `<w:basedOn w:val="BodyText" />` +
+    `<w:pPr>` +
+    `<w:pBdr>` +
+    `<w:top w:val="single" w:sz="4" w:space="6" w:color="E5E5E5" />` +
+    `<w:left w:val="single" w:sz="24" w:space="6" w:color="${borderHex}" />` +
+    `<w:bottom w:val="single" w:sz="4" w:space="6" w:color="E5E5E5" />` +
+    `<w:right w:val="single" w:sz="4" w:space="6" w:color="E5E5E5" />` +
+    `<w:between w:val="nil" />` +
+    `</w:pBdr>` +
+    `<w:shd w:val="clear" w:color="auto" w:fill="F7F7F7" />` +
+    `</w:pPr>` +
+    `</w:style>`
+  );
+}
+
+/**
+ * Inject one paragraph style per callout type before `</w:styles>`, so the docx
+ * renderer's `custom-style="Callout {Type}"` divs map to a bordered, tinted box
+ * (Pandoc matches the reference-doc style by name and stamps it on every
+ * paragraph inside the callout div). Info takes the brand accent color; the rest
+ * use the fixed semantic palette in {@link CALLOUT_BORDER_HEX}.
+ *
+ * Idempotent (only injects the types not already present) and best-effort
+ * (returns the input unchanged if the `</w:styles>` anchor is absent), so a
+ * future pandoc layout change degrades to plain callouts rather than aborting.
+ */
+function patchCalloutStyles(xml: string, accentHex: string | null): string {
+  if (!xml.includes("</w:styles>")) return xml;
+  const infoHex = accentHex ?? "2563EB";
+  const missing = CALLOUT_TYPES.filter(
+    (title) => !xml.includes(`w:styleId="Callout${title}"`)
+  );
+  if (missing.length === 0) return xml; // already patched
+  const block = missing
+    .map((title) =>
+      buildCalloutStyle(title, title === "Info" ? infoHex : CALLOUT_BORDER_HEX[title])
+    )
+    .join("");
+  return xml.replace("</w:styles>", `${block}</w:styles>`);
+}
+
+/** Header-row cell fill (light gray), mirroring the PDF's shaded `th`. */
+const TABLE_HEADER_FILL = "F0F0F0";
+
+/**
+ * Give the table header row a light fill and bold text so it reads as a header,
+ * mirroring the PDF's shaded `th`. Pandoc's tables carry `tblLook w:firstRow="1"`,
+ * so Word applies the Table style's `firstRow` conditional band to the first row.
+ *
+ * Pandoc's default Table style already defines a `firstRow` band (a bottom
+ * border + bottom vAlign), so this MERGES into it rather than adding a duplicate:
+ * it inserts a bold run property (schema order: rPr precedes tcPr) and a cell
+ * `<w:shd>` fill (schema order: shd precedes vAlign, follows tcBorders). If no
+ * `firstRow` band exists (a future pandoc layout), a fresh one is appended before
+ * the Table style's `</w:style>`. Idempotent (skips when the fill is already
+ * present) and best-effort (returns the input unchanged if the Table style is
+ * absent), so the run degrades to an unshaded header rather than aborting.
+ */
+function patchTableHeaderShading(xml: string): string {
+  const shd = `<w:shd w:val="clear" w:color="auto" w:fill="${TABLE_HEADER_FILL}" />`;
+  const freshBand =
+    `<w:tblStylePr w:type="firstRow">` +
+    `<w:rPr><w:b /></w:rPr>` +
+    `<w:tcPr>${shd}</w:tcPr>` +
+    `</w:tblStylePr>`;
+  return xml.replace(
+    /(<w:style\b[^>]*w:styleId="Table"[^>]*>[\s\S]*?)(<\/w:style>)/,
+    (match, body: string, close: string) => {
+      const existing = body.match(
+        /<w:tblStylePr\b[^>]*w:type="firstRow"[\s\S]*?<\/w:tblStylePr>/
+      );
+      if (!existing) return body + freshBand + close; // no band yet: add one
+      let band = existing[0];
+      if (band.includes(`w:fill="${TABLE_HEADER_FILL}"`)) return match; // already patched
+
+      // Bold the header text. Merge into an existing rPr, else insert one before
+      // tcPr (rPr precedes tcPr in CT_TblStylePr), else before the band close.
+      if (/<w:rPr\b/.test(band)) {
+        if (!/<w:rPr\b[^>]*>[\s\S]*?<w:b\b/.test(band)) {
+          band = band.replace(/<w:rPr>/, `<w:rPr><w:b />`);
+        }
+      } else if (/<w:tcPr\b/.test(band)) {
+        band = band.replace(/(<w:tcPr\b)/, `<w:rPr><w:b /></w:rPr>$1`);
+      } else {
+        band = band.replace(/(<\/w:tblStylePr>)/, `<w:rPr><w:b /></w:rPr>$1`);
+      }
+
+      // Fill the header cells. shd precedes vAlign in CT_TcPr, so insert it just
+      // before vAlign when present; otherwise before the tcPr close; if the band
+      // has no tcPr, add one before its close.
+      if (/<w:vAlign\b/.test(band)) {
+        band = band.replace(/(<w:vAlign\b)/, `${shd}$1`);
+      } else if (/<\/w:tcPr>/.test(band)) {
+        band = band.replace(/(<\/w:tcPr>)/, `${shd}$1`);
+      } else if (/<w:tcPr\b/.test(band)) {
+        // Self-closed or childless tcPr is uncommon; fall back to a fresh tcPr.
+        band = band.replace(/(<\/w:tblStylePr>)/, `<w:tcPr>${shd}</w:tcPr>$1`);
+      } else {
+        band = band.replace(/(<\/w:tblStylePr>)/, `<w:tcPr>${shd}</w:tcPr>$1`);
+      }
+
+      return body.replace(existing[0], band) + close;
+    }
+  );
+}
+
 // ---------------------------------------------------------------------------
 // Page furniture: header/footer parts and section-properties wiring
 // ---------------------------------------------------------------------------
@@ -643,6 +778,15 @@ export async function compileDocxReference(
   // Give Word tables a hairline grid (Pandoc's default Table style has none),
   // mirroring the PDF's cell borders. Best-effort.
   stylesXml = patchTableBorders(stylesXml);
+
+  // Shade + bold the table header row (firstRow conditional band), mirroring the
+  // PDF's `th` background. Best-effort.
+  stylesXml = patchTableHeaderShading(stylesXml);
+
+  // Define the per-type callout box styles ("Callout {Type}") that the docx
+  // renderer's custom-style attributes resolve to. Info uses the brand accent;
+  // the rest use the fixed semantic palette. Best-effort.
+  stylesXml = patchCalloutStyles(stylesXml, hexColor(tokens.colors.accent));
 
   zip.file("word/styles.xml", stylesXml);
 
