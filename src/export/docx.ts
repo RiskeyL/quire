@@ -122,11 +122,28 @@ export function enableUpdateFields(settingsXml: string): string {
 }
 
 /**
+ * Strip the base64 data: URIs that Pandoc copies into each picture's `descr`
+ * (alt-text) attribute. When an `<img src="data:...">` has no `alt`, Pandoc both
+ * extracts the image to word/media (the real, rendered reference via
+ * `a:blip r:embed`) AND dumps the entire data URI into `descr`, duplicating every
+ * image's bytes as text in document.xml. For an image-heavy document that is the
+ * bulk of the file (and a big share of post-processing memory). Replacing the
+ * data URI with an empty alt is lossless: the picture still renders via its media
+ * relationship. Idempotent (a cleared descr has no data: URI to match).
+ */
+export function stripDataUriDescriptions(documentXml: string): string {
+  return documentXml.replace(/descr="data:[^"]*"/g, 'descr=""');
+}
+
+/**
  * Apply the post-pandoc patches to the generated docx in a single read/write
  * zip pass (cheaper than reopening the archive per patch, which matters for
- * large image-heavy documents): the front-matter section split on
- * word/document.xml and/or the update-fields flag on word/settings.xml. Only
- * rewrites the archive if something actually changed.
+ * large image-heavy documents): strip data-URI picture descriptions from
+ * word/document.xml (always), optionally split the front matter into its own
+ * section, and optionally flag fields for update on word/settings.xml. The zip
+ * is regenerated with DEFLATE compression (JSZip would otherwise STORE it
+ * uncompressed, which alone bloated the output several-fold). Only rewrites the
+ * archive if something actually changed.
  */
 async function applyDocxPostProcessing(
   docxPath: string,
@@ -135,15 +152,14 @@ async function applyDocxPostProcessing(
   const zip = await JSZip.loadAsync(await readFile(docxPath));
   let changed = false;
 
-  if (opts.frontMatterBreak) {
-    const docFile = zip.file("word/document.xml");
-    if (docFile) {
-      const xml = await docFile.async("string");
-      const patched = insertFrontMatterSection(xml);
-      if (patched !== xml) {
-        zip.file("word/document.xml", patched);
-        changed = true;
-      }
+  const docFile = zip.file("word/document.xml");
+  if (docFile) {
+    const xml = await docFile.async("string");
+    let patched = stripDataUriDescriptions(xml);
+    if (opts.frontMatterBreak) patched = insertFrontMatterSection(patched);
+    if (patched !== xml) {
+      zip.file("word/document.xml", patched);
+      changed = true;
     }
   }
 
@@ -160,6 +176,13 @@ async function applyDocxPostProcessing(
   }
 
   if (changed) {
-    await writeFile(docxPath, await zip.generateAsync({ type: "nodebuffer" }));
+    await writeFile(
+      docxPath,
+      await zip.generateAsync({
+        type: "nodebuffer",
+        compression: "DEFLATE",
+        compressionOptions: { level: 6 },
+      })
+    );
   }
 }

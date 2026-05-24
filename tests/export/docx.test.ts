@@ -2,7 +2,7 @@ import { describe, it, expect } from "vitest";
 import { readFile, mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { htmlToDocx, insertFrontMatterSection, enableUpdateFields } from "../../src/export/docx.js";
+import { htmlToDocx, insertFrontMatterSection, enableUpdateFields, stripDataUriDescriptions } from "../../src/export/docx.js";
 import JSZip from "jszip";
 import { compileDocxReference } from "../../src/theme/compile-docx-ref.js";
 import type { BrandTokens } from "../../src/theme/tokens.js";
@@ -88,6 +88,29 @@ describe("enableUpdateFields", () => {
   it("returns the input unchanged when there is no settings root", () => {
     const xml = "<w:notSettings />";
     expect(enableUpdateFields(xml)).toBe(xml);
+  });
+});
+
+describe("stripDataUriDescriptions", () => {
+  it("clears a base64 data: URI that Pandoc dumped into a picture descr", () => {
+    const xml =
+      '<pic:cNvPr id="1" descr="data:image/png;base64,iVBORw0KAAAA" name="Picture" />' +
+      '<a:blip r:embed="rId5" />';
+    const out = stripDataUriDescriptions(xml);
+    expect(out).toContain('descr=""');
+    expect(out).not.toContain("base64");
+    // The real image reference (the media relationship) is untouched.
+    expect(out).toContain('r:embed="rId5"');
+  });
+
+  it("leaves a normal descr alone", () => {
+    const xml = '<pic:cNvPr descr="A workflow diagram" />';
+    expect(stripDataUriDescriptions(xml)).toBe(xml);
+  });
+
+  it("is a no-op when there are no data: descriptions", () => {
+    const xml = "<w:document><w:body /></w:document>";
+    expect(stripDataUriDescriptions(xml)).toBe(xml);
   });
 });
 
