@@ -143,6 +143,14 @@ export async function runConvert(paths: string[], options: ConvertOptions): Prom
   }
 
   // Resolve brand tokens — use user-supplied theme file when provided, otherwise defaults.
+  // Note on tables.layout: this token governs the PDF only (compileCss emits
+  // `table-layout: <layout>`). It does NOT need to touch the Word path. Pandoc
+  // emits docx tables as tblW type="auto" with no explicit <w:tblLayout>, so Word
+  // applies its default autofit algorithm: it fits the table to the page text
+  // column and WRAPS cell text within each column. Verified empirically against
+  // the env-vars table (gridCols sum 7920 twips inside a 9638-twip A4 text column;
+  // the long worker-class token wraps, the Description column is not truncated).
+  // So no fragile per-table docx post-processing is added — Word wraps by default.
   const tokens = options.theme ? await loadTheme(options.theme) : DEFAULT_TOKENS;
 
   // PDF gets an inline HTML TOC with target-counter page numbers; Word gets a
@@ -166,7 +174,13 @@ export async function runConvert(paths: string[], options: ConvertOptions): Prom
   const docxHtml = wantDocx
     ? assembleDocument(tree, rendered, {
         title: docTitle,
-        cover: !options.noCover,
+        // Word uses Pandoc's metadata Title block (rendered from the HTML <title>,
+        // set by wrapHtmlDocument to docTitle) as the document title. An inline
+        // cover <h1> would duplicate that title AND, because Pandoc inserts its
+        // native --toc right after the metadata block, push the inline cover below
+        // the auto-TOC. Suppressing the cover here yields: Title, then TOC, then
+        // chapters. The PDF path keeps its dedicated cover page (cover: !options.noCover above).
+        cover: false,
         toc: false,
         showDescription,
       })

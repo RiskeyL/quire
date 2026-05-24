@@ -19,6 +19,7 @@ export interface BrandTokens {
   };
   toc: { title: string };
   meta: { showDescription: boolean };
+  tables: { layout: "fixed" | "auto" };
 }
 
 // ---------------------------------------------------------------------------
@@ -44,6 +45,10 @@ export const DEFAULT_TOKENS: BrandTokens = {
   },
   toc: { title: "Contents" },
   meta: { showDescription: true },
+  // "fixed" (PDF table-layout) distributes column widths evenly and lets cell
+  // content wrap, so a long unbreakable token can't force a column wider than the
+  // page and clip the last column. "auto" reverts to content-driven sizing.
+  tables: { layout: "fixed" },
 };
 
 // ---------------------------------------------------------------------------
@@ -94,6 +99,13 @@ const partialMetaSchema = z
   .strict()
   .partial();
 
+const partialTablesSchema = z
+  .object({
+    layout: z.enum(["fixed", "auto"]),
+  })
+  .strict()
+  .partial();
+
 const partialThemeSchema = z
   .object({
     page: partialPageSchema,
@@ -101,6 +113,7 @@ const partialThemeSchema = z
     typography: partialTypographySchema,
     toc: partialTocSchema,
     meta: partialMetaSchema,
+    tables: partialTablesSchema,
   })
   .strict()
   .partial();
@@ -159,6 +172,7 @@ function applyOverrides(partial: PartialTheme): BrandTokens {
     typography: mergeSection(DEFAULT_TOKENS.typography, partial.typography ?? {}),
     toc: mergeSection(DEFAULT_TOKENS.toc, partial.toc ?? {}),
     meta: mergeSection(DEFAULT_TOKENS.meta, partial.meta ?? {}),
+    tables: mergeSection(DEFAULT_TOKENS.tables, partial.tables ?? {}),
   };
 }
 

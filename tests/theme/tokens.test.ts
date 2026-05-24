@@ -95,6 +95,37 @@ describe("parseTheme — meta.showDescription token", () => {
   });
 });
 
+describe("parseTheme — tables.layout token", () => {
+  it("absent tables keeps layout at default fixed", () => {
+    const result = parseTheme("");
+    expect(result.tables.layout).toBe("fixed");
+  });
+
+  it("tables: { layout: auto } overrides default fixed", () => {
+    const result = parseTheme("tables:\n  layout: auto\n");
+    expect(result.tables.layout).toBe("auto");
+    // All other sections stay at defaults
+    expect(result.colors.text).toBe(DEFAULT_TOKENS.colors.text);
+    expect(result.toc.title).toBe(DEFAULT_TOKENS.toc.title);
+    expect(result.meta.showDescription).toBe(DEFAULT_TOKENS.meta.showDescription);
+  });
+
+  it("tables: { layout: fixed } keeps the default value", () => {
+    const result = parseTheme("tables:\n  layout: fixed\n");
+    expect(result.tables.layout).toBe("fixed");
+  });
+
+  it("invalid layout value throws error naming tables.layout and allowed values", () => {
+    const fn = () => parseTheme("tables:\n  layout: grid\n");
+    expect(fn).toThrow(/tables\.layout/);
+    expect(fn).toThrow(/fixed.*auto|auto.*fixed/);
+  });
+
+  it("unknown key under tables is rejected (strict schema)", () => {
+    expect(() => parseTheme("tables:\n  bogus: true\n")).toThrow(/bogus/);
+  });
+});
+
 describe("loadTheme", () => {
   it("round-trips a partial theme from a temp file", async () => {
     const tmpPath = join(tmpdir(), `quire-test-theme-${Date.now()}.yaml`);

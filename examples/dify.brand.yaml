@@ -24,5 +24,8 @@ typography:
 toc:
   title: "Contents"   # Heading text displayed above the table of contents (PDF only; Word uses Pandoc's native TOC, which supplies its own heading).
 
+# tables:
+#   layout: fixed  # Table column sizing in the PDF: "fixed" (default) spreads columns evenly so a long token can't widen a column past the page edge and clip the last column; "auto" sizes columns to content. Cell content wraps in both layouts. PDF only; Word wraps cell text within the page by default.
+
 # meta:
 #   showDescription: true  # Render each page's frontmatter description as a visible lede beneath its title. Override per run with --no-description.

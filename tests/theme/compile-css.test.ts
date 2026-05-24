@@ -96,9 +96,12 @@ describe("compileCss", () => {
       );
     });
 
-    it("captures the chapter title as the chaptertitle named string from .chapter-heading", () => {
+    it("captures the chapter title as the chaptertitle named string from .chapter-start", () => {
+      // Only depth-0 chapters carry .chapter-start, so the running header tracks
+      // the current top-level chapter (not per-page titles), matching the Word
+      // side's STYLEREF "Heading 1".
       expect(compileCss(DEFAULT_TOKENS)).toMatch(
-        /\.chapter-heading[^{]*\{[^}]*string-set:\s*chaptertitle content\(\)/
+        /\.chapter-start[^{]*\{[^}]*string-set:\s*chaptertitle content\(\)/
       );
     });
 
@@ -353,6 +356,29 @@ describe("compileCss", () => {
     it("only the header row is protected from breaking (thead tr)", () => {
       // Body rows are allowed to break so a tall tbody cell does not leave a gap.
       expect(compileCss(DEFAULT_TOKENS)).toMatch(/thead\s+tr[^{]*\{[^}]*break-inside:\s*avoid/);
+    });
+
+    it("table uses table-layout: fixed by default (token-driven)", () => {
+      expect(compileCss(DEFAULT_TOKENS)).toMatch(/\btable\b[^{]*\{[^}]*table-layout:\s*fixed/);
+    });
+
+    it("table-layout reflects the tables.layout token when set to auto", () => {
+      const tokens = { ...DEFAULT_TOKENS, tables: { layout: "auto" as const } };
+      expect(compileCss(tokens)).toMatch(/\btable\b[^{]*\{[^}]*table-layout:\s*auto/);
+    });
+
+    it("th and td wrap long content (overflow-wrap: anywhere)", () => {
+      expect(compileCss(DEFAULT_TOKENS)).toMatch(
+        /th\b[^,{]*,\s*td\b[^{]*\{[^}]*overflow-wrap:\s*anywhere/
+      );
+    });
+
+    it("inline code wraps long tokens (overflow-wrap: anywhere)", () => {
+      // The overflowing env-vars-table content is an inline <code>; it must wrap
+      // so it cannot force a column past the page edge.
+      expect(compileCss(DEFAULT_TOKENS)).toMatch(
+        /:not\(pre\)\s*>\s*code[^{]*\{[^}]*overflow-wrap:\s*anywhere/
+      );
     });
   });
 

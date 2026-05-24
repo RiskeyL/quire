@@ -19,7 +19,7 @@ export function compileCss(tokens: BrandTokens): string {
   const page = buildPage(tokens);
   const pageFurniture = buildPageFurniture();
   const elements = buildElements();
-  const content = buildContent();
+  const content = buildContent(tokens.tables.layout);
   const boxed = buildBoxed();
   const figure = buildFigure();
   const disclosure = buildDisclosure();
@@ -69,10 +69,12 @@ function buildPage(tokens: BrandTokens): string {
  *   - bottom-center: the page number (counter(page)).
  *   - top-left: the document title, captured from the cover h1 (.doc-title) as
  *     the `doctitle` named string.
- *   - top-right: the current chapter title, captured from structural headings
- *     (.chapter-heading) as the `chaptertitle` named string. The `first` keyword
- *     yields the chapter in effect at the top of the page (the running header
- *     updates as chapters change).
+ *   - top-right: the current top-level chapter title, captured from depth-0
+ *     structural headings (.chapter-start) as the `chaptertitle` named string.
+ *     Only top-level chapters carry .chapter-start (set in walkTree), so the
+ *     running header tracks the current chapter, not per-page titles — mirroring
+ *     the Word side's STYLEREF "Heading 1". The `first` keyword yields the
+ *     chapter in effect at the top of the page (it updates as chapters change).
  *
  * The cover page is given its own named page (`page: cover`) whose margin boxes
  * are emptied (content: none / normal), so the cover shows no furniture.
@@ -81,16 +83,19 @@ function buildPage(tokens: BrandTokens): string {
  * reliably resolve custom properties inside @page, and a test forbids var()
  * there. The muted gray (#6b7280) matches the default --color-muted token value.
  *
- * The string-set rules (.doc-title / .chapter-heading) live outside @page as
+ * The string-set rules (.doc-title / .chapter-start) live outside @page as
  * ordinary element rules; only the named-string consumers sit in the margin
  * boxes. This builder is emitted right after buildPage so all @page rules are
  * grouped together.
  */
 function buildPageFurniture(): string {
   return `/* ---- Named strings feeding the running headers ---- */
-/* Captured from the cover title and from structural headings respectively. */
+/* Captured from the cover title and from top-level chapter headings respectively. */
+/* The top-right tracks .chapter-start (depth-0 chapters only), not .chapter-heading
+   (which every page title carries), so the header shows the current section — not
+   the per-page title — matching the Word side's STYLEREF "Heading 1". */
 .doc-title { string-set: doctitle content(); }
-.chapter-heading { string-set: chaptertitle content(); }
+.chapter-start { string-set: chaptertitle content(); }
 
 /* ---- Default running headers/footers ---- */
 /* Literal values only (no var()): Paged.js does not reliably resolve custom
@@ -126,7 +131,7 @@ pre, code { font-family: var(--font-mono); }`;
  * are hardcoded as restrained grays — these are candidates for future tokens
  * once a designer-facing theme tool exists.
  */
-function buildContent(): string {
+function buildContent(tableLayout: BrandTokens["tables"]["layout"]): string {
   return `/* ---- Heading scale ---- */
 /* Each level has a distinct em size so demoted headings keep a visible hierarchy. */
 h1 { font-size: 2em; font-weight: 700; margin: 1.5em 0 0.4em; line-height: 1.2; break-after: avoid; }
@@ -149,6 +154,12 @@ section > *:first-child { margin-top: 0; }
   background: rgba(0,0,0,0.05);
   padding: 0.1em 0.35em;
   border-radius: 3px;
+  /* Allow long unbreakable tokens (e.g. fully-qualified worker class paths in
+     the env-vars table) to wrap. Without this, an inline <code> span sets a
+     minimum column width that, under auto table-layout, pushes the last column
+     past the page edge and clips it. Applies in both layouts. */
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 pre {
   background: rgba(0,0,0,0.04);
@@ -167,8 +178,14 @@ pre code {
 }
 
 /* ---- Tables ---- */
+/* table-layout is token-driven (tables.layout). "fixed" (default) distributes
+   column widths evenly regardless of content, so a long unbreakable token cannot
+   stretch a column past the page edge and clip the last column under Paged.js.
+   "auto" reverts to content-driven sizing for authors who prefer it. width:100%
+   is kept so the table always fills the text column. */
 table {
   width: 100%;
+  table-layout: ${tableLayout};
   border-collapse: collapse;
   margin: 1em 0;
   font-size: 0.95em;
@@ -178,6 +195,11 @@ th, td {
   padding: 0.45em 0.65em;
   text-align: left;
   vertical-align: top;
+  /* Let long content wrap inside the cell so nothing overflows the column,
+     in BOTH layouts. Critical for fixed layout, where the column width is set
+     independently of content. */
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 th {
   background: rgba(0,0,0,0.06);
