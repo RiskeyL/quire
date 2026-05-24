@@ -136,7 +136,7 @@ describe("showDescription precedence", () => {
       cover: false,
       showDescription: false,
     });
-    expect(html).not.toContain('<p class="page-description">');
+    expect(html).not.toContain('class="page-description"');
   });
 
   it("description: undefined falls through to the token value (true by default) and shows the lede", async () => {
@@ -154,6 +154,8 @@ describe("showDescription precedence", () => {
       cover: false,
       showDescription,
     });
-    expect(html).toContain('<p class="page-description">Visible lede.</p>');
+    expect(html).toContain(
+      '<div class="page-description" custom-style="Page Description">Visible lede.</div>'
+    );
   });
 });

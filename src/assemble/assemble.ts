@@ -406,9 +406,12 @@ function walkTree(
       // pagedjs registers it as the PDF outline destination for this entry.
       // The TOC and cross-links already target "#anchor" — fragment resolution
       // works the same regardless of which element carries the id.
+      // A <div> (not a <p>) carries the Pandoc custom-style: a Word Para cannot
+      // hold attributes, but a div applies "Page Description" to its paragraph.
+      // The class still drives the PDF (the attribute is inert there).
       const lede =
         showDescription && node.description && node.description.trim() !== ""
-          ? `<p class="page-description">${escapeHtml(node.description)}</p>`
+          ? `<div class="page-description" custom-style="Page Description">${escapeHtml(node.description)}</div>`
           : "";
       // The page-title heading is a structural heading, so it carries
       // class="chapter-heading" to update the top-right running header. Content

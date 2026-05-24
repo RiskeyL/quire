@@ -8,11 +8,11 @@ page:
   margin: "2cm"       # Uniform page margin applied to the PDF (@page margin)
 
 colors:
-  text: "#1a1a1a"     # Body text color — PDF (CSS color) and Word (Normal style)
+  text: "#1a1a1a"     # Body text color — PDF (CSS color) and Word (docDefaults)
   heading: "#111827"  # Heading color — PDF headings and Word Heading1–Heading6 styles
-  link: "#2563eb"     # Hyperlink color — PDF only (Word preserves its own link style)
-  accent: "#2563eb"   # Rules and accent elements — PDF, plus the Word Info callout border
-  muted: "#6b7280"    # Captions and secondary descriptions — PDF only
+  link: "#2563eb"     # Hyperlink color — PDF links and the Word Hyperlink style
+  accent: "#2563eb"   # Accent — PDF rules/accents, Word Info callout border + blockquote bar
+  muted: "#6b7280"    # Captions/secondary text — PDF, plus Word blockquote + page-description
 
 typography:
   bodyFont: "Georgia, 'Times New Roman', serif"      # Body font stack — PDF uses full stack; Word uses the first family name

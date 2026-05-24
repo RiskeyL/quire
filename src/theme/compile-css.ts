@@ -178,7 +178,7 @@ section > *:first-child { margin-top: 0; }
   word-break: break-word;
 }
 pre {
-  background: rgba(0,0,0,0.04);
+  background: rgba(0,0,0,0.05);
   padding: 0.85em 1em;
   border-radius: 4px;
   font-size: 0.88em;

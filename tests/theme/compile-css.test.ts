@@ -348,6 +348,14 @@ describe("compileCss", () => {
     it("pre code resets padding to 0", () => {
       expect(compileCss(DEFAULT_TOKENS)).toMatch(/pre\s+code[^{]*\{[^}]*padding:\s*0/);
     });
+
+    it("code block and inline code share the same background (matches the Word fill)", () => {
+      const css = compileCss(DEFAULT_TOKENS);
+      // Both pre and inline code use rgba(0,0,0,0.05) (= F2F2F2), which is also
+      // the Word SourceCode/VerbatimChar shading fill.
+      expect(css).toMatch(/pre\s*\{[^}]*background:\s*rgba\(0,0,0,0\.05\)/);
+      expect(css).toMatch(/:not\(pre\)\s*>\s*code[^{]*\{[^}]*background:\s*rgba\(0,0,0,0\.05\)/);
+    });
   });
 
   describe("content: tables", () => {

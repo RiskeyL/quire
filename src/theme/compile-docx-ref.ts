@@ -537,6 +537,113 @@ function patchCodeBlockShading(xml: string): string {
   return xml.replace("</w:styles>", `${style}</w:styles>`);
 }
 
+/**
+ * Apply the brand body-text color to the docDefaults run properties, so Word's
+ * default text color matches the PDF's `color` token (Word otherwise stays
+ * black). Inserts a `<w:color>` before `<w:sz>` (CT_RPr orders color before sz),
+ * replacing an existing one if present. Best-effort: returns the input unchanged
+ * if the color is non-hex or the docDefaults rPr anchor is missing.
+ */
+function patchDocDefaultsColor(xml: string, colorHex: string | null): string {
+  if (colorHex === null) return xml;
+  return xml.replace(
+    /(<w:docDefaults>[\s\S]*?<w:rPrDefault>[\s\S]*?<w:rPr>)([\s\S]*?)(<\/w:rPr>[\s\S]*?<\/w:rPrDefault>)/,
+    (match, open: string, inner: string, close: string) => {
+      let next = inner;
+      if (/<w:color\b/.test(inner)) {
+        next = inner.replace(/<w:color\b[^>]*\/>/, `<w:color w:val="${colorHex}" />`);
+      } else if (/<w:sz\b/.test(inner)) {
+        next = inner.replace(/(<w:sz\b)/, `<w:color w:val="${colorHex}" />$1`);
+      } else {
+        next = inner + `<w:color w:val="${colorHex}" />`;
+      }
+      return open + next + close;
+    }
+  );
+}
+
+/**
+ * Recolor the Hyperlink character style to the brand link color (Word's default
+ * is theme accent1 / 4F81BD), mirroring the PDF's `link` token. Best-effort:
+ * returns the input unchanged if the color is non-hex or the style/color is
+ * absent.
+ */
+function patchHyperlinkColor(xml: string, colorHex: string | null): string {
+  if (colorHex === null || !xml.includes('w:styleId="Hyperlink"')) return xml;
+  return xml.replace(
+    /(<w:style\b[^>]*w:styleId="Hyperlink"[^>]*>[\s\S]*?<w:rPr>[\s\S]*?)(<w:color\b[^>]*\/>)([\s\S]*?<\/w:rPr>[\s\S]*?<\/w:style>)/,
+    (_m, before: string, _old: string, after: string) =>
+      `${before}<w:color w:val="${colorHex}" />${after}`
+  );
+}
+
+/**
+ * Give blockquotes the PDF's look: a left accent bar and muted body text, on the
+ * `BlockText` paragraph style Pandoc uses for `<blockquote>` (Word otherwise just
+ * indents). The `<w:pBdr>` left border goes at the start of the style's `<w:pPr>`
+ * (CT_PPr orders pBdr before spacing); a muted `<w:rPr>` color is added after the
+ * pPr (CT_Style orders rPr after pPr). Idempotent on the pBdr/rPr it adds and
+ * best-effort (returns the input unchanged if the BlockText style is absent).
+ */
+function patchBlockquote(
+  xml: string,
+  accentHex: string | null,
+  mutedHex: string | null
+): string {
+  if (!xml.includes('w:styleId="BlockText"')) return xml;
+  return xml.replace(
+    /(<w:style\b[^>]*w:styleId="BlockText"[^>]*>)([\s\S]*?)(<\/w:style>)/,
+    (_m, open: string, body: string, close: string) => {
+      let b = body;
+      if (accentHex && !/<w:pBdr>/.test(b)) {
+        const bar = `<w:pBdr><w:left w:val="single" w:sz="18" w:space="8" w:color="${accentHex}" /></w:pBdr>`;
+        b = /<w:pPr>/.test(b) ? b.replace(/<w:pPr>/, `<w:pPr>${bar}`) : `<w:pPr>${bar}</w:pPr>${b}`;
+      }
+      if (mutedHex && !/<w:rPr>/.test(b)) {
+        const rpr = `<w:rPr><w:color w:val="${mutedHex}" /></w:rPr>`;
+        b = /<\/w:pPr>/.test(b) ? b.replace(/<\/w:pPr>/, `</w:pPr>${rpr}`) : b + rpr;
+      }
+      return open + b + close;
+    }
+  );
+}
+
+/**
+ * Shade inline code by filling the `VerbatimChar` run style, mirroring the PDF's
+ * `:not(pre) > code` background. Adds a `<w:shd>` at the end of the style's rPr
+ * (CT_RPr orders shd after sz). Idempotent (skips if a shd is present) and
+ * best-effort (returns the input unchanged if VerbatimChar is absent).
+ */
+function patchInlineCodeShading(xml: string): string {
+  if (!xml.includes('w:styleId="VerbatimChar"')) return xml;
+  return xml.replace(
+    /(<w:style\b[^>]*w:styleId="VerbatimChar"[^>]*>[\s\S]*?<w:rPr>)([\s\S]*?)(<\/w:rPr>)/,
+    (match, open: string, inner: string, close: string) => {
+      if (/<w:shd\b/.test(inner)) return match;
+      return `${open}${inner}<w:shd w:val="clear" w:color="auto" w:fill="${CODE_BLOCK_FILL}" />${close}`;
+    }
+  );
+}
+
+/**
+ * Inject a "Page Description" paragraph style (italic, muted) before
+ * `</w:styles>`, so the assembler's `custom-style="Page Description"` lede maps
+ * to a muted-italic paragraph in Word, mirroring the PDF's `.page-description`.
+ * Idempotent (skips if already present) and best-effort (needs the `</w:styles>`
+ * anchor).
+ */
+function patchPageDescriptionStyle(xml: string, mutedHex: string | null): string {
+  if (xml.includes('w:styleId="PageDescription"') || !xml.includes("</w:styles>")) return xml;
+  const colorEl = mutedHex ? `<w:color w:val="${mutedHex}" />` : "";
+  const style =
+    `<w:style w:type="paragraph" w:styleId="PageDescription">` +
+    `<w:name w:val="Page Description" />` +
+    `<w:basedOn w:val="BodyText" />` +
+    `<w:rPr><w:i />${colorEl}</w:rPr>` +
+    `</w:style>`;
+  return xml.replace("</w:styles>", `${style}</w:styles>`);
+}
+
 // ---------------------------------------------------------------------------
 // Page furniture: header/footer parts and section-properties wiring
 // ---------------------------------------------------------------------------
@@ -833,6 +940,16 @@ export async function compileDocxReference(
   // Shade fenced code blocks (SourceCode style), mirroring the PDF's `pre`
   // background. Best-effort.
   stylesXml = patchCodeBlockShading(stylesXml);
+
+  // Carry the remaining color tokens into Word, mirroring the PDF: body text
+  // color on docDefaults, brand link color on the Hyperlink style, a left accent
+  // bar + muted text on blockquotes (BlockText), inline-code shading on
+  // VerbatimChar, and a muted-italic Page Description lede style. All best-effort.
+  stylesXml = patchDocDefaultsColor(stylesXml, hexColor(tokens.colors.text));
+  stylesXml = patchHyperlinkColor(stylesXml, hexColor(tokens.colors.link));
+  stylesXml = patchBlockquote(stylesXml, hexColor(tokens.colors.accent), hexColor(tokens.colors.muted));
+  stylesXml = patchInlineCodeShading(stylesXml);
+  stylesXml = patchPageDescriptionStyle(stylesXml, hexColor(tokens.colors.muted));
 
   zip.file("word/styles.xml", stylesXml);
 

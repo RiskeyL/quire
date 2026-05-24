@@ -311,11 +311,16 @@ describe("assembleDocument with showDescription option", () => {
       cover: false,
       showDescription: true,
     });
-    // The lede must appear immediately after the page-title heading
-    expect(html).toContain('<p class="page-description">A short intro.</p>');
+    // The lede must appear immediately after the page-title heading. It is a
+    // <div> carrying custom-style so Pandoc maps it to the Word "Page
+    // Description" style (a Para cannot hold the attribute); the class still
+    // drives the PDF.
+    expect(html).toContain(
+      '<div class="page-description" custom-style="Page Description">A short intro.</div>'
+    );
     // It must come after the heading, not before
     const headingPos = html.indexOf('<h1 class="chapter-heading chapter-start" id="a-md">Alpha</h1>');
-    const ledePos = html.indexOf('<p class="page-description">');
+    const ledePos = html.indexOf('class="page-description"');
     expect(headingPos).toBeGreaterThanOrEqual(0);
     expect(ledePos).toBeGreaterThan(headingPos);
   });
@@ -330,7 +335,7 @@ describe("assembleDocument with showDescription option", () => {
       cover: false,
       showDescription: false,
     });
-    expect(html).not.toContain('<p class="page-description">');
+    expect(html).not.toContain('class="page-description"');
   });
 
   it("does NOT emit .page-description when the page has no description even if showDescription is true", () => {
@@ -343,7 +348,7 @@ describe("assembleDocument with showDescription option", () => {
       cover: false,
       showDescription: true,
     });
-    expect(html).not.toContain('<p class="page-description">');
+    expect(html).not.toContain('class="page-description"');
   });
 
   it("HTML-escapes the description to prevent XSS", () => {
@@ -374,7 +379,7 @@ describe("assembleDocument with showDescription option", () => {
       cover: false,
       showDescription: true,
     });
-    expect(html).not.toContain('<p class="page-description">');
+    expect(html).not.toContain('class="page-description"');
   });
 
   it("omitting showDescription from options produces no .page-description (backward-compat)", () => {
@@ -383,7 +388,7 @@ describe("assembleDocument with showDescription option", () => {
     ];
     const rendered = new Map([["a.md", "<p>body</p>"]]);
     const html = assembleDocument(tree, rendered, { title: "Doc", cover: false });
-    expect(html).not.toContain('<p class="page-description">');
+    expect(html).not.toContain('class="page-description"');
   });
 });
 

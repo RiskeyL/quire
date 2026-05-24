@@ -443,6 +443,94 @@ describe("compileDocxReference", () => {
     }
   });
 
+  it("applies the body text color to docDefaults", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "quire-cdr-textcol-"));
+    const out = join(dir, "ref.docx");
+    try {
+      await compileDocxReference(CUSTOM_TOKENS, out);
+      const zip = await JSZip.loadAsync(await readFile(out));
+      const stylesXml = await zip.file("word/styles.xml")!.async("string");
+      const docDefaults = stylesXml.match(/<w:docDefaults>[\s\S]*?<\/w:docDefaults>/)![0];
+      // text token #1a1a1a → 1A1A1A on the default run properties.
+      expect(docDefaults).toContain('<w:color w:val="1A1A1A"');
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("applies the brand link color to the Hyperlink style", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "quire-cdr-link-"));
+    const out = join(dir, "ref.docx");
+    try {
+      await compileDocxReference(CUSTOM_TOKENS, out);
+      const zip = await JSZip.loadAsync(await readFile(out));
+      const stylesXml = await zip.file("word/styles.xml")!.async("string");
+      const hl = stylesXml.match(
+        /<w:style[^>]*w:styleId="Hyperlink"[^>]*>[\s\S]*?<\/w:style>/
+      )![0];
+      // link token #2563eb → 2563EB, replacing pandoc's default 4F81BD.
+      expect(hl).toContain('w:val="2563EB"');
+      expect(hl).not.toContain("4F81BD");
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("gives blockquotes a left accent border and muted text (BlockText style)", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "quire-cdr-bq-"));
+    const out = join(dir, "ref.docx");
+    try {
+      await compileDocxReference(CUSTOM_TOKENS, out);
+      const zip = await JSZip.loadAsync(await readFile(out));
+      const stylesXml = await zip.file("word/styles.xml")!.async("string");
+      const bt = stylesXml.match(
+        /<w:style[^>]*w:styleId="BlockText"[^>]*>[\s\S]*?<\/w:style>/
+      )![0];
+      expect(bt).toContain("<w:pBdr>");
+      // Left accent bar uses the accent token (#2563eb → 2563EB).
+      expect(bt).toMatch(/<w:left[^>]*w:color="2563EB"/);
+      // Muted body text (#6b7280 → 6B7280) via the style's run properties.
+      expect(bt).toMatch(/<w:rPr>[\s\S]*<w:color w:val="6B7280"/);
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("shades inline code by filling the VerbatimChar style", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "quire-cdr-inline-"));
+    const out = join(dir, "ref.docx");
+    try {
+      await compileDocxReference(CUSTOM_TOKENS, out);
+      const zip = await JSZip.loadAsync(await readFile(out));
+      const stylesXml = await zip.file("word/styles.xml")!.async("string");
+      const vc = stylesXml.match(
+        /<w:style[^>]*w:styleId="VerbatimChar"[^>]*>[\s\S]*?<\/w:style>/
+      )![0];
+      expect(vc).toContain("<w:shd");
+      expect(vc).toContain('w:fill="F2F2F2"');
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("injects a Page Description paragraph style (italic, muted)", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "quire-cdr-pd-"));
+    const out = join(dir, "ref.docx");
+    try {
+      await compileDocxReference(CUSTOM_TOKENS, out);
+      const zip = await JSZip.loadAsync(await readFile(out));
+      const stylesXml = await zip.file("word/styles.xml")!.async("string");
+      const pd = stylesXml.match(
+        /<w:style[^>]*w:styleId="PageDescription"[^>]*>[\s\S]*?<\/w:style>/
+      )![0];
+      expect(pd).toContain('w:name w:val="Page Description"');
+      expect(pd).toMatch(/<w:i\s*\/>/);
+      expect(pd).toContain('w:val="6B7280"');
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
+
   it("end-to-end: a callout div maps to the branded CalloutTip style with its border preserved", async () => {
     const dir = await mkdtemp(join(tmpdir(), "quire-cdr-callout-e2e-"));
     const ref = join(dir, "ref.docx");
