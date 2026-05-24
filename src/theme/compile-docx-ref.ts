@@ -321,6 +321,45 @@ function patchHeading1PageBreak(xml: string): string {
   );
 }
 
+/**
+ * Add a light hairline grid to the default "Table" style so Word tables have
+ * visible cell borders (Pandoc's default Table style defines none, leaving
+ * tables looking like floating text). This mirrors the PDF's `th, td` borders.
+ *
+ * The borders go on the default Table style (w:default="1"), which every Pandoc
+ * table inherits, so all tables get the grid from one patch — no per-table
+ * surgery. Single 0.5pt (w:sz="4") light-gray (BFBFBF) lines on the outer edges
+ * and between cells.
+ *
+ * Per the OOXML schema (CT_TblPrBase), `<w:tblBorders>` precedes `<w:tblCellMar>`,
+ * so it is inserted right before tblCellMar (falling back to the end of tblPr if
+ * tblCellMar is absent). Idempotent (skips if tblBorders already present) and
+ * best-effort: returns the input unchanged if the Table style or its tblPr is
+ * not found, so the run degrades to borderless tables rather than aborting.
+ */
+function patchTableBorders(xml: string): string {
+  const sides = ["top", "left", "bottom", "right", "insideH", "insideV"];
+  const borders =
+    "<w:tblBorders>" +
+    sides.map((s) => `<w:${s} w:val="single" w:sz="4" w:space="0" w:color="BFBFBF" />`).join("") +
+    "</w:tblBorders>";
+  // Match by styleId only (it is unique: "Table" is distinct from "TableNormal"
+  // / "TableGrid"). Attribute order is not assumed — pandoc's default reference
+  // doc emits the Table style as <w:style w:type="table" w:default="1"
+  // w:styleId="Table">, so a regex that pinned w:type before w:styleId would
+  // silently miss it (and leave tables borderless).
+  return xml.replace(
+    /(<w:style\b[^>]*w:styleId="Table"[^>]*>[\s\S]*?<w:tblPr>)([\s\S]*?)(<\/w:tblPr>)/,
+    (match, open: string, inner: string, close: string) => {
+      if (/<w:tblBorders>/.test(inner)) return match; // already patched
+      if (/<w:tblCellMar\b/.test(inner)) {
+        return open + inner.replace(/<w:tblCellMar\b/, `${borders}<w:tblCellMar`) + close;
+      }
+      return open + inner + borders + close;
+    }
+  );
+}
+
 // ---------------------------------------------------------------------------
 // Page furniture: header/footer parts and section-properties wiring
 // ---------------------------------------------------------------------------
@@ -600,6 +639,10 @@ export async function compileDocxReference(
   // Word "Heading 1", so a pageBreakBefore on the Heading1 style breaks before
   // each chapter. Best-effort — degrades to "no break" if the anchor is gone.
   stylesXml = patchHeading1PageBreak(stylesXml);
+
+  // Give Word tables a hairline grid (Pandoc's default Table style has none),
+  // mirroring the PDF's cell borders. Best-effort.
+  stylesXml = patchTableBorders(stylesXml);
 
   zip.file("word/styles.xml", stylesXml);
 

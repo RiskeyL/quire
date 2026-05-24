@@ -39,7 +39,12 @@ export const DEFAULT_TOKENS: BrandTokens = {
   typography: {
     bodyFont: "Georgia, 'Times New Roman', serif",
     headingFont: "Helvetica, Arial, sans-serif",
-    monoFont: "'SFMono-Regular', Consolas, monospace",
+    // Consolas leads the stack because it is the one mono font Microsoft Office
+    // bundles on both Windows and macOS, so the Word export (which can only use a
+    // single resolvable family name, not a CSS fallback chain) renders inline code
+    // as monospace. Chromium, used for the PDF, has no Consolas on a bare macOS
+    // box and falls through to SF Mono / Menlo, which are always present there.
+    monoFont: "Consolas, 'SF Mono', Menlo, monospace",
     baseSize: "11pt",
     lineHeight: 1.5,
   },

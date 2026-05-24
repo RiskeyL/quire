@@ -67,6 +67,26 @@ describe("compileDocxReference", () => {
     }
   });
 
+  it("adds a cell-border grid to the default Table style", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "quire-cdr-"));
+    const out = join(dir, "ref.docx");
+    try {
+      await compileDocxReference(CUSTOM_TOKENS, out);
+      const zip = await JSZip.loadAsync(await readFile(out));
+      const stylesXml = await zip.file("word/styles.xml")!.async("string");
+      const tableMatch = stylesXml.match(
+        /<w:style\b[^>]*w:styleId="Table"[^>]*>[\s\S]*?<\/w:style>/
+      );
+      expect(tableMatch).not.toBeNull();
+      const tableBlock = tableMatch![0];
+      expect(tableBlock).toContain("<w:tblBorders>");
+      expect(tableBlock).toContain('<w:insideH w:val="single"');
+      expect(tableBlock).toContain('<w:insideV w:val="single"');
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
+
   it("patches body font into docDefaults rFonts", async () => {
     const dir = await mkdtemp(join(tmpdir(), "quire-cdr-"));
     const out = join(dir, "ref.docx");

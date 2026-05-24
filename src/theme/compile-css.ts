@@ -265,11 +265,10 @@ function buildPageDescription(): string {
  * Boxed / aside component styling: callouts (Info/Tip/Warning/Note/Check/Danger
  * and the generic Callout), the Panel aside, and the Update changelog box.
  *
- * Per-type left-border colours: info/tip/note reuse existing tokens
- * (--color-accent / --color-muted). warning/danger/check use restrained fixed
- * semantic colours because the token set has no semantic colours yet — these
- * three literals (amber/red/green) are candidates for future tokens once a
- * semantic-colour set exists. Backgrounds stay as very light neutral fills.
+ * Per-type left-border colours: info uses the --color-accent token (blue). The
+ * rest use restrained fixed semantic colours because the token set has no
+ * semantic colours yet (future-token candidates): green for tip and check,
+ * brown for note, red for warning and danger. Backgrounds stay light neutral.
  */
 function buildBoxed(): string {
   return `/* ---- Callouts ---- */
@@ -291,14 +290,13 @@ function buildBoxed(): string {
   text-transform: uppercase;
   letter-spacing: 0.04em;
 }
-/* Per-type left-border colour. info/tip/note use tokens; warning/danger/check
-   use fixed semantic colours (future-token candidates). */
-/* info and tip deliberately share --color-accent: Mintlify renders both blue,
-   so tip does not need its own token. */
+/* Per-type left-border colour. info uses the accent token (blue); the rest use
+   fixed semantic colours (future-token candidates once a semantic-colour set
+   exists): green for tip/check, brown for note, red for warning/danger. */
 .callout-info { border-left-color: var(--color-accent); }
-.callout-tip { border-left-color: var(--color-accent); }
-.callout-note { border-left-color: var(--color-muted); }
-.callout-warning { border-left-color: #b45309; }
+.callout-tip { border-left-color: #15803d; }
+.callout-note { border-left-color: #b45309; }
+.callout-warning { border-left-color: #b91c1c; }
 .callout-danger { border-left-color: #b91c1c; }
 .callout-check { border-left-color: #15803d; }
 

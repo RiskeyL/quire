@@ -38,7 +38,7 @@ describe("compileCss", () => {
 
     it("emits --font-mono with default value", () => {
       expect(compileCss(DEFAULT_TOKENS)).toContain(
-        "--font-mono: 'SFMono-Regular', Consolas, monospace"
+        "--font-mono: Consolas, 'SF Mono', Menlo, monospace"
       );
     });
 
@@ -470,22 +470,28 @@ describe("compileCss", () => {
       );
     });
 
-    it(".callout-note border uses var(--color-muted)", () => {
+    it(".callout-tip border is green", () => {
       expect(compileCss(DEFAULT_TOKENS)).toMatch(
-        /\.callout-note[^{]*\{[^}]*border-left-color:\s*var\(--color-muted\)/
+        /\.callout-tip[^{]*\{[^}]*border-left-color:\s*#15803d/i
       );
     });
 
-    it(".callout-warning sets a left-border color", () => {
+    it(".callout-note border is brown", () => {
       expect(compileCss(DEFAULT_TOKENS)).toMatch(
-        /\.callout-warning[^{]*\{[^}]*border-left-color:/
+        /\.callout-note[^{]*\{[^}]*border-left-color:\s*#b45309/i
       );
     });
 
-    it(".callout-danger and .callout-check set a left-border color", () => {
+    it(".callout-warning border is red", () => {
+      expect(compileCss(DEFAULT_TOKENS)).toMatch(
+        /\.callout-warning[^{]*\{[^}]*border-left-color:\s*#b91c1c/i
+      );
+    });
+
+    it(".callout-danger is red and .callout-check is green", () => {
       const css = compileCss(DEFAULT_TOKENS);
-      expect(css).toMatch(/\.callout-danger[^{]*\{[^}]*border-left-color:/);
-      expect(css).toMatch(/\.callout-check[^{]*\{[^}]*border-left-color:/);
+      expect(css).toMatch(/\.callout-danger[^{]*\{[^}]*border-left-color:\s*#b91c1c/i);
+      expect(css).toMatch(/\.callout-check[^{]*\{[^}]*border-left-color:\s*#15803d/i);
     });
   });
 
