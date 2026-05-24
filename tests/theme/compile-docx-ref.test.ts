@@ -402,6 +402,47 @@ describe("compileDocxReference", () => {
     }
   });
 
+  it("shades fenced code blocks by filling the SourceCode paragraph style", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "quire-cdr-code-"));
+    const out = join(dir, "ref.docx");
+    try {
+      await compileDocxReference(CUSTOM_TOKENS, out);
+      const zip = await JSZip.loadAsync(await readFile(out));
+      const stylesXml = await zip.file("word/styles.xml")!.async("string");
+      const sc = stylesXml.match(
+        /<w:style[^>]*w:styleId="SourceCode"[^>]*>[\s\S]*?<\/w:style>/
+      )![0];
+      // The fill sits inside the paragraph properties (paragraph shading).
+      expect(sc).toMatch(/<w:pPr>[\s\S]*<w:shd[\s\S]*<\/w:pPr>/);
+      expect(sc).toContain('w:fill="F2F2F2"');
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("end-to-end: a fenced code block carries the shaded SourceCode style", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "quire-cdr-code-e2e-"));
+    const ref = join(dir, "ref.docx");
+    const out = join(dir, "out.docx");
+    try {
+      await compileDocxReference(CUSTOM_TOKENS, ref, { docTitle: "T" });
+      const html =
+        "<!doctype html><html><body><h1>C</h1>" +
+        "<pre><code>export FOO=bar</code></pre></body></html>";
+      await htmlToDocx(html, out, { referenceDoc: ref });
+      const zip = await JSZip.loadAsync(await readFile(out));
+      const doc = await zip.file("word/document.xml")!.async("string");
+      expect(doc).toMatch(/<w:pStyle w:val="SourceCode"\s*\/>/);
+      const styles = await zip.file("word/styles.xml")!.async("string");
+      const sc = styles.match(
+        /<w:style[^>]*w:styleId="SourceCode"[^>]*>[\s\S]*?<\/w:style>/
+      )![0];
+      expect(sc).toContain('w:fill="F2F2F2"');
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
+
   it("end-to-end: a callout div maps to the branded CalloutTip style with its border preserved", async () => {
     const dir = await mkdtemp(join(tmpdir(), "quire-cdr-callout-e2e-"));
     const ref = join(dir, "ref.docx");

@@ -495,6 +495,48 @@ function patchTableHeaderShading(xml: string): string {
   );
 }
 
+/** Code-block fill (light gray), mirroring the PDF's shaded `pre`. */
+const CODE_BLOCK_FILL = "F2F2F2";
+
+/**
+ * Shade fenced code blocks by filling Pandoc's `SourceCode` paragraph style,
+ * mirroring the PDF's `pre` background. Pandoc renders each fenced block as one
+ * `SourceCode` paragraph (lines joined with `<w:br/>`), so paragraph shading
+ * fills the whole block as a single band.
+ *
+ * Pandoc's default reference doc has NO "Source Code" style (it generates one
+ * per-document), so this INJECTS a predefined one before `</w:styles>`; Pandoc
+ * matches it by name and keeps the shading (verified empirically). If a future
+ * reference doc already defines it, the `<w:shd>` is merged into the existing
+ * `<w:pPr>` instead (CT_PPr orders shd before `wordWrap`). The injected style
+ * mirrors Pandoc's own (basedOn Normal, linked to VerbatimChar, `wordWrap off`).
+ * Idempotent (skips when the fill is present) and best-effort (needs the
+ * `</w:styles>` anchor), so the run degrades to an unshaded block.
+ */
+function patchCodeBlockShading(xml: string): string {
+  const shd = `<w:shd w:val="clear" w:color="auto" w:fill="${CODE_BLOCK_FILL}" />`;
+  if (/<w:style\b[^>]*w:styleId="SourceCode"/.test(xml)) {
+    // Already present (future pandoc, or a re-run): merge shd into its pPr.
+    return xml.replace(
+      /(<w:style\b[^>]*w:styleId="SourceCode"[^>]*>[\s\S]*?)(<\/w:style>)/,
+      (match, body: string, close: string) => {
+        if (body.includes(`w:fill="${CODE_BLOCK_FILL}"`)) return match; // already patched
+        if (/<w:pPr>/.test(body)) return body.replace(/<w:pPr>/, `<w:pPr>${shd}`) + close;
+        return body + `<w:pPr>${shd}</w:pPr>` + close;
+      }
+    );
+  }
+  if (!xml.includes("</w:styles>")) return xml;
+  const style =
+    `<w:style w:type="paragraph" w:styleId="SourceCode">` +
+    `<w:name w:val="Source Code" />` +
+    `<w:basedOn w:val="Normal" />` +
+    `<w:link w:val="VerbatimChar" />` +
+    `<w:pPr>${shd}<w:wordWrap w:val="off" /></w:pPr>` +
+    `</w:style>`;
+  return xml.replace("</w:styles>", `${style}</w:styles>`);
+}
+
 // ---------------------------------------------------------------------------
 // Page furniture: header/footer parts and section-properties wiring
 // ---------------------------------------------------------------------------
@@ -787,6 +829,10 @@ export async function compileDocxReference(
   // renderer's custom-style attributes resolve to. Info uses the brand accent;
   // the rest use the fixed semantic palette. Best-effort.
   stylesXml = patchCalloutStyles(stylesXml, hexColor(tokens.colors.accent));
+
+  // Shade fenced code blocks (SourceCode style), mirroring the PDF's `pre`
+  // background. Best-effort.
+  stylesXml = patchCodeBlockShading(stylesXml);
 
   zip.file("word/styles.xml", stylesXml);
 
