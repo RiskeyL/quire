@@ -1,0 +1,15 @@
+# Quire run-config: defaults for `quire convert`. CLI flags override these.
+# Use with:  quire convert <paths | --manifest ...> --config quire.config.yaml
+#
+# Every key mirrors a convert flag and is optional. Uncomment what you need.
+
+# format: both                 # pdf | docx | both
+# theme: dify.brand.yaml       # brand-token file (colors, fonts, page size)
+# root: .                      # base dir for root-relative /images/... paths
+# offline: false               # true = do not fetch remote images
+# cover: true                  # false = omit the cover page
+# toc: true                    # false = omit the table of contents
+# description: true            # false = suppress the page-description lede
+# title: "My Document"         # cover + running-header title (else manifest filename)
+# manifest: quire/self-host-guide.yaml
+# out: build/my-document       # output base path (no extension; Quire adds .pdf/.docx)

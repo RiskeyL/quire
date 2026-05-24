@@ -2,6 +2,7 @@
 import { Command, Option } from "commander";
 import { createRequire } from "node:module";
 import { runConvert } from "./commands/convert.js";
+import { loadRunConfig, mergeRunConfig } from "./commands/run-config.js";
 
 const require = createRequire(import.meta.url);
 const { version } = require("../package.json") as { version: string };
@@ -28,12 +29,33 @@ program
   .option("--offline", "do not fetch remote images")
   .option("--theme <file>", "brand-token YAML file (colors, fonts, page size)")
   .option("--no-description", "suppress the page-description lede (default: follows theme token meta.showDescription)")
-  .action(async (paths: string[], opts: { format: "pdf" | "docx" | "both"; out?: string; manifest?: string; dryRun?: boolean; title?: string; cover?: boolean; toc?: boolean; root?: string; offline?: boolean; theme?: string; description?: boolean }) => {
+  .option("-c, --config <file>", "run-config YAML supplying defaults; CLI flags override it")
+  .action(async (
+    paths: string[],
+    opts: { format: "pdf" | "docx" | "both"; out?: string; manifest?: string; dryRun?: boolean; title?: string; cover?: boolean; toc?: boolean; root?: string; offline?: boolean; theme?: string; description?: boolean; config?: string },
+    command: Command
+  ) => {
+    // A run-config file supplies defaults; an explicitly-set CLI flag wins over
+    // it (commander reports the source), and a flag's commander default fills any
+    // gap. dryRun is always per-run and is not configurable.
+    const file = opts.config ? await loadRunConfig(opts.config) : {};
+    const m = mergeRunConfig(
+      file,
+      opts as Record<string, unknown>,
+      (key) => command.getOptionValueSource(key) === "cli"
+    );
     await runConvert(paths, {
-      ...opts,
-      noCover: opts.cover === false,
-      noToc: opts.toc === false,
-      description: opts.description === false ? false : undefined,
+      format: m.format as "pdf" | "docx" | "both",
+      out: m.out as string | undefined,
+      manifest: m.manifest as string | undefined,
+      dryRun: opts.dryRun,
+      title: m.title as string | undefined,
+      root: m.root as string | undefined,
+      offline: m.offline as boolean | undefined,
+      theme: m.theme as string | undefined,
+      noCover: m.cover === false,
+      noToc: m.toc === false,
+      description: m.description === false ? false : undefined,
     });
   });
 
