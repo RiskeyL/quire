@@ -1089,6 +1089,23 @@ describe("compileCss", () => {
     });
   });
 
+  describe("T2 tokens: headings.scale and headings.weight", () => {
+    it("heading sizes and weights come from the headings token", () => {
+      const css = compileCss(DEFAULT_TOKENS);
+      expect(css).toMatch(/h1\s*\{[^}]*font-size:\s*2em;\s*font-weight:\s*700;/);
+      expect(css).toMatch(/h3\s*\{[^}]*font-size:\s*1\.25em;\s*font-weight:\s*600;/);
+    });
+    it("custom heading scale and weight flow through", () => {
+      const custom: BrandTokens = {
+        ...DEFAULT_TOKENS,
+        headings: { scale: [3, 2, 1.5, 1.2, 1, 0.9], weight: [800, 800, 700, 600, 500, 400] },
+      };
+      const css = compileCss(custom);
+      expect(css).toMatch(/h1\s*\{[^}]*font-size:\s*3em;\s*font-weight:\s*800;/);
+      expect(css).toMatch(/h6\s*\{[^}]*font-size:\s*0\.9em;\s*font-weight:\s*400;/);
+    });
+  });
+
   describe("T1 tokens", () => {
     it("emits the new custom properties with defaults", () => {
       const css = compileCss(DEFAULT_TOKENS);

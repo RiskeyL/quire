@@ -19,7 +19,7 @@ export function compileCss(tokens: BrandTokens): string {
   const page = buildPage(tokens);
   const pageFurniture = buildPageFurniture();
   const elements = buildElements();
-  const content = buildContent(tokens.tables.layout);
+  const content = buildContent(tokens.tables.layout, tokens.headings);
   const boxed = buildBoxed();
   const figure = buildFigure();
   const disclosure = buildDisclosure();
@@ -154,15 +154,15 @@ pre, code { font-family: var(--font-mono); }`;
  * All fills and hairlines are token-driven: code/pre/table backgrounds use
  * var(--color-surface); border hairlines use var(--color-border).
  */
-function buildContent(tableLayout: BrandTokens["tables"]["layout"]): string {
+function buildContent(tableLayout: BrandTokens["tables"]["layout"], headings: BrandTokens["headings"]): string {
   return `/* ---- Heading scale ---- */
 /* Each level has a distinct em size so demoted headings keep a visible hierarchy. */
-h1 { font-size: 2em; font-weight: 700; margin: 1.5em 0 0.4em; line-height: 1.2; break-after: avoid; }
-h2 { font-size: 1.5em; font-weight: 700; margin: 1.4em 0 0.35em; line-height: 1.25; break-after: avoid; }
-h3 { font-size: 1.25em; font-weight: 600; margin: 1.3em 0 0.3em; line-height: 1.3; break-after: avoid; }
-h4 { font-size: 1.1em; font-weight: 600; margin: 1.2em 0 0.25em; line-height: 1.35; break-after: avoid; }
-h5 { font-size: 1em; font-weight: 600; margin: 1.1em 0 0.2em; line-height: 1.4; break-after: avoid; }
-h6 { font-size: 0.85em; font-weight: 600; margin: 1em 0 0.2em; line-height: 1.4; break-after: avoid; text-transform: uppercase; letter-spacing: 0.05em; color: var(--color-muted); }
+h1 { font-size: ${headings.scale[0]}em; font-weight: ${headings.weight[0]}; margin: 1.5em 0 0.4em; line-height: 1.2; break-after: avoid; }
+h2 { font-size: ${headings.scale[1]}em; font-weight: ${headings.weight[1]}; margin: 1.4em 0 0.35em; line-height: 1.25; break-after: avoid; }
+h3 { font-size: ${headings.scale[2]}em; font-weight: ${headings.weight[2]}; margin: 1.3em 0 0.3em; line-height: 1.3; break-after: avoid; }
+h4 { font-size: ${headings.scale[3]}em; font-weight: ${headings.weight[3]}; margin: 1.2em 0 0.25em; line-height: 1.35; break-after: avoid; }
+h5 { font-size: ${headings.scale[4]}em; font-weight: ${headings.weight[4]}; margin: 1.1em 0 0.2em; line-height: 1.4; break-after: avoid; }
+h6 { font-size: ${headings.scale[5]}em; font-weight: ${headings.weight[5]}; margin: 1em 0 0.2em; line-height: 1.4; break-after: avoid; text-transform: uppercase; letter-spacing: 0.05em; color: var(--color-muted); }
 
 /* ---- Vertical rhythm ---- */
 p { margin-top: 0; margin-bottom: 0.75em; }

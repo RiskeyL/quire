@@ -288,27 +288,23 @@ function patchHeadingStyles(
 
 /**
  * Scale the Heading1–Heading6 font sizes (and their linked HeadingNChar styles)
- * to the brand base size times the same em ratios the PDF uses (compile-css:
- * 2 / 1.5 / 1.25 / 1.1 / 1 / 0.85), so Word headings step down in the same
- * proportion as the PDF instead of Pandoc's fixed reference sizes. `baseHalfPts`
- * is the body size in half-points. Replaces the `<w:sz>`/`<w:szCs>` values inside
- * each heading style's rPr. Pandoc gives Heading1–3 an explicit size but leaves
- * Heading4–6 to inherit, so when no `<w:sz>` is present this INSERTS one before
- * `</w:rPr>` (sz/szCs sit after color in CT_RPr order, which is where the heading
- * rPr ends). The `sz` pattern requires the space after `w:sz`, so it never
- * matches `w:szCs`. Best-effort: skips a heading style that has no rPr at all.
+ * to the brand base size times the ratios from `headings.scale`, so Word headings
+ * step down in the same proportion as the PDF instead of Pandoc's fixed reference
+ * sizes. `baseHalfPts` is the body size in half-points. Replaces the `<w:sz>`/
+ * `<w:szCs>` values inside each heading style's rPr. Pandoc gives Heading1–3 an
+ * explicit size but leaves Heading4–6 to inherit, so when no `<w:sz>` is present
+ * this INSERTS one before `</w:rPr>` (sz/szCs sit after color in CT_RPr order,
+ * which is where the heading rPr ends). The `sz` pattern requires the space after
+ * `w:sz`, so it never matches `w:szCs`. Best-effort: skips a heading style that
+ * has no rPr at all.
  */
-function patchHeadingSizes(xml: string, baseHalfPts: number): string {
-  const ratios: Record<string, number> = {
-    Heading1: 2.0,
-    Heading2: 1.5,
-    Heading3: 1.25,
-    Heading4: 1.1,
-    Heading5: 1.0,
-    Heading6: 0.85,
-  };
+function patchHeadingSizes(xml: string, baseHalfPts: number, scale: number[]): string {
+  const ids = ["Heading1", "Heading2", "Heading3", "Heading4", "Heading5", "Heading6"];
+  const fallback = [2.0, 1.5, 1.25, 1.1, 1.0, 0.85];
   let result = xml;
-  for (const [id, ratio] of Object.entries(ratios)) {
+  for (let i = 0; i < ids.length; i++) {
+    const id = ids[i];
+    const ratio = scale?.[i] ?? fallback[i];
     const sz = Math.round(baseHalfPts * ratio);
     const szEls = `<w:sz w:val="${sz}" /><w:szCs w:val="${sz}" />`;
     for (const styleId of [id, `${id}Char`]) {
@@ -1107,9 +1103,9 @@ export async function compileDocxReference(
   }
   stylesXml = afterHeadings;
 
-  // Scale heading sizes to the brand base size x the PDF's em ratios, so Word
+  // Scale heading sizes to the brand base size x the headings.scale ratios, so Word
   // headings match the PDF proportions rather than Pandoc's fixed sizes. Best-effort.
-  stylesXml = patchHeadingSizes(stylesXml, halfPts);
+  stylesXml = patchHeadingSizes(stylesXml, halfPts, tokens.headings.scale);
 
   // Mono font in VerbatimChar (best-effort)
   stylesXml = patchMonoFont(stylesXml, monoFontName);

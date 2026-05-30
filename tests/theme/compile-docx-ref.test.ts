@@ -33,7 +33,14 @@ const CUSTOM_TOKENS: BrandTokens = {
     baseSize: "13pt",
     lineHeight: 1.5,
   },
-  toc: { title: "Contents" },
+  toc: { title: "Contents", depth: 3 },
+  headings: { scale: [2, 1.5, 1.25, 1.1, 1, 0.85], weight: [700, 700, 600, 600, 600, 600] },
+  links: { underline: true },
+  density: "normal",
+  header: { left: "docTitle", center: "none", right: "chapter" },
+  footer: { left: "none", center: "pageNumber", right: "none" },
+  furniture: { fontSize: "9pt", color: "#6b7280" },
+  pageNumbers: { restartAtBody: true },
   meta: { showDescription: true },
   semantic: { success: "#ABCDEF", caution: "#FEDCBA", danger: "#BADA55" },
   shape: { radius: "9px" },
@@ -170,6 +177,21 @@ describe("compileDocxReference", () => {
       expect(sz("Heading3")).toBeGreaterThan(sz("Heading4"));
       expect(sz("Heading4")).toBeGreaterThan(sz("Heading5"));
       expect(sz("Heading5")).toBeGreaterThan(sz("Heading6"));
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("scales Word heading sizes from headings.scale", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "quire-cdr-"));
+    const out = join(dir, "ref.docx");
+    try {
+      const scaled: BrandTokens = { ...CUSTOM_TOKENS, headings: { scale: [3, 2, 1.5, 1.2, 1, 0.8], weight: CUSTOM_TOKENS.headings.weight } };
+      await compileDocxReference(scaled, out);
+      const stylesXml = await (await JSZip.loadAsync(await readFile(out))).file("word/styles.xml")!.async("string");
+      // 26 half-points * 3 = 78
+      const h1 = stylesXml.match(/<w:style[^>]*w:styleId="Heading1"[^>]*>[\s\S]*?<\/w:style>/)![0];
+      expect(h1).toContain('w:sz w:val="78"');
     } finally {
       await rm(dir, { recursive: true, force: true });
     }
