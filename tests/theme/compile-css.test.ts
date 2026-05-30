@@ -1074,17 +1074,18 @@ describe("compileCss", () => {
       expect(compileCss(DEFAULT_TOKENS)).toMatch(/\.checklist-item\b[^{]*\{/);
     });
 
-    it("emits a .checklist-item::before rule with the ☐ content value", () => {
-      const css = compileCss(DEFAULT_TOKENS);
-      expect(css).toMatch(/\.checklist-item::before\s*\{/);
-      // The glyph must be present as a CSS content value
-      expect(css).toContain("☐");
-    });
-
-    it(".checklist-item::before content includes the ☐ glyph followed by a space", () => {
+    it("draws the checkbox as an empty bordered square (no ☐ glyph, no font dependency)", () => {
       const css = compileCss(DEFAULT_TOKENS);
       const rule = css.match(/\.checklist-item::before\s*\{[^}]*\}/)?.[0] ?? "";
-      expect(rule).toMatch(/content:\s*["']☐\s/);
+      expect(rule).toMatch(/\.checklist-item::before\s*\{/);
+      // Empty content (not the ☐ character), so it stays out of extracted text and
+      // does not rely on a font covering U+2610.
+      expect(rule).toMatch(/content:\s*["']["']/);
+      expect(rule).not.toContain("☐");
+      // A real bordered box with width and height.
+      expect(rule).toMatch(/border:\s*[^;]*solid/);
+      expect(rule).toMatch(/width:/);
+      expect(rule).toMatch(/height:/);
     });
   });
 });

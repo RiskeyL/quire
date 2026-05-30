@@ -994,9 +994,10 @@ function buildStructural(tokens: BrandTokens): string {
  *   with the project decision not to protect reliably-long blocks.
  *
  * CheckList:
- *   A bare list (list-style: none, padding-left for glyph room). The ☐ glyph
- *   is rendered exclusively via .checklist-item::before { content: "☐ " } so
- *   it never appears as a text node and does not affect text extraction.
+ *   A bare list (list-style: none, padding-left for box room). The checkbox is a
+ *   CSS-drawn bordered square via .checklist-item::before (content empty), so it
+ *   never appears as a text node, does not affect text extraction, and does not
+ *   depend on a font covering the ☐ glyph.
  *
  * Color usage:
  *   - .tree uses var(--font-mono): file/folder trees read naturally in monospace.
@@ -1040,10 +1041,18 @@ function buildStructuralLists(): string {
   position: relative;
 }
 
-/* ☐ glyph rendered via CSS so it never appears in extracted text content. */
+/* An empty bordered square drawn in CSS rather than the ☐ glyph: the checkbox no
+   longer depends on a font covering U+2610 (Söhne does not, so it fell back to a
+   dingbat font), it matches the brand's sharp-corner checkbox, and content stays
+   empty so it never appears in extracted text. */
 .checklist-item::before {
-  content: "☐ ";
+  content: "";
   position: absolute;
   left: -1.5em;
+  top: 0.2em;
+  width: 0.75em;
+  height: 0.75em;
+  border: 1.5px solid var(--color-muted);
+  box-sizing: border-box;
 }`;
 }
