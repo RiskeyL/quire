@@ -45,18 +45,24 @@ export function compileCss(tokens: BrandTokens): string {
 // file is authored by the trusted user running the tool — a value containing
 // </style> or } would break out of the block.
 function buildRoot(tokens: BrandTokens): string {
-  const { colors, typography } = tokens;
+  const { colors, typography, semantic, shape } = tokens;
   return `:root {
   --color-text: ${colors.text};
   --color-heading: ${colors.heading};
   --color-link: ${colors.link};
   --color-accent: ${colors.accent};
   --color-muted: ${colors.muted};
+  --color-surface: ${colors.surface};
+  --color-border: ${colors.border};
   --font-body: ${typography.bodyFont};
   --font-heading: ${typography.headingFont};
   --font-mono: ${typography.monoFont};
   --base-size: ${typography.baseSize};
   --line-height: ${typography.lineHeight};
+  --semantic-success: ${semantic.success};
+  --semantic-caution: ${semantic.caution};
+  --semantic-danger: ${semantic.danger};
+  --radius: ${shape.radius};
 }`;
 }
 
@@ -145,10 +151,8 @@ pre, code { font-family: var(--font-mono); }`;
 /**
  * Minimally-viable default styling for content elements.
  *
- * Uses existing custom properties (var(--…)) wherever a token naturally applies.
- * Neutral surface values (code/table backgrounds, hairline borders, hr colour)
- * are hardcoded as restrained grays — these are candidates for future tokens
- * once a designer-facing theme tool exists.
+ * All fills and hairlines are token-driven: code/pre/table backgrounds use
+ * var(--color-surface); border hairlines use var(--color-border).
  */
 function buildContent(tableLayout: BrandTokens["tables"]["layout"]): string {
   return `/* ---- Heading scale ---- */
@@ -166,13 +170,12 @@ p { margin-top: 0; margin-bottom: 0.75em; }
 section > *:first-child { margin-top: 0; }
 
 /* ---- Inline code vs. code blocks ---- */
-/* Neutral surface values (rgba fills, hairline borders) are candidates for
-   future tokens once the designer-facing theme tool exists. */
+/* Fills use var(--color-surface); hairline borders use var(--color-border). */
 :not(pre) > code {
   font-size: 0.88em;
-  background: rgba(0,0,0,0.05);
+  background: var(--color-surface);
   padding: 0.1em 0.35em;
-  border-radius: 3px;
+  border-radius: var(--radius);
   /* Allow long unbreakable tokens (e.g. fully-qualified worker class paths in
      the env-vars table) to wrap. Without this, an inline <code> span sets a
      minimum column width that, under auto table-layout, pushes the last column
@@ -181,9 +184,9 @@ section > *:first-child { margin-top: 0; }
   word-break: break-word;
 }
 pre {
-  background: rgba(0,0,0,0.05);
+  background: var(--color-surface);
   padding: 0.85em 1em;
-  border-radius: 4px;
+  border-radius: var(--radius);
   font-size: 0.88em;
   white-space: pre-wrap;
   overflow-wrap: anywhere;
@@ -210,7 +213,7 @@ table {
   font-size: 0.95em;
 }
 th, td {
-  border: 1px solid rgba(0,0,0,0.15);
+  border: 1px solid var(--color-border);
   padding: 0.45em 0.65em;
   text-align: left;
   vertical-align: top;
@@ -221,7 +224,7 @@ th, td {
   word-break: break-word;
 }
 th {
-  background: rgba(0,0,0,0.06);
+  background: var(--color-surface);
   font-weight: bold;
 }
 /* Only protect the header row from breaking. Body rows are intentionally
@@ -251,7 +254,7 @@ li { margin-bottom: 0.25em; }
 /* ---- Horizontal rules ---- */
 hr {
   border: 0;
-  border-top: 1px solid rgba(0,0,0,0.15);
+  border-top: 1px solid var(--color-border);
   margin: 1.5em 0;
 }
 
@@ -284,18 +287,17 @@ function buildPageDescription(): string {
  * Boxed / aside component styling: callouts (Info/Tip/Warning/Note/Check/Danger
  * and the generic Callout), the Panel aside, and the Update changelog box.
  *
- * Per-type left-border colours: info uses the --color-accent token (blue). The
- * rest use restrained fixed semantic colours because the token set has no
- * semantic colours yet (future-token candidates): green for tip and check,
- * brown for note, red for warning and danger. Backgrounds stay light neutral.
+ * Per-type left-border colours: info uses var(--color-accent); tip/check use
+ * var(--semantic-success); note/warning/danger use var(--semantic-caution) and
+ * var(--semantic-danger). Surface fill uses var(--color-surface).
  */
 function buildBoxed(): string {
   return `/* ---- Callouts ---- */
 .callout {
   padding: 0.75em 1em;
   border-left: 3px solid var(--color-muted);
-  background: rgba(0,0,0,0.03);
-  border-radius: 0 4px 4px 0;
+  background: var(--color-surface);
+  border-radius: 0 var(--radius) var(--radius) 0;
   margin: 1em 0;
   /* Callouts are usually short, so keeping them whole avoids an orphaned label. */
   break-inside: avoid;
@@ -309,15 +311,15 @@ function buildBoxed(): string {
   text-transform: uppercase;
   letter-spacing: 0.04em;
 }
-/* Per-type left-border colour. info uses the accent token (blue); the rest use
-   fixed semantic colours (future-token candidates once a semantic-colour set
-   exists): green for tip/check, brown for note, red for warning/danger. */
+/* Per-type left-border colour. info uses var(--color-accent); tip/check use
+   var(--semantic-success); note uses var(--semantic-caution); warning/danger
+   use var(--semantic-danger). */
 .callout-info { border-left-color: var(--color-accent); }
-.callout-tip { border-left-color: #15803d; }
-.callout-note { border-left-color: #b45309; }
-.callout-warning { border-left-color: #b91c1c; }
-.callout-danger { border-left-color: #b91c1c; }
-.callout-check { border-left-color: #15803d; }
+.callout-tip { border-left-color: var(--semantic-success); }
+.callout-note { border-left-color: var(--semantic-caution); }
+.callout-warning { border-left-color: var(--semantic-danger); }
+.callout-danger { border-left-color: var(--semantic-danger); }
+.callout-check { border-left-color: var(--semantic-success); }
 
 /* Note: Banner is a docs.json site-config feature in Mintlify, not an
    in-content component, so the render core emits no banner element and no
@@ -327,11 +329,11 @@ function buildBoxed(): string {
 /* ---- Panel (aside) ---- */
 .panel {
   display: block;
-  border: 1px solid rgba(0,0,0,0.15);
-  border-radius: 4px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
   padding: 0.85em 1em;
   margin: 1em 0;
-  background: rgba(0,0,0,0.02);
+  background: var(--color-surface);
 }
 .panel > *:first-child { margin-top: 0; }
 .panel > *:last-child { margin-bottom: 0; }
@@ -423,12 +425,10 @@ figcaption {
  * do not compete with the inner panel spacing.
  *
  * Color usage:
- *   - Border and label use var(--color-muted) — a neutral tone that avoids
- *     competing with callout accent colors.
+ *   - Labels use var(--color-muted) — a neutral tone that avoids competing with
+ *     callout accent colors.
+ *   - Hairline top border uses var(--color-border).
  *   - Body indentation is a plain padding value; no color token needed.
- *   - Hardcoded neutral: the hairline top border uses rgba(0,0,0,0.12), which
- *     is a restrained separator consistent with the table/callout palette used
- *     elsewhere. Future-token candidate once a separator-color token exists.
  */
 function buildDisclosure(): string {
   return `/* ---- Disclosure containers (Tabs, AccordionGroup) ---- */
@@ -447,7 +447,7 @@ function buildDisclosure(): string {
 .accordion,
 .expandable,
 .view {
-  border-top: 1px solid rgba(0,0,0,0.12);  /* hardcoded neutral: future-token candidate */
+  border-top: 1px solid var(--color-border);
   padding: 0.6em 0 0.6em 1em;
   margin-top: 0;
 }
@@ -563,11 +563,9 @@ function buildSteps(): string {
  * Color usage:
  *   - .card-href / .tile-href use var(--color-muted) — visually secondary, so
  *     they don't compete with the title.
- *   - Borders use rgba(0,0,0,0.15) — a restrained hairline consistent with
- *     .panel and table cells. Hardcoded neutral; future-token candidate.
- *   - Backgrounds on .card / .tile are intentionally omitted to avoid adding
- *     a surface-color token that doesn't exist yet. The border alone is
- *     sufficient to visually delineate the block.
+ *   - Borders use var(--color-border).
+ *   - Backgrounds on .card / .tile are intentionally omitted; the border alone
+ *     is sufficient to delineate the block and avoids heavy fills on tall bodies.
  */
 function buildCards(): string {
   return `/* ---- Card and Tile (bordered content blocks) ---- */
@@ -577,8 +575,8 @@ function buildCards(): string {
 /* gap. Mirrors the .tab/.accordion/.step decision.                           */
 .card,
 .tile {
-  border: 1px solid rgba(0,0,0,0.15);  /* hardcoded neutral: future-token candidate */
-  border-radius: 4px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
   padding: 0.85em 1em;
   margin: 0.75em 0;
 }
@@ -652,13 +650,9 @@ function buildCards(): string {
  *     identifier, so it scans like inline code.
  *   - .param-type / .param-default use var(--color-muted) and a smaller size:
  *     secondary metadata that should not compete with the name.
- *   - .param-required / .param-deprecated are small uppercase badges. They use
- *     restrained semantic colours (amber border+text for required, neutral
- *     muted for deprecated) because the token set has no semantic colours yet —
- *     these literals are future-token candidates, consistent with the
- *     callout warning/danger/check decision.
- *   - Hairline separator uses rgba(0,0,0,0.12), the same restrained neutral as
- *     the disclosure panels. Future-token candidate.
+ *   - .param-required badge uses var(--semantic-caution) for border and text.
+ *   - .param-deprecated badge uses var(--color-muted) (neutral, struck-through).
+ *   - Hairline separator uses var(--color-border).
  *   - .example-label is bold + muted, matching the disclosure/step label tone.
  */
 function buildFields(): string {
@@ -667,7 +661,7 @@ function buildFields(): string {
 /* break-inside: avoid — fields with nested children can be long, so forcing   */
 /* them whole would leave a blank-page gap (mirrors table/disclosure/card).    */
 .param-field {
-  border-top: 1px solid rgba(0,0,0,0.12);  /* hardcoded neutral: future-token candidate */
+  border-top: 1px solid var(--color-border);
   padding: 0.55em 0;
   margin: 0;
 }
@@ -705,9 +699,7 @@ function buildFields(): string {
 /* Small uppercase pills. The shared badge shape (size, casing, spacing, pill   */
 /* radius) is grouped on one selector — only the per-type border/colour differ, */
 /* mirroring how the disclosure section groups .tab/.accordion/.expandable.     */
-/* Semantic colours are hardcoded (no semantic-colour tokens yet): amber for    */
-/* required, neutral muted for deprecated. Both are future-token candidates,    */
-/* consistent with the callout warning/danger palette.                          */
+/* required uses var(--semantic-caution); deprecated uses var(--color-muted).   */
 .param-required,
 .param-deprecated {
   font-size: 0.7em;
@@ -715,11 +707,11 @@ function buildFields(): string {
   letter-spacing: 0.05em;
   margin-left: 0.5em;
   padding: 0.05em 0.4em;
-  border-radius: 3px;
+  border-radius: var(--radius);
 }
 .param-required {
-  border: 1px solid #b45309;  /* amber — future-token candidate */
-  color: #b45309;
+  border: 1px solid var(--semantic-caution);
+  color: var(--semantic-caution);
 }
 .param-deprecated {
   border: 1px solid var(--color-muted);
@@ -772,12 +764,9 @@ function buildFields(): string {
  *   blocks are protected.
  *
  * Color usage:
- *   - .code-label uses var(--font-mono) so filename/language labels scan like
- *     code identifiers, and var(--color-muted) so they are visually secondary
- *     to the code block content they annotate. Both are token-driven.
- *   - .code-group border uses rgba(0,0,0,0.08) — a very light neutral surface
- *     that visually groups the blocks without competing with the code content.
- *     Hardcoded neutral; future-token candidate once a surface-color token exists.
+ *   - .code-label uses var(--font-mono) and var(--color-muted) — both token-driven.
+ *   - .code-group border and .prompt border use var(--color-border); prompt fill
+ *     uses var(--color-surface).
  *   - .prompt-label is bold; no additional color token is applied — the bold
  *     weight alone provides sufficient visual hierarchy for a prompt header.
  */
@@ -787,8 +776,8 @@ function buildCode(): string {
 /* would leave a blank gap (mirrors .tab/.accordion/.card/.step decisions).   */
 .code-group {
   margin: 1em 0;
-  border: 1px solid rgba(0,0,0,0.08);  /* light grouping outline: future-token candidate */
-  border-radius: 4px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
   padding: 0.5em 0.75em;
 }
 
@@ -815,11 +804,11 @@ function buildCode(): string {
 /* ---- Prompt (copyable AI prompt card) ---- */
 /* Children (prompt text) follow below the bold label.                       */
 .prompt {
-  border: 1px solid rgba(0,0,0,0.12);  /* hairline border: future-token candidate */
-  border-radius: 4px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
   padding: 0.75em 1em;
   margin: 1em 0;
-  background: rgba(0,0,0,0.02);
+  background: var(--color-surface);
 }
 .prompt > *:first-child { margin-top: 0; }
 .prompt > *:last-child { margin-bottom: 0; }
@@ -865,7 +854,7 @@ function buildInline(): string {
   font-size: 0.75em;
   font-weight: 600;
   padding: 0.1em 0.45em;
-  border-radius: 3px;
+  border-radius: var(--radius);
   border: 1px solid var(--color-muted);  /* token-driven neutral border */
   color: var(--color-muted);
   letter-spacing: 0.03em;

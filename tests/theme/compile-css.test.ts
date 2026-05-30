@@ -372,10 +372,10 @@ describe("compileCss", () => {
 
     it("code block and inline code share the same background (matches the Word fill)", () => {
       const css = compileCss(DEFAULT_TOKENS);
-      // Both pre and inline code use rgba(0,0,0,0.05) (= F2F2F2), which is also
+      // Both pre and inline code use var(--color-surface) (= #f2f2f2), which is also
       // the Word SourceCode/VerbatimChar shading fill.
-      expect(css).toMatch(/pre\s*\{[^}]*background:\s*rgba\(0,0,0,0\.05\)/);
-      expect(css).toMatch(/:not\(pre\)\s*>\s*code[^{]*\{[^}]*background:\s*rgba\(0,0,0,0\.05\)/);
+      expect(css).toMatch(/pre\s*\{[^}]*background:\s*var\(--color-surface\)/);
+      expect(css).toMatch(/:not\(pre\)\s*>\s*code[^{]*\{[^}]*background:\s*var\(--color-surface\)/);
     });
   });
 
@@ -517,28 +517,28 @@ describe("compileCss", () => {
       );
     });
 
-    it(".callout-tip border is green", () => {
+    it(".callout-tip border uses var(--semantic-success)", () => {
       expect(compileCss(DEFAULT_TOKENS)).toMatch(
-        /\.callout-tip[^{]*\{[^}]*border-left-color:\s*#15803d/i
+        /\.callout-tip[^{]*\{[^}]*border-left-color:\s*var\(--semantic-success\)/
       );
     });
 
-    it(".callout-note border is brown", () => {
+    it(".callout-note border uses var(--semantic-caution)", () => {
       expect(compileCss(DEFAULT_TOKENS)).toMatch(
-        /\.callout-note[^{]*\{[^}]*border-left-color:\s*#b45309/i
+        /\.callout-note[^{]*\{[^}]*border-left-color:\s*var\(--semantic-caution\)/
       );
     });
 
-    it(".callout-warning border is red", () => {
+    it(".callout-warning border uses var(--semantic-danger)", () => {
       expect(compileCss(DEFAULT_TOKENS)).toMatch(
-        /\.callout-warning[^{]*\{[^}]*border-left-color:\s*#b91c1c/i
+        /\.callout-warning[^{]*\{[^}]*border-left-color:\s*var\(--semantic-danger\)/
       );
     });
 
-    it(".callout-danger is red and .callout-check is green", () => {
+    it(".callout-danger uses var(--semantic-danger) and .callout-check uses var(--semantic-success)", () => {
       const css = compileCss(DEFAULT_TOKENS);
-      expect(css).toMatch(/\.callout-danger[^{]*\{[^}]*border-left-color:\s*#b91c1c/i);
-      expect(css).toMatch(/\.callout-check[^{]*\{[^}]*border-left-color:\s*#15803d/i);
+      expect(css).toMatch(/\.callout-danger[^{]*\{[^}]*border-left-color:\s*var\(--semantic-danger\)/);
+      expect(css).toMatch(/\.callout-check[^{]*\{[^}]*border-left-color:\s*var\(--semantic-success\)/);
     });
   });
 
@@ -1086,6 +1086,38 @@ describe("compileCss", () => {
       expect(rule).toMatch(/border:\s*[^;]*solid/);
       expect(rule).toMatch(/width:/);
       expect(rule).toMatch(/height:/);
+    });
+  });
+
+  describe("T1 tokens", () => {
+    it("emits the new custom properties with defaults", () => {
+      const css = compileCss(DEFAULT_TOKENS);
+      expect(css).toContain("--color-surface: #f2f2f2");
+      expect(css).toContain("--color-border: #d9d9d9");
+      expect(css).toContain("--semantic-success: #15803d");
+      expect(css).toContain("--semantic-caution: #b45309");
+      expect(css).toContain("--semantic-danger: #b91c1c");
+      expect(css).toContain("--radius: 4px");
+    });
+    it("surfaces and borders use the new vars", () => {
+      const css = compileCss(DEFAULT_TOKENS);
+      expect(css).toMatch(/\bpre\s*\{[^}]*background:\s*var\(--color-surface\)/);
+      expect(css).toMatch(/th,\s*td\s*\{[^}]*border:\s*1px solid var\(--color-border\)/);
+    });
+    it("callout accents use the semantic vars", () => {
+      const css = compileCss(DEFAULT_TOKENS);
+      expect(css).toContain(".callout-tip { border-left-color: var(--semantic-success); }");
+      expect(css).toContain(".callout-note { border-left-color: var(--semantic-caution); }");
+      expect(css).toContain(".callout-warning { border-left-color: var(--semantic-danger); }");
+      expect(css).toContain(".callout-danger { border-left-color: var(--semantic-danger); }");
+      expect(css).toContain(".callout-check { border-left-color: var(--semantic-success); }");
+    });
+    it("custom surface override flows through", () => {
+      const custom: BrandTokens = {
+        ...DEFAULT_TOKENS,
+        colors: { ...DEFAULT_TOKENS.colors, surface: "#C0FFEE" },
+      };
+      expect(compileCss(custom)).toContain("--color-surface: #C0FFEE");
     });
   });
 });
