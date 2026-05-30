@@ -5,7 +5,7 @@ import { renderMdx } from "../render/mdx/render-mdx.js";
 import { resolveTitle } from "../render/mdx/title.js";
 import { stripPageChrome } from "../render/strip-chrome.js";
 import { embedImages } from "../render/images.js";
-import { renderMermaid } from "../render/mermaid.js";
+import { renderMermaid, createPuppeteerRenderer, type DiagramRenderer } from "../render/mermaid.js";
 import { setTableColumnWidths } from "../render/tables.js";
 import { htmlToPdf } from "../export/pdf.js";
 import { htmlToDocx } from "../export/docx.js";
@@ -92,60 +92,77 @@ export async function runConvert(paths: string[], options: ConvertOptions): Prom
   }
 
   const rendered = new Map<string, string>();
-  for (const page of pages) {
-    const resolvedPath = manifestDir
-      ? resolve(manifestDir, page.file)
-      : resolve(page.file);
-    const markdown = await readFile(resolvedPath, "utf8");
-    const { html: renderedHtml, frontmatter } = renderMdx(markdown, {
-      onWarn: (msg) => process.stderr.write(`${msg}\n`),
-    });
+  // A single headless browser is shared across all pages for mermaid rendering.
+  // It is created lazily on the first page that actually has a diagram (so
+  // diagram-free runs never launch one) and torn down once in the finally below.
+  // Previously each diagram page launched and closed its own browser.
+  let mermaidRenderer: { render: DiagramRenderer; close: () => Promise<void> } | null = null;
+  try {
+    for (const page of pages) {
+      const resolvedPath = manifestDir
+        ? resolve(manifestDir, page.file)
+        : resolve(page.file);
+      const markdown = await readFile(resolvedPath, "utf8");
+      const { html: renderedHtml, frontmatter } = renderMdx(markdown, {
+        onWarn: (msg) => process.stderr.write(`${msg}\n`),
+      });
 
-    // Strip docs page chrome (the "Edit this page | Report an issue" footer that
-    // a docs site appends to every page) before any further processing, so it
-    // never reaches the PDF or Word output.
-    const rawHtml = stripPageChrome(renderedHtml);
+      // Strip docs page chrome (the "Edit this page | Report an issue" footer that
+      // a docs site appends to every page) before any further processing, so it
+      // never reaches the PDF or Word output.
+      const rawHtml = stripPageChrome(renderedHtml);
 
-    // Resolve the effective title and strip the first body <h1> when it is the
-    // title source. Mutating page.title on the tree node makes assemble.ts's
-    // pageTitle/buildToc use the resolved title with no signature change
-    // (collectPages returns the live tree nodes, so this is safe).
-    const { title: resolvedTitle, html: titledHtml } = resolveTitle({
-      manifestTitle: page.title,
-      frontmatter,
-      html: rawHtml,
-      file: page.file,
-    });
-    page.title = resolvedTitle;
+      // Resolve the effective title and strip the first body <h1> when it is the
+      // title source. Mutating page.title on the tree node makes assemble.ts's
+      // pageTitle/buildToc use the resolved title with no signature change
+      // (collectPages returns the live tree nodes, so this is safe).
+      const { title: resolvedTitle, html: titledHtml } = resolveTitle({
+        manifestTitle: page.title,
+        frontmatter,
+        html: rawHtml,
+        file: page.file,
+      });
+      page.title = resolvedTitle;
 
-    // Capture the frontmatter description on the tree node so assemble.ts can
-    // render it as a lede beneath the page title (gated by showDescription).
-    if (typeof frontmatter.description === "string" && frontmatter.description.trim() !== "") {
-      page.description = frontmatter.description.trim();
+      // Capture the frontmatter description on the tree node so assemble.ts can
+      // render it as a lede beneath the page title (gated by showDescription).
+      if (typeof frontmatter.description === "string" && frontmatter.description.trim() !== "") {
+        page.description = frontmatter.description.trim();
+      }
+
+      const withImages = await embedImages(titledHtml, {
+        baseDir: dirname(resolvedPath),
+        root: effectiveRoot,
+        offline: !!options.offline,
+      });
+
+      // Rasterize any ```mermaid fenced blocks to embedded PNG <img>s. This runs
+      // after embedImages because mermaid produces self-contained data-URI images
+      // (no external refs for embedImages to resolve). Only pages that actually
+      // contain a mermaid block create/reuse the shared browser; the gate keeps
+      // diagram-free pages from touching puppeteer at all.
+      let html = withImages;
+      if (withImages.includes("language-mermaid")) {
+        mermaidRenderer ??= await createPuppeteerRenderer();
+        html = await renderMermaid(withImages, {
+          warn: (msg) => process.stderr.write(`${msg}\n`),
+          renderDiagram: mermaidRenderer.render,
+        });
+      }
+
+      // With tables.layout "fixed" (default), give every table an equal-width
+      // <colgroup>. This makes BOTH outputs use fixed, evenly-distributed columns:
+      // Chromium honors the widths under `table-layout: fixed`, and Pandoc emits a
+      // fixed-layout docx table with equal gridCols. Without it, Word's autofit
+      // starves a column to a sliver when another holds a long unbreakable token.
+      const withTables =
+        tokens.tables.layout === "fixed" ? setTableColumnWidths(html) : html;
+      rendered.set(page.file, withTables);
     }
-
-    const withImages = await embedImages(titledHtml, {
-      baseDir: dirname(resolvedPath),
-      root: effectiveRoot,
-      offline: !!options.offline,
-    });
-
-    // Rasterize any ```mermaid fenced blocks to embedded PNG <img>s. This runs
-    // after embedImages because mermaid produces self-contained data-URI images
-    // (no external refs for embedImages to resolve). The fast path in
-    // renderMermaid means pages with no diagrams skip launching a browser.
-    const html = await renderMermaid(withImages, {
-      warn: (msg) => process.stderr.write(`${msg}\n`),
-    });
-
-    // With tables.layout "fixed" (default), give every table an equal-width
-    // <colgroup>. This makes BOTH outputs use fixed, evenly-distributed columns:
-    // Chromium honors the widths under `table-layout: fixed`, and Pandoc emits a
-    // fixed-layout docx table with equal gridCols. Without it, Word's autofit
-    // starves a column to a sliver when another holds a long unbreakable token.
-    const withTables =
-      tokens.tables.layout === "fixed" ? setTableColumnWidths(html) : html;
-    rendered.set(page.file, withTables);
+  } finally {
+    // Tear down the shared mermaid browser once, after all pages are rendered
+    // (or if a page throws), mirroring the per-call cleanup renderMermaid did.
+    if (mermaidRenderer) await mermaidRenderer.close();
   }
 
   // Determine document title.
