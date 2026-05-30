@@ -1155,4 +1155,42 @@ describe("compileCss", () => {
       expect(compileCss({ ...DEFAULT_TOKENS, density: "relaxed" })).toContain("--rhythm: 1.3");
     });
   });
+
+  describe("header/footer slots", () => {
+    it("default furniture reproduces the current @page boxes", () => {
+      const css = compileCss(DEFAULT_TOKENS);
+      expect(css).toContain("@top-left { content: string(doctitle); font-size: 9pt; color: #6b7280; }");
+      expect(css).toContain("@top-right { content: string(chaptertitle, first); font-size: 9pt; color: #6b7280; }");
+      expect(css).toContain("@bottom-center { content: counter(page); font-size: 9pt; color: #6b7280; }");
+      // none slots omit their boxes from the default @page block (cover/toc suppress all six separately)
+      // Extract only the default @page block (before @page cover) to verify omissions
+      const defaultPageBlock = css.slice(css.indexOf("@page {"), css.indexOf("@page cover"));
+      expect(defaultPageBlock).not.toContain("@top-center { content: string");
+      expect(defaultPageBlock).not.toContain("@bottom-left { content: string");
+      expect(defaultPageBlock).not.toContain("@bottom-right { content: string");
+      expect(defaultPageBlock).not.toContain("@top-center { content: counter");
+      expect(defaultPageBlock).not.toContain("@bottom-left { content: counter");
+      expect(defaultPageBlock).not.toContain("@bottom-right { content: counter");
+    });
+    it("custom slots and furniture flow through", () => {
+      const custom: BrandTokens = {
+        ...DEFAULT_TOKENS,
+        header: { left: "none", center: "docTitle", right: "none" },
+        footer: { left: "Confidential", center: "none", right: "pageNumber" },
+        furniture: { fontSize: "8pt", color: "#999999" },
+      };
+      const css = compileCss(custom);
+      expect(css).toContain('@top-center { content: string(doctitle); font-size: 8pt; color: #999999; }');
+      expect(css).toContain('@bottom-left { content: "Confidential"; font-size: 8pt; color: #999999; }');
+      expect(css).toContain("@bottom-right { content: counter(page); font-size: 8pt; color: #999999; }");
+    });
+    it("cover and toc suppress all six margin boxes", () => {
+      const css = compileCss(DEFAULT_TOKENS);
+      const cover = css.slice(css.indexOf("@page cover"));
+      expect((cover.slice(0, cover.indexOf("}") + 200).match(/content: none/g) || []).length).toBeGreaterThanOrEqual(6);
+      const toc = css.slice(css.indexOf("@page toc"));
+      const tocBlock = toc.slice(0, toc.indexOf("}\n}") + 3);
+      expect((tocBlock.match(/content: none/g) || []).length).toBeGreaterThanOrEqual(6);
+    });
+  });
 });

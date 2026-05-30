@@ -18,7 +18,7 @@ import { densityFactor } from "./density.js";
 export function compileCss(tokens: BrandTokens): string {
   const root = buildRoot(tokens);
   const page = buildPage(tokens);
-  const pageFurniture = buildPageFurniture();
+  const pageFurniture = buildPageFurniture(tokens.header, tokens.footer, tokens.furniture);
   const elements = buildElements(tokens.links.underline);
   const content = buildContent(tokens.tables.layout, tokens.headings);
   const boxed = buildBoxed();
@@ -74,30 +74,60 @@ function buildPage(tokens: BrandTokens): string {
 }
 
 /**
- * Running headers/footers (default page furniture), via CSS Paged Media:
- *   - bottom-center: the page number (counter(page)).
- *   - top-left: the document title, captured from the cover h1 (.doc-title) as
- *     the `doctitle` named string.
- *   - top-right: the current top-level chapter title, captured from depth-0
- *     structural headings (.chapter-start) as the `chaptertitle` named string.
- *     Only top-level chapters carry .chapter-start (set in walkTree), so the
- *     running header tracks the current chapter, not per-page titles — mirroring
- *     the Word side's STYLEREF "Heading 1". The `first` keyword yields the
- *     chapter in effect at the top of the page (it updates as chapters change).
- *
- * The cover page is given its own named page (`page: cover`) whose margin boxes
- * are emptied (content: none / normal), so the cover shows no furniture.
- *
- * Margin-box descriptors use ONLY literal values (no var()): Paged.js does not
- * reliably resolve custom properties inside @page, and a test forbids var()
- * there. The muted gray (#6b7280) matches the default --color-muted token value.
- *
- * The string-set rules (.doc-title / .chapter-start) live outside @page as
- * ordinary element rules; only the named-string consumers sit in the margin
- * boxes. This builder is emitted right after buildPage so all @page rules are
- * grouped together.
+ * The CSS `content` value for a header/footer slot: a named string for the
+ * dynamic keywords, a page counter, or a quoted literal for free text. Returns
+ * null for "none" so the caller omits that margin box entirely.
  */
-function buildPageFurniture(): string {
+function furnitureSlotContent(value: string): string | null {
+  switch (value) {
+    case "none": return null;
+    case "docTitle": return "string(doctitle)";
+    case "chapter": return "string(chaptertitle, first)";
+    case "pageNumber": return "counter(page)";
+    default: return `"${value.replace(/\\/g, "\\\\").replace(/"/g, '\\"').replace(/\n/g, "\\a ")}"`;
+  }
+}
+
+/**
+ * Build the `@page` running header/footer margin boxes from the `header`/`footer`
+ * slot tokens (`top-left/center/right` from `header`; `bottom-*` from `footer`).
+ *
+ * Each slot value is resolved by `furnitureSlotContent`:
+ *   - `"docTitle"` → `string(doctitle)` (named string fed by `.doc-title`)
+ *   - `"chapter"` → `string(chaptertitle, first)` (fed by `.chapter-start`)
+ *   - `"pageNumber"` → `counter(page)`
+ *   - `"none"` → the box is omitted entirely
+ *   - any other string → a CSS quoted literal
+ *
+ * `furniture.fontSize` and `furniture.color` style every active box. All values
+ * are emitted as literals (no `var()`): Paged.js does not reliably resolve custom
+ * properties inside `@page` margin boxes.
+ *
+ * The `.doc-title` and `.chapter-start` rules (string-set) feed the `doctitle`
+ * and `chaptertitle` named strings consumed by the margin boxes.
+ *
+ * The cover and TOC are front matter: each gets its own named page that suppresses
+ * all six boxes. `.doc-body` restarts the page counter at 1.
+ */
+function buildPageFurniture(
+  header: BrandTokens["header"],
+  footer: BrandTokens["footer"],
+  furniture: BrandTokens["furniture"],
+): string {
+  const boxes: Array<[string, string]> = [
+    ["top-left", header.left], ["top-center", header.center], ["top-right", header.right],
+    ["bottom-left", footer.left], ["bottom-center", footer.center], ["bottom-right", footer.right],
+  ];
+  const marginBoxes = boxes
+    .map(([box, slot]) => {
+      const content = furnitureSlotContent(slot);
+      return content === null
+        ? ""
+        : `  @${box} { content: ${content}; font-size: ${furniture.fontSize}; color: ${furniture.color}; }`;
+    })
+    .filter(Boolean)
+    .join("\n");
+
   return `/* ---- Named strings feeding the running headers ---- */
 /* Captured from the cover title and from top-level chapter headings respectively. */
 /* The top-right tracks .chapter-start (depth-0 chapters only), not .chapter-heading
@@ -106,13 +136,11 @@ function buildPageFurniture(): string {
 .doc-title { string-set: doctitle content(); }
 .chapter-start { string-set: chaptertitle content(); }
 
-/* ---- Default running headers/footers ---- */
+/* ---- Running headers/footers (slot-driven) ---- */
 /* Literal values only (no var()): Paged.js does not reliably resolve custom
-   properties inside @page margin boxes. #6b7280 mirrors --color-muted. */
+   properties inside @page margin boxes. Slots with value "none" are omitted. */
 @page {
-  @top-left { content: string(doctitle); font-size: 9pt; color: #6b7280; }
-  @top-right { content: string(chaptertitle, first); font-size: 9pt; color: #6b7280; }
-  @bottom-center { content: counter(page); font-size: 9pt; color: #6b7280; }
+${marginBoxes}
 }
 
 /* The cover and the TOC are front matter: each gets its own named page that
@@ -124,15 +152,13 @@ function buildPageFurniture(): string {
   /* No margin: the brand spine is full-bleed to the physical page edges; the
      cover's main column re-establishes internal padding (see .cover-main). */
   margin: 0;
-  @top-left { content: none; }
-  @top-right { content: none; }
-  @bottom-center { content: none; }
+  @top-left { content: none; } @top-center { content: none; } @top-right { content: none; }
+  @bottom-left { content: none; } @bottom-center { content: none; } @bottom-right { content: none; }
 }
 .toc { page: toc; }
 @page toc {
-  @top-left { content: none; }
-  @top-right { content: none; }
-  @bottom-center { content: none; }
+  @top-left { content: none; } @top-center { content: none; } @top-right { content: none; }
+  @bottom-left { content: none; } @bottom-center { content: none; } @bottom-right { content: none; }
 }
 
 /* The body restarts page numbering at 1: the cover and TOC are unnumbered front
