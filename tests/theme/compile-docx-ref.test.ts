@@ -23,6 +23,8 @@ const CUSTOM_TOKENS: BrandTokens = {
     link: "#2563eb",
     accent: "#2563eb",
     muted: "#6b7280",
+    surface: "#C0FFEE",
+    border: "#DECAFE",
   },
   typography: {
     bodyFont: "Arial, sans-serif",
@@ -33,6 +35,10 @@ const CUSTOM_TOKENS: BrandTokens = {
   },
   toc: { title: "Contents" },
   meta: { showDescription: true },
+  semantic: { success: "#ABCDEF", caution: "#FEDCBA", danger: "#BADA55" },
+  shape: { radius: "9px" },
+  tables: { layout: "fixed" },
+  brand: {},
 };
 
 describe("compileDocxReference", () => {
@@ -465,17 +471,17 @@ describe("compileDocxReference", () => {
         return m![0];
       };
 
-      // Tip = green, with a real border box and a fill.
+      // Tip = semantic.success, with a real border box and a fill.
       const tip = styleBlock("CalloutTip");
       expect(tip).toContain('w:name w:val="Callout Tip"');
       expect(tip).toContain("<w:pBdr>");
-      expect(tip).toContain('w:color="15803D"');
+      expect(tip).toContain('w:color="ABCDEF"');
       expect(tip).toContain("<w:shd");
-      // Note = brown, Warning = red, Danger = red, Check = green.
-      expect(styleBlock("CalloutNote")).toContain('w:color="B45309"');
-      expect(styleBlock("CalloutWarning")).toContain('w:color="B91C1C"');
-      expect(styleBlock("CalloutDanger")).toContain('w:color="B91C1C"');
-      expect(styleBlock("CalloutCheck")).toContain('w:color="15803D"');
+      // Note = semantic.caution, Warning/Danger = semantic.danger, Check = semantic.success.
+      expect(styleBlock("CalloutNote")).toContain('w:color="FEDCBA"');
+      expect(styleBlock("CalloutWarning")).toContain('w:color="BADA55"');
+      expect(styleBlock("CalloutDanger")).toContain('w:color="BADA55"');
+      expect(styleBlock("CalloutCheck")).toContain('w:color="ABCDEF"');
       // Info uses the accent token (#2563eb → 2563EB).
       expect(styleBlock("CalloutInfo")).toContain('w:color="2563EB"');
     } finally {
@@ -498,7 +504,7 @@ describe("compileDocxReference", () => {
       );
       expect(band, "firstRow conditional band should exist").not.toBeNull();
       // The band fills the header cells and bolds their text.
-      expect(band![0]).toContain('w:fill="F0F0F0"');
+      expect(band![0]).toContain('w:fill="C0FFEE"');
       expect(band![0]).toContain("<w:b ");
     } finally {
       await rm(dir, { recursive: true, force: true });
@@ -517,7 +523,7 @@ describe("compileDocxReference", () => {
       )![0];
       // The fill sits inside the paragraph properties (paragraph shading).
       expect(sc).toMatch(/<w:pPr>[\s\S]*<w:shd[\s\S]*<\/w:pPr>/);
-      expect(sc).toContain('w:fill="F2F2F2"');
+      expect(sc).toContain('w:fill="C0FFEE"');
     } finally {
       await rm(dir, { recursive: true, force: true });
     }
@@ -540,7 +546,7 @@ describe("compileDocxReference", () => {
       const sc = styles.match(
         /<w:style[^>]*w:styleId="SourceCode"[^>]*>[\s\S]*?<\/w:style>/
       )![0];
-      expect(sc).toContain('w:fill="F2F2F2"');
+      expect(sc).toContain('w:fill="C0FFEE"');
     } finally {
       await rm(dir, { recursive: true, force: true });
     }
@@ -610,7 +616,7 @@ describe("compileDocxReference", () => {
         /<w:style[^>]*w:styleId="VerbatimChar"[^>]*>[\s\S]*?<\/w:style>/
       )![0];
       expect(vc).toContain("<w:shd");
-      expect(vc).toContain('w:fill="F2F2F2"');
+      expect(vc).toContain('w:fill="C0FFEE"');
     } finally {
       await rm(dir, { recursive: true, force: true });
     }
@@ -655,7 +661,32 @@ describe("compileDocxReference", () => {
       const tip = styles.match(
         /<w:style[^>]*w:styleId="CalloutTip"[^>]*>[\s\S]*?<\/w:style>/
       )![0];
-      expect(tip).toContain('w:color="15803D"');
+      expect(tip).toContain('w:color="ABCDEF"');
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("drives Word surfaces, borders, and callout accents from tokens", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "quire-cdr-"));
+    const out = join(dir, "ref.docx");
+    try {
+      await compileDocxReference(CUSTOM_TOKENS, out);
+      const stylesXml = await (await JSZip.loadAsync(await readFile(out)))
+        .file("word/styles.xml")!.async("string");
+      // table grid border = colors.border
+      const tableBlock = stylesXml.match(/<w:style\b[^>]*w:styleId="Table"[^>]*>[\s\S]*?<\/w:style>/)![0];
+      expect(tableBlock).toContain('w:color="DECAFE"');
+      // SourceCode + VerbatimChar fills = colors.surface
+      expect(stylesXml).toContain('w:fill="C0FFEE"');
+      // CalloutTip left accent = semantic.success; neutral side = colors.border; fill = surface
+      const tip = stylesXml.match(/<w:style\b[^>]*w:styleId="CalloutTip"[^>]*>[\s\S]*?<\/w:style>/)![0];
+      expect(tip).toContain('w:color="ABCDEF"'); // left bar
+      expect(tip).toContain('w:color="DECAFE"'); // neutral sides
+      expect(tip).toContain('w:fill="C0FFEE"');  // fill
+      // CalloutWarning left accent = semantic.danger
+      const warn = stylesXml.match(/<w:style\b[^>]*w:styleId="CalloutWarning"[^>]*>[\s\S]*?<\/w:style>/)![0];
+      expect(warn).toContain('w:color="BADA55"');
     } finally {
       await rm(dir, { recursive: true, force: true });
     }

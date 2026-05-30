@@ -46,7 +46,11 @@ describe("htmlToDocx", () => {
         link: "#2563eb",
         accent: "#2563eb",
         muted: "#6b7280",
+        surface: "#f2f2f2",
+        border: "#d9d9d9",
       },
+      semantic: { success: "#15803d", caution: "#b45309", danger: "#b91c1c" },
+      shape: { radius: "4px" },
       typography: {
         bodyFont: "Arial, sans-serif",
         headingFont: "Verdana, sans-serif",
@@ -55,6 +59,9 @@ describe("htmlToDocx", () => {
         lineHeight: 1.5,
       },
       toc: { title: "Contents" },
+      meta: { showDescription: true },
+      tables: { layout: "fixed" },
+      brand: {},
     };
 
     await compileDocxReference(tokens, refOut);

@@ -374,8 +374,8 @@ function patchHeading1PageBreak(xml: string): string {
  *
  * The borders go on the default Table style (w:default="1"), which every Pandoc
  * table inherits, so all tables get the grid from one patch — no per-table
- * surgery. Single 0.5pt (w:sz="4") light-gray (BFBFBF) lines on the outer edges
- * and between cells.
+ * surgery. Single 0.5pt (w:sz="4") lines on the outer edges and between cells,
+ * using the brand border token color.
  *
  * Per the OOXML schema (CT_TblPrBase), `<w:tblBorders>` precedes `<w:tblCellMar>`,
  * so it is inserted right before tblCellMar (falling back to the end of tblPr if
@@ -383,11 +383,11 @@ function patchHeading1PageBreak(xml: string): string {
  * best-effort: returns the input unchanged if the Table style or its tblPr is
  * not found, so the run degrades to borderless tables rather than aborting.
  */
-function patchTableBorders(xml: string): string {
+function patchTableBorders(xml: string, borderHex: string): string {
   const sides = ["top", "left", "bottom", "right", "insideH", "insideV"];
   const borders =
     "<w:tblBorders>" +
-    sides.map((s) => `<w:${s} w:val="single" w:sz="4" w:space="0" w:color="BFBFBF" />`).join("") +
+    sides.map((s) => `<w:${s} w:val="single" w:sz="4" w:space="0" w:color="${borderHex}" />`).join("") +
     "</w:tblBorders>";
   // Match by styleId only (it is unique: "Table" is distinct from "TableNormal"
   // / "TableGrid"). Attribute order is not assumed — pandoc's default reference
@@ -406,22 +406,19 @@ function patchTableBorders(xml: string): string {
   );
 }
 
-/**
- * Per-type left-border color for the Word callout boxes, mirroring the PDF
- * callout palette (see compile-css `buildBoxed`): green for tip/check, brown for
- * note, red for warning/danger. Info is intentionally absent here because it
- * uses the brand accent token (resolved at call time).
- */
-const CALLOUT_BORDER_HEX: Record<string, string> = {
-  Tip: "15803D",
-  Check: "15803D",
-  Note: "B45309",
-  Warning: "B91C1C",
-  Danger: "B91C1C",
-};
+/** Token-driven color palette for callout box styles. */
+interface CalloutPalette {
+  info: string;
+  success: string;
+  caution: string;
+  danger: string;
+  fill: string;
+  side: string;
+}
 
 /** Deterministic order of callout types (drives the injected style block). */
 const CALLOUT_TYPES = ["Info", "Tip", "Note", "Warning", "Danger", "Check"] as const;
+type CalloutType = (typeof CALLOUT_TYPES)[number];
 
 /**
  * Build one callout paragraph style ("Callout {Title}"). The box is a thin
@@ -429,55 +426,62 @@ const CALLOUT_TYPES = ["Info", "Tip", "Note", "Warning", "Danger", "Check"] as c
  * light fill, matching the PDF's left-accent-bar-over-neutral-tint look. Word
  * merges the borders of consecutive same-style paragraphs into one continuous
  * box (so a multi-paragraph callout reads as a single box); `<w:between>` is set
- * to `nil` to suppress internal lines.
+ * to `nil` to suppress internal lines. All colors are token-driven via the palette.
  */
-function buildCalloutStyle(title: string, borderHex: string): string {
+function buildCalloutStyle(title: string, accentHex: string, fillHex: string, sideHex: string): string {
   return (
     `<w:style w:type="paragraph" w:styleId="Callout${title}">` +
     `<w:name w:val="Callout ${title}" />` +
     `<w:basedOn w:val="BodyText" />` +
     `<w:pPr>` +
     `<w:pBdr>` +
-    `<w:top w:val="single" w:sz="4" w:space="6" w:color="E5E5E5" />` +
-    `<w:left w:val="single" w:sz="24" w:space="6" w:color="${borderHex}" />` +
-    `<w:bottom w:val="single" w:sz="4" w:space="6" w:color="E5E5E5" />` +
-    `<w:right w:val="single" w:sz="4" w:space="6" w:color="E5E5E5" />` +
+    `<w:top w:val="single" w:sz="4" w:space="6" w:color="${sideHex}" />` +
+    `<w:left w:val="single" w:sz="24" w:space="6" w:color="${accentHex}" />` +
+    `<w:bottom w:val="single" w:sz="4" w:space="6" w:color="${sideHex}" />` +
+    `<w:right w:val="single" w:sz="4" w:space="6" w:color="${sideHex}" />` +
     `<w:between w:val="nil" />` +
     `</w:pBdr>` +
-    `<w:shd w:val="clear" w:color="auto" w:fill="F7F7F7" />` +
+    `<w:shd w:val="clear" w:color="auto" w:fill="${fillHex}" />` +
     `</w:pPr>` +
     `</w:style>`
   );
+}
+
+/** Map a callout type name to its accent color from the palette. */
+function calloutAccent(title: CalloutType, p: CalloutPalette): string {
+  switch (title) {
+    case "Info": return p.info;
+    case "Tip":
+    case "Check": return p.success;
+    case "Note": return p.caution;
+    case "Warning":
+    case "Danger": return p.danger;
+    default: return p.info;
+  }
 }
 
 /**
  * Inject one paragraph style per callout type before `</w:styles>`, so the docx
  * renderer's `custom-style="Callout {Type}"` divs map to a bordered, tinted box
  * (Pandoc matches the reference-doc style by name and stamps it on every
- * paragraph inside the callout div). Info takes the brand accent color; the rest
- * use the fixed semantic palette in {@link CALLOUT_BORDER_HEX}.
+ * paragraph inside the callout div). All colors come from the token-driven
+ * palette: Info uses the brand accent, the rest use semantic success/caution/danger.
  *
  * Idempotent (only injects the types not already present) and best-effort
  * (returns the input unchanged if the `</w:styles>` anchor is absent), so a
  * future pandoc layout change degrades to plain callouts rather than aborting.
  */
-function patchCalloutStyles(xml: string, accentHex: string | null): string {
+function patchCalloutStyles(xml: string, palette: CalloutPalette): string {
   if (!xml.includes("</w:styles>")) return xml;
-  const infoHex = accentHex ?? "2563EB";
   const missing = CALLOUT_TYPES.filter(
     (title) => !xml.includes(`w:styleId="Callout${title}"`)
   );
   if (missing.length === 0) return xml; // already patched
   const block = missing
-    .map((title) =>
-      buildCalloutStyle(title, title === "Info" ? infoHex : CALLOUT_BORDER_HEX[title])
-    )
+    .map((title) => buildCalloutStyle(title, calloutAccent(title, palette), palette.fill, palette.side))
     .join("");
   return xml.replace("</w:styles>", `${block}</w:styles>`);
 }
-
-/** Header-row cell fill (light gray), mirroring the PDF's shaded `th`. */
-const TABLE_HEADER_FILL = "F0F0F0";
 
 /**
  * Give the table header row a light fill and bold text so it reads as a header,
@@ -493,8 +497,8 @@ const TABLE_HEADER_FILL = "F0F0F0";
  * present) and best-effort (returns the input unchanged if the Table style is
  * absent), so the run degrades to an unshaded header rather than aborting.
  */
-function patchTableHeaderShading(xml: string): string {
-  const shd = `<w:shd w:val="clear" w:color="auto" w:fill="${TABLE_HEADER_FILL}" />`;
+function patchTableHeaderShading(xml: string, fillHex: string): string {
+  const shd = `<w:shd w:val="clear" w:color="auto" w:fill="${fillHex}" />`;
   const freshBand =
     `<w:tblStylePr w:type="firstRow">` +
     `<w:rPr><w:b /></w:rPr>` +
@@ -508,7 +512,7 @@ function patchTableHeaderShading(xml: string): string {
       );
       if (!existing) return body + freshBand + close; // no band yet: add one
       let band = existing[0];
-      if (band.includes(`w:fill="${TABLE_HEADER_FILL}"`)) return match; // already patched
+      if (band.includes(`w:fill="${fillHex}"`)) return match; // already patched
 
       // Bold the header text. Merge into an existing rPr, else insert one before
       // tcPr (rPr precedes tcPr in CT_TblStylePr), else before the band close.
@@ -541,9 +545,6 @@ function patchTableHeaderShading(xml: string): string {
   );
 }
 
-/** Code-block fill (light gray), mirroring the PDF's shaded `pre`. */
-const CODE_BLOCK_FILL = "F2F2F2";
-
 /**
  * Shade fenced code blocks by filling Pandoc's `SourceCode` paragraph style,
  * mirroring the PDF's `pre` background. Pandoc renders each fenced block as one
@@ -559,14 +560,14 @@ const CODE_BLOCK_FILL = "F2F2F2";
  * Idempotent (skips when the fill is present) and best-effort (needs the
  * `</w:styles>` anchor), so the run degrades to an unshaded block.
  */
-function patchCodeBlockShading(xml: string): string {
-  const shd = `<w:shd w:val="clear" w:color="auto" w:fill="${CODE_BLOCK_FILL}" />`;
+function patchCodeBlockShading(xml: string, fillHex: string): string {
+  const shd = `<w:shd w:val="clear" w:color="auto" w:fill="${fillHex}" />`;
   if (/<w:style\b[^>]*w:styleId="SourceCode"/.test(xml)) {
     // Already present (future pandoc, or a re-run): merge shd into its pPr.
     return xml.replace(
       /(<w:style\b[^>]*w:styleId="SourceCode"[^>]*>[\s\S]*?)(<\/w:style>)/,
       (match, body: string, close: string) => {
-        if (body.includes(`w:fill="${CODE_BLOCK_FILL}"`)) return match; // already patched
+        if (body.includes(`w:fill="${fillHex}"`)) return match; // already patched
         if (/<w:pPr>/.test(body)) return body.replace(/<w:pPr>/, `<w:pPr>${shd}`) + close;
         return body + `<w:pPr>${shd}</w:pPr>` + close;
       }
@@ -663,13 +664,13 @@ function patchBlockquote(
  * (CT_RPr orders shd after sz). Idempotent (skips if a shd is present) and
  * best-effort (returns the input unchanged if VerbatimChar is absent).
  */
-function patchInlineCodeShading(xml: string): string {
+function patchInlineCodeShading(xml: string, fillHex: string): string {
   if (!xml.includes('w:styleId="VerbatimChar"')) return xml;
   return xml.replace(
     /(<w:style\b[^>]*w:styleId="VerbatimChar"[^>]*>[\s\S]*?<w:rPr>)([\s\S]*?)(<\/w:rPr>)/,
     (match, open: string, inner: string, close: string) => {
       if (/<w:shd\b/.test(inner)) return match;
-      return `${open}${inner}<w:shd w:val="clear" w:color="auto" w:fill="${CODE_BLOCK_FILL}" />${close}`;
+      return `${open}${inner}<w:shd w:val="clear" w:color="auto" w:fill="${fillHex}" />${close}`;
     }
   );
 }
@@ -1065,6 +1066,11 @@ export async function compileDocxReference(
   const monoFontName = firstFontFamily(tokens.typography.monoFont);
   const halfPts = ptToHalfPoints(tokens.typography.baseSize);
   const headingColorHex = hexColor(tokens.colors.heading);
+  // hexColor returns null for non-hex CSS values (named colors, rgb()); fall back
+  // to the DEFAULT_TOKENS hex so a direct BrandTokens caller with a non-hex color
+  // still produces valid OOXML.
+  const surfaceHex = hexColor(tokens.colors.surface) ?? "F2F2F2";
+  const borderHex = hexColor(tokens.colors.border) ?? "D9D9D9";
 
   // Body font in docDefaults (core patch — must succeed unless fontName is empty)
   if (bodyFontName) {
@@ -1115,20 +1121,27 @@ export async function compileDocxReference(
 
   // Give Word tables a hairline grid (Pandoc's default Table style has none),
   // mirroring the PDF's cell borders. Best-effort.
-  stylesXml = patchTableBorders(stylesXml);
+  stylesXml = patchTableBorders(stylesXml, borderHex);
 
   // Shade + bold the table header row (firstRow conditional band), mirroring the
   // PDF's `th` background. Best-effort.
-  stylesXml = patchTableHeaderShading(stylesXml);
+  stylesXml = patchTableHeaderShading(stylesXml, surfaceHex);
 
   // Define the per-type callout box styles ("Callout {Type}") that the docx
   // renderer's custom-style attributes resolve to. Info uses the brand accent;
-  // the rest use the fixed semantic palette. Best-effort.
-  stylesXml = patchCalloutStyles(stylesXml, hexColor(tokens.colors.accent));
+  // the rest use the semantic palette. Best-effort.
+  stylesXml = patchCalloutStyles(stylesXml, {
+    info: hexColor(tokens.colors.accent) ?? "2563EB",
+    success: hexColor(tokens.semantic.success) ?? "15803D",
+    caution: hexColor(tokens.semantic.caution) ?? "B45309",
+    danger: hexColor(tokens.semantic.danger) ?? "B91C1C",
+    fill: surfaceHex,
+    side: borderHex,
+  });
 
   // Shade fenced code blocks (SourceCode style), mirroring the PDF's `pre`
   // background. Best-effort.
-  stylesXml = patchCodeBlockShading(stylesXml);
+  stylesXml = patchCodeBlockShading(stylesXml, surfaceHex);
 
   // Carry the remaining color tokens into Word, mirroring the PDF: body text
   // color on docDefaults, brand link color on the Hyperlink style, a left accent
@@ -1137,7 +1150,7 @@ export async function compileDocxReference(
   stylesXml = patchDocDefaultsColor(stylesXml, hexColor(tokens.colors.text));
   stylesXml = patchHyperlinkColor(stylesXml, hexColor(tokens.colors.link));
   stylesXml = patchBlockquote(stylesXml, hexColor(tokens.colors.accent), hexColor(tokens.colors.muted));
-  stylesXml = patchInlineCodeShading(stylesXml);
+  stylesXml = patchInlineCodeShading(stylesXml, surfaceHex);
   stylesXml = patchPageDescriptionStyle(stylesXml, hexColor(tokens.colors.muted));
   stylesXml = patchCoverStyle(
     stylesXml,
