@@ -624,6 +624,26 @@ function patchHyperlinkColor(xml: string, colorHex: string | null): string {
 }
 
 /**
+ * Set or clear the underline on the Hyperlink character style from
+ * `links.underline`. Pandoc's default Hyperlink style has no `<w:u>`, so at the
+ * default (true) this ADDS one (Word links then underline, matching the PDF);
+ * false leaves the style underline-free. Strips any existing `<w:u>` first, then
+ * appends `<w:u w:val="single"/>` at the end of the rPr (after color) when
+ * enabled. Best-effort: returns the input unchanged if the Hyperlink style is absent.
+ */
+function patchHyperlinkUnderline(xml: string, underline: boolean): string {
+  if (!xml.includes('w:styleId="Hyperlink"')) return xml;
+  return xml.replace(
+    /(<w:style\b[^>]*w:styleId="Hyperlink"[^>]*>[\s\S]*?<w:rPr>)([\s\S]*?)(<\/w:rPr>[\s\S]*?<\/w:style>)/,
+    (_m, open: string, inner: string, close: string) => {
+      const stripped = inner.replace(/<w:u\b[^>]*\/>/g, "");
+      const next = underline ? `${stripped}<w:u w:val="single" />` : stripped;
+      return open + next + close;
+    }
+  );
+}
+
+/**
  * Give blockquotes the PDF's look: a left accent bar and muted body text, on the
  * `BlockText` paragraph style Pandoc uses for `<blockquote>` (Word otherwise just
  * indents). The `<w:pBdr>` left border goes at the start of the style's `<w:pPr>`
@@ -1145,6 +1165,7 @@ export async function compileDocxReference(
   // VerbatimChar, and a muted-italic Page Description lede style. All best-effort.
   stylesXml = patchDocDefaultsColor(stylesXml, hexColor(tokens.colors.text));
   stylesXml = patchHyperlinkColor(stylesXml, hexColor(tokens.colors.link));
+  stylesXml = patchHyperlinkUnderline(stylesXml, tokens.links.underline);
   stylesXml = patchBlockquote(stylesXml, hexColor(tokens.colors.accent), hexColor(tokens.colors.muted));
   stylesXml = patchInlineCodeShading(stylesXml, surfaceHex);
   stylesXml = patchPageDescriptionStyle(stylesXml, hexColor(tokens.colors.muted));

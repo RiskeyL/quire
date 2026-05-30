@@ -18,7 +18,7 @@ export function compileCss(tokens: BrandTokens): string {
   const root = buildRoot(tokens);
   const page = buildPage(tokens);
   const pageFurniture = buildPageFurniture();
-  const elements = buildElements();
+  const elements = buildElements(tokens.links.underline);
   const content = buildContent(tokens.tables.layout, tokens.headings);
   const boxed = buildBoxed();
   const figure = buildFigure();
@@ -140,10 +140,10 @@ function buildPageFurniture(): string {
 .doc-body { counter-reset: page 1; }`;
 }
 
-function buildElements(): string {
+function buildElements(linkUnderline: boolean): string {
   return `body { font-family: var(--font-body); font-size: var(--base-size); line-height: var(--line-height); color: var(--color-text); }
 h1,h2,h3,h4,h5,h6 { font-family: var(--font-heading); color: var(--color-heading); }
-a { color: var(--color-link); }
+a { color: var(--color-link); text-decoration: ${linkUnderline ? "underline" : "none"}; }
 /* Single owner of the mono font for both code blocks and inline code. */
 pre, code { font-family: var(--font-mono); }`;
 }

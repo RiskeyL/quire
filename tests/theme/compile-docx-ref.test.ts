@@ -689,6 +689,26 @@ describe("compileDocxReference", () => {
     }
   });
 
+  it("Hyperlink underline follows links.underline", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "quire-cdr-"));
+    try {
+      const onPath = join(dir, "on.docx");
+      await compileDocxReference(CUSTOM_TOKENS, onPath);
+      const onHy = (await (await JSZip.loadAsync(await readFile(onPath))).file("word/styles.xml")!.async("string"))
+        .match(/<w:style[^>]*w:styleId="Hyperlink"[^>]*>[\s\S]*?<\/w:style>/)![0];
+      expect(onHy).toContain("<w:u ");
+
+      const offPath = join(dir, "off.docx");
+      const off: BrandTokens = { ...CUSTOM_TOKENS, links: { underline: false } };
+      await compileDocxReference(off, offPath);
+      const offHy = (await (await JSZip.loadAsync(await readFile(offPath))).file("word/styles.xml")!.async("string"))
+        .match(/<w:style[^>]*w:styleId="Hyperlink"[^>]*>[\s\S]*?<\/w:style>/)![0];
+      expect(offHy).not.toContain("<w:u ");
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
+
   it("drives Word surfaces, borders, and callout accents from tokens", async () => {
     const dir = await mkdtemp(join(tmpdir(), "quire-cdr-"));
     const out = join(dir, "ref.docx");

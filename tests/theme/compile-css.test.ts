@@ -1089,6 +1089,14 @@ describe("compileCss", () => {
     });
   });
 
+  describe("T2 tokens: links.underline", () => {
+    it("links underline by default and can be turned off", () => {
+      expect(compileCss(DEFAULT_TOKENS)).toContain("a { color: var(--color-link); text-decoration: underline; }");
+      const off: BrandTokens = { ...DEFAULT_TOKENS, links: { underline: false } };
+      expect(compileCss(off)).toContain("a { color: var(--color-link); text-decoration: none; }");
+    });
+  });
+
   describe("T2 tokens: headings.scale and headings.weight", () => {
     it("heading sizes and weights come from the headings token", () => {
       const css = compileCss(DEFAULT_TOKENS);
