@@ -3,6 +3,7 @@ import { execFile } from "node:child_process";
 import JSZip from "jszip";
 import { assertBinary } from "../util/exec.js";
 import type { BrandTokens } from "./tokens.js";
+import { densityFactor } from "./density.js";
 
 /**
  * Thrown when the structural patches against pandoc's reference.docx cannot be
@@ -1004,6 +1005,26 @@ function patchSectionProperties(
   );
 }
 
+/**
+ * Scale the BodyText paragraph spacing (before/after) by the density factor, the
+ * Word side of the PDF `--rhythm` multiplier. Pandoc maps body paragraphs to the
+ * BodyText style, whose default spacing is before/after 180 twentieths. At factor
+ * 1 (density "normal") the style is returned unchanged. Best-effort: returns the
+ * input unchanged if the BodyText spacing element is not found.
+ */
+function patchBodyTextSpacing(xml: string, factor: number): string {
+  if (factor === 1) return xml;
+  return xml.replace(
+    /(<w:style\b[^>]*w:styleId="BodyText"[^>]*>[\s\S]*?<w:spacing\b)([^>]*?)(\s*\/>)/,
+    (_m, open: string, attrs: string, close: string) => {
+      const scaled = attrs
+        .replace(/w:before="(\d+)"/, (_a, n: string) => `w:before="${Math.round(Number(n) * factor)}"`)
+        .replace(/w:after="(\d+)"/, (_a, n: string) => `w:after="${Math.round(Number(n) * factor)}"`);
+      return open + scaled + close;
+    }
+  );
+}
+
 // ---------------------------------------------------------------------------
 // Binary capture helper (must use buffer encoding to avoid UTF-8 corruption)
 // ---------------------------------------------------------------------------
@@ -1175,6 +1196,11 @@ export async function compileDocxReference(
     hexColor(tokens.colors.muted),
     hexColor(tokens.colors.accent)
   );
+
+  // Scale BodyText paragraph spacing by the density factor (Word side of the PDF
+  // --rhythm multiplier). At factor 1 (density "normal") the style is unchanged.
+  const factor = densityFactor(tokens.density);
+  stylesXml = patchBodyTextSpacing(stylesXml, factor);
 
   zip.file("word/styles.xml", stylesXml);
 

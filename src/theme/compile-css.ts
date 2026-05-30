@@ -1,4 +1,5 @@
 import type { BrandTokens } from "./tokens.js";
+import { densityFactor } from "./density.js";
 
 /**
  * Compile brand tokens into a complete print CSS string for Paged.js / Chromium.
@@ -46,6 +47,7 @@ export function compileCss(tokens: BrandTokens): string {
 // </style> or } would break out of the block.
 function buildRoot(tokens: BrandTokens): string {
   const { colors, typography, semantic, shape } = tokens;
+  const rhythm = densityFactor(tokens.density);
   return `:root {
   --color-text: ${colors.text};
   --color-heading: ${colors.heading};
@@ -63,6 +65,7 @@ function buildRoot(tokens: BrandTokens): string {
   --semantic-caution: ${semantic.caution};
   --semantic-danger: ${semantic.danger};
   --radius: ${shape.radius};
+  --rhythm: ${rhythm};
 }`;
 }
 
@@ -165,7 +168,7 @@ h5 { font-size: ${headings.scale[4]}em; font-weight: ${headings.weight[4]}; marg
 h6 { font-size: ${headings.scale[5]}em; font-weight: ${headings.weight[5]}; margin: 1em 0 0.2em; line-height: 1.4; break-after: avoid; text-transform: uppercase; letter-spacing: 0.05em; color: var(--color-muted); }
 
 /* ---- Vertical rhythm ---- */
-p { margin-top: 0; margin-bottom: 0.75em; }
+p { margin-top: 0; margin-bottom: calc(0.75em * var(--rhythm)); }
 /* Suppress the top margin on the first child of a content section. */
 section > *:first-child { margin-top: 0; }
 
@@ -190,7 +193,7 @@ pre {
   font-size: 0.88em;
   white-space: pre-wrap;
   overflow-wrap: anywhere;
-  margin: 1em 0;
+  margin: calc(1em * var(--rhythm)) 0;
 }
 pre code {
   background: transparent;
@@ -209,7 +212,7 @@ table {
   width: 100%;
   table-layout: ${tableLayout};
   border-collapse: collapse;
-  margin: 1em 0;
+  margin: calc(1em * var(--rhythm)) 0;
   font-size: 0.95em;
 }
 th, td {
@@ -236,7 +239,7 @@ thead tr { break-inside: avoid; }
 blockquote {
   border-left: 3px solid var(--color-accent);
   padding-left: 1em;
-  margin: 1em 0;
+  margin: calc(1em * var(--rhythm)) 0;
   color: var(--color-muted);
 }
 blockquote > *:first-child { margin-top: 0; }
@@ -247,7 +250,7 @@ blockquote > *:last-child { margin-bottom: 0; }
    in buildStructural(), so TOC layout is never affected. */
 ul, ol {
   padding-left: 1.75em;
-  margin: 0.5em 0;
+  margin: calc(0.5em * var(--rhythm)) 0;
 }
 li { margin-bottom: 0.25em; }
 
@@ -255,7 +258,7 @@ li { margin-bottom: 0.25em; }
 hr {
   border: 0;
   border-top: 1px solid var(--color-border);
-  margin: 1.5em 0;
+  margin: calc(1.5em * var(--rhythm)) 0;
 }
 
 /* ---- Images ---- */
@@ -298,7 +301,7 @@ function buildBoxed(): string {
   border-left: 3px solid var(--color-muted);
   background: var(--color-surface);
   border-radius: 0 var(--radius) var(--radius) 0;
-  margin: 1em 0;
+  margin: calc(1em * var(--rhythm)) 0;
   /* Callouts are usually short, so keeping them whole avoids an orphaned label. */
   break-inside: avoid;
 }
@@ -332,7 +335,7 @@ function buildBoxed(): string {
   border: 1px solid var(--color-border);
   border-radius: var(--radius);
   padding: 0.85em 1em;
-  margin: 1em 0;
+  margin: calc(1em * var(--rhythm)) 0;
   background: var(--color-surface);
 }
 .panel > *:first-child { margin-top: 0; }
@@ -342,7 +345,7 @@ function buildBoxed(): string {
 .update {
   border-left: 3px solid var(--color-muted);
   padding-left: 1em;
-  margin: 1.25em 0;
+  margin: calc(1.25em * var(--rhythm)) 0;
 }
 .update > *:first-child { margin-top: 0; }
 .update > *:last-child { margin-bottom: 0; }
@@ -367,7 +370,7 @@ function buildBoxed(): string {
 function buildFigure(): string {
   return `/* ---- Figure (Frame component) ---- */
 .frame {
-  margin: 1.25em 0;
+  margin: calc(1.25em * var(--rhythm)) 0;
   text-align: center;
   break-inside: avoid;
 }
@@ -434,10 +437,10 @@ function buildDisclosure(): string {
   return `/* ---- Disclosure containers (Tabs, AccordionGroup) ---- */
 /* Container rules add only vertical spacing; inner panel rules handle the rest. */
 .tabs {
-  margin: 1em 0;
+  margin: calc(1em * var(--rhythm)) 0;
 }
 .accordion-group {
-  margin: 1em 0;
+  margin: calc(1em * var(--rhythm)) 0;
 }
 
 /* ---- Disclosure panels (.tab, .accordion, .expandable, .view) ---- */
@@ -519,7 +522,7 @@ function buildSteps(): string {
   return `/* ---- Steps (numbered sequential instructions) ---- */
 .steps {
   padding-left: 2em;  /* room for the list marker digits */
-  margin: 1em 0;
+  margin: calc(1em * var(--rhythm)) 0;
 }
 
 /* Step bodies are allowed to break across pages — they can contain multi-paragraph
@@ -616,7 +619,7 @@ function buildCards(): string {
 /* No attempt at CSS columns or grid — print stacks everything vertically.   */
 .card-group,
 .columns {
-  margin: 1em 0;
+  margin: calc(1em * var(--rhythm)) 0;
 }
 
 /* ---- Column ---- */
@@ -730,7 +733,7 @@ function buildFields(): string {
 /* ---- Request / Response examples ---- */
 /* No right-hand sidebar in print: children render inline under a bold label. */
 .example {
-  margin: 1em 0;
+  margin: calc(1em * var(--rhythm)) 0;
 }
 .example-label {
   font-weight: 700;
@@ -775,7 +778,7 @@ function buildCode(): string {
 /* No break-inside: avoid — code blocks can be long; forcing them whole       */
 /* would leave a blank gap (mirrors .tab/.accordion/.card/.step decisions).   */
 .code-group {
-  margin: 1em 0;
+  margin: calc(1em * var(--rhythm)) 0;
   border: 1px solid var(--color-border);
   border-radius: var(--radius);
   padding: 0.5em 0.75em;
@@ -807,7 +810,7 @@ function buildCode(): string {
   border: 1px solid var(--color-border);
   border-radius: var(--radius);
   padding: 0.75em 1em;
-  margin: 1em 0;
+  margin: calc(1em * var(--rhythm)) 0;
   background: var(--color-surface);
 }
 .prompt > *:first-child { margin-top: 0; }
@@ -1000,7 +1003,7 @@ function buildStructuralLists(): string {
 .tree {
   list-style: none;
   padding-left: 0;
-  margin: 0.5em 0;
+  margin: calc(0.5em * var(--rhythm)) 0;
   font-family: var(--font-mono);
   font-size: 0.9em;
   line-height: 1.6;
@@ -1022,7 +1025,7 @@ function buildStructuralLists(): string {
 .checklist {
   list-style: none;
   padding-left: 1.5em;
-  margin: 0.5em 0;
+  margin: calc(0.5em * var(--rhythm)) 0;
 }
 
 /* Each item inherits the standard li bottom margin from buildContent(). */

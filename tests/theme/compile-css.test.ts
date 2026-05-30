@@ -1145,4 +1145,14 @@ describe("compileCss", () => {
       expect(compileCss(custom)).toContain("--color-surface: #C0FFEE");
     });
   });
+
+  describe("T2.5 tokens: density vertical-rhythm preset", () => {
+    it("density sets --rhythm and wraps the paragraph margin", () => {
+      const css = compileCss(DEFAULT_TOKENS);
+      expect(css).toContain("--rhythm: 1");
+      expect(css).toContain("margin-bottom: calc(0.75em * var(--rhythm))");
+      expect(compileCss({ ...DEFAULT_TOKENS, density: "compact" })).toContain("--rhythm: 0.7");
+      expect(compileCss({ ...DEFAULT_TOKENS, density: "relaxed" })).toContain("--rhythm: 1.3");
+    });
+  });
 });

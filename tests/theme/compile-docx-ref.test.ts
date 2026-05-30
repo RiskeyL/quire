@@ -733,6 +733,25 @@ describe("compileDocxReference", () => {
       await rm(dir, { recursive: true, force: true });
     }
   });
+
+  it("density scales BodyText paragraph spacing", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "quire-cdr-"));
+    try {
+      // relaxed: 180 * 1.3 = 234
+      const out = join(dir, "ref.docx");
+      await compileDocxReference({ ...CUSTOM_TOKENS, density: "relaxed" }, out);
+      const bt = (await (await JSZip.loadAsync(await readFile(out))).file("word/styles.xml")!.async("string"))
+        .match(/<w:style[^>]*w:styleId="BodyText"[^>]*>[\s\S]*?<\/w:style>/)![0];
+      expect(bt).toContain('w:after="234"');
+      expect(bt).toContain('w:before="234"');
+      // normal: unchanged 180
+      const out2 = join(dir, "ref2.docx");
+      await compileDocxReference(CUSTOM_TOKENS, out2);
+      const bt2 = (await (await JSZip.loadAsync(await readFile(out2))).file("word/styles.xml")!.async("string"))
+        .match(/<w:style[^>]*w:styleId="BodyText"[^>]*>[\s\S]*?<\/w:style>/)![0];
+      expect(bt2).toContain('w:after="180"');
+    } finally { await rm(dir, { recursive: true, force: true }); }
+  });
 });
 
 // ---------------------------------------------------------------------------
