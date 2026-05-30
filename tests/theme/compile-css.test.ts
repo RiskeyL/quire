@@ -140,6 +140,27 @@ describe("compileCss", () => {
       expect(coverBlock).toMatch(/@bottom-center\s*\{[^}]*content:\s*none/);
     });
 
+    it("makes the cover full-bleed with a brand-color spine spanning the page height", () => {
+      const css = compileCss(DEFAULT_TOKENS);
+      // The cover page drops its margin so the spine reaches the physical edges.
+      const coverPage = css.slice(css.indexOf("@page cover"));
+      expect(coverPage).toMatch(/margin:\s*0/);
+      // The cover is a flex row with an explicit A4 sheet height, so the spine
+      // spans top-to-bottom (vh is unreliable in Paged.js).
+      expect(css).toMatch(/\.cover\s*\{[^}]*display:\s*flex/);
+      expect(css).toMatch(/\.cover\s*\{[^}]*height:\s*297mm/);
+      // The spine is a fixed-width bar in the brand accent color.
+      expect(css).toMatch(/\.cover-spine\s*\{[^}]*background:\s*var\(--color-accent\)/);
+    });
+
+    it("uses the Letter sheet height for the cover when page.size is Letter", () => {
+      const letter = {
+        ...DEFAULT_TOKENS,
+        page: { ...DEFAULT_TOKENS.page, size: "Letter" as const },
+      };
+      expect(compileCss(letter)).toMatch(/\.cover\s*\{[^}]*height:\s*11in/);
+    });
+
     it("gives the TOC its own named page that suppresses the furniture", () => {
       const css = compileCss(DEFAULT_TOKENS);
       expect(css).toMatch(/\.toc[^{]*\{[^}]*page:\s*toc/);

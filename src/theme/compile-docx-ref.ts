@@ -653,7 +653,7 @@ interface CoverStyleSpec {
   bold?: boolean;
   /** Text color hex (no `#`), or null/undefined to inherit. */
   color?: string | null;
-  /** Render the run in all-caps (used for the product-name kicker). */
+  /** Render the run in all-caps (used for the kicker). */
   caps?: boolean;
   /** Character spacing in twentieths of a point (letter-spacing). */
   charSpacing?: number;
@@ -661,12 +661,20 @@ interface CoverStyleSpec {
   before: number;
   /** Paragraph space-after in twips. */
   after: number;
+  /**
+   * Hex color (no `#`) of a bottom-border rule beneath the paragraph. Used for
+   * the blue rule under the title (the Word stand-in for the PDF's short blue
+   * bar; a paragraph border spans the text column, which is the closest Pandoc
+   * can get). Omit for no rule.
+   */
+  ruleColor?: string | null;
 }
 
 /**
- * Build one centered cover paragraph style. Run properties are emitted in the
- * CT_RPr schema order (b, bCs, caps, color, spacing, sz, szCs) so Word accepts
- * the style. The image-only logo style omits the rPr entirely.
+ * Build one left-aligned cover paragraph style. Run properties are emitted in
+ * the CT_RPr schema order (b, bCs, caps, color, spacing, sz, szCs) and paragraph
+ * properties in CT_PPr order (pBdr, spacing, jc) so Word accepts the style. The
+ * image-only logo style omits the rPr entirely.
  */
 function buildCoverStyle(spec: CoverStyleSpec): string {
   const rPr: string[] = [];
@@ -675,11 +683,21 @@ function buildCoverStyle(spec: CoverStyleSpec): string {
   if (spec.color) rPr.push(`<w:color w:val="${spec.color}" />`);
   if (typeof spec.charSpacing === "number") rPr.push(`<w:spacing w:val="${spec.charSpacing}" />`);
   if (typeof spec.sz === "number") rPr.push(`<w:sz w:val="${spec.sz}" /><w:szCs w:val="${spec.sz}" />`);
+  const pPr: string[] = [];
+  if (spec.ruleColor) {
+    // 2pt blue bottom border (w:sz is in eighths of a point, so 16 = 2pt), 8pt
+    // of space between the title text and the rule.
+    pPr.push(
+      `<w:pBdr><w:bottom w:val="single" w:sz="16" w:space="8" w:color="${spec.ruleColor}" /></w:pBdr>`
+    );
+  }
+  pPr.push(`<w:spacing w:before="${spec.before}" w:after="${spec.after}" />`);
+  pPr.push(`<w:jc w:val="left" />`);
   return (
     `<w:style w:type="paragraph" w:styleId="${spec.id}">` +
     `<w:name w:val="${spec.name}" />` +
     `<w:basedOn w:val="BodyText" />` +
-    `<w:pPr><w:jc w:val="center" /><w:spacing w:before="${spec.before}" w:after="${spec.after}" /></w:pPr>` +
+    `<w:pPr>${pPr.join("")}</w:pPr>` +
     (rPr.length ? `<w:rPr>${rPr.join("")}</w:rPr>` : "") +
     `</w:style>`
   );
@@ -687,13 +705,15 @@ function buildCoverStyle(spec: CoverStyleSpec): string {
 
 /**
  * Inject the per-element "Quire Cover" paragraph styles (Logo, Product, Title,
- * Version, Date) before `</w:styles>`, giving the Word cover a real size
- * hierarchy: a small uppercase muted product kicker, a large bold heading-colored
- * title, then muted version and date lines. The assembler tags each cover line
+ * Meta, Footer) before `</w:styles>`, the Word adaptation of the brand cover:
+ * a small uppercase blue kicker, a large heading-colored title with a blue
+ * bottom-border rule, a muted version/date meta line, and a muted footer URL,
+ * all left-aligned. (The PDF's full-bleed brand spine has no Pandoc equivalent,
+ * so Word gets the typographic layout only.) The assembler tags each cover line
  * with the matching `custom-style`, so Pandoc stamps the corresponding paragraph
- * style; without these the cover would be default left-aligned body text. All
- * lines are centered and share the `QuireCover` style-id prefix so the export step
- * can relocate the run (see `moveCoverToFront`).
+ * style; without these the cover would be default body text. All styles share
+ * the `QuireCover` style-id prefix so the export step can relocate the run (see
+ * `moveCoverToFront`).
  *
  * Idempotent (keyed on the title style) and best-effort (needs the `</w:styles>`
  * anchor).
@@ -701,48 +721,59 @@ function buildCoverStyle(spec: CoverStyleSpec): string {
 function patchCoverStyle(
   xml: string,
   headingHex: string | null,
-  mutedHex: string | null
+  mutedHex: string | null,
+  accentHex: string | null
 ): string {
   if (xml.includes('w:styleId="QuireCoverTitle"') || !xml.includes("</w:styles>")) return xml;
   const styles = [
     // Logo: image only, generous top gap so the cover sits below the page top.
     buildCoverStyle({ id: "QuireCoverLogo", name: "Quire Cover Logo", before: 720, after: 240 }),
-    // Product kicker: small uppercase muted, letter-spaced.
+    // Kicker: small uppercase blue, letter-spaced. Word has no vertical
+    // distribution (the PDF pins the title block low via margin-top:auto), so a
+    // large space-before is baked in to drop the title block to roughly the same
+    // position. ~8000 twips puts the kicker near 200mm down an A4 page (logo top
+    // + logo + this gap), mirroring the PDF; the block still clears the bottom
+    // margin so a one- or two-line title cannot overflow to a second page. Tuned
+    // for A4 (the docx page size); Letter would sit a little higher.
     buildCoverStyle({
       id: "QuireCoverProduct",
       name: "Quire Cover Product",
-      sz: 28,
+      sz: 22,
       caps: true,
-      color: mutedHex,
-      charSpacing: 20,
-      before: 480,
-      after: 80,
+      color: accentHex,
+      charSpacing: 14,
+      before: 8000,
+      after: 200,
     }),
-    // Title: the dominant line — large, bold, heading color.
+    // Title: the dominant line — large, heading color, with the blue rule beneath.
+    // Not bold: the heading font is already a heavy weight (Söhne Kräftig), so
+    // w:b would synthesize a double-weight (matches the PDF, which uses the
+    // family's native weight, not faux bold).
     buildCoverStyle({
       id: "QuireCoverTitle",
       name: "Quire Cover Title",
       sz: 52,
-      bold: true,
       color: headingHex,
+      ruleColor: accentHex,
       before: 120,
-      after: 240,
+      after: 360,
     }),
-    // Version + date: secondary muted lines, stepping down in size.
+    // Meta: the version/date line, muted secondary text.
     buildCoverStyle({
-      id: "QuireCoverVersion",
-      name: "Quire Cover Version",
-      sz: 26,
+      id: "QuireCoverMeta",
+      name: "Quire Cover Meta",
+      sz: 24,
       color: mutedHex,
-      before: 240,
-      after: 40,
+      before: 280,
+      after: 0,
     }),
+    // Footer: the URL, small and muted.
     buildCoverStyle({
-      id: "QuireCoverDate",
-      name: "Quire Cover Date",
-      sz: 22,
+      id: "QuireCoverFooter",
+      name: "Quire Cover Footer",
+      sz: 18,
       color: mutedHex,
-      before: 40,
+      before: 520,
       after: 0,
     }),
   ].join("");
@@ -1055,7 +1086,12 @@ export async function compileDocxReference(
   stylesXml = patchBlockquote(stylesXml, hexColor(tokens.colors.accent), hexColor(tokens.colors.muted));
   stylesXml = patchInlineCodeShading(stylesXml);
   stylesXml = patchPageDescriptionStyle(stylesXml, hexColor(tokens.colors.muted));
-  stylesXml = patchCoverStyle(stylesXml, hexColor(tokens.colors.heading), hexColor(tokens.colors.muted));
+  stylesXml = patchCoverStyle(
+    stylesXml,
+    hexColor(tokens.colors.heading),
+    hexColor(tokens.colors.muted),
+    hexColor(tokens.colors.accent)
+  );
 
   zip.file("word/styles.xml", stylesXml);
 

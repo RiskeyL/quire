@@ -102,30 +102,49 @@ describe("renderCover", () => {
     expect(renderCover({ title: "My Doc" })).toContain("My Doc");
   });
 
+  it("renders the brand spine, main column, and hero block (PDF)", () => {
+    const html = renderCover({ title: "My Doc" });
+    expect(html).toContain('<div class="cover-spine">');
+    expect(html).toContain('<div class="cover-main">');
+    expect(html).toContain('<div class="cover-hero">');
+  });
+
   it("puts id=\"quire-cover\" on the cover h1 so the PDF outline can navigate to it", () => {
     const html = renderCover({ title: "My Doc" });
-    expect(html).toContain('id="quire-cover"');
     // The id must be on the h1, not just somewhere in the output.
     expect(html).toContain('<h1 class="doc-title" id="quire-cover">');
   });
 
-  it("renders product name, version, and date when provided", () => {
+  it("renders the kicker and a single meta line holding version and date (PDF)", () => {
     const html = renderCover({
       title: "My Doc",
-      productName: "Dify",
+      productName: "Documentation",
       version: "1.2.3",
       date: "2026-05-25",
     });
-    expect(html).toMatch(/class="cover-product"[^>]*>Dify</);
+    expect(html).toMatch(/class="cover-product"[^>]*>Documentation</);
+    expect(html).toMatch(/class="cover-meta"/);
     expect(html).toMatch(/class="cover-version"[^>]*>1\.2\.3</);
     expect(html).toMatch(/class="cover-date"[^>]*>2026-05-25</);
+    // version and date share one line, separated by a middot.
+    expect(html).toContain('class="cover-sep"');
   });
 
-  it("omits product, version, and date when absent or blank", () => {
+  it("always renders the blue rule under the title (PDF)", () => {
+    expect(renderCover({ title: "My Doc" })).toContain('<div class="cover-rule">');
+  });
+
+  it("renders the footer URL when given and omits it otherwise (PDF)", () => {
+    expect(renderCover({ title: "My Doc", url: "docs.dify.ai" })).toMatch(
+      /class="cover-footer"[^>]*>docs\.dify\.ai</
+    );
+    expect(renderCover({ title: "My Doc" })).not.toContain("cover-footer");
+  });
+
+  it("omits the kicker and meta line when those fields are absent or blank", () => {
     const html = renderCover({ title: "My Doc", productName: "  ", version: "" });
     expect(html).not.toContain("cover-product");
-    expect(html).not.toContain("cover-version");
-    expect(html).not.toContain("cover-date");
+    expect(html).not.toContain("cover-meta");
   });
 
   it("embeds the logo image when a data URI is given", () => {
@@ -138,26 +157,33 @@ describe("renderCover", () => {
     expect(renderCover({ title: "A & B <x>" })).toContain("A &amp; B &lt;x&gt;");
   });
 
-  it("for Word: each present element is its own per-element custom-style paragraph, not an h1", () => {
+  it("for Word: each present element is its own custom-style paragraph, not an h1, with no spine", () => {
     const html = renderCover({
       title: "My Doc",
-      productName: "Dify",
+      productName: "Documentation",
       version: "v1.2.3",
       date: "2026-05-25",
       logoDataUri: "data:image/png;base64,AAA",
+      url: "docs.dify.ai",
       forWord: true,
     });
     // The title is a styled paragraph, never an h1 (an h1 would pollute the
     // Word TOC and the running-header STYLEREF).
     expect(html).not.toContain("<h1");
     expect(html).toContain('class="cover-title"');
-    // Each element carries its OWN custom-style so Word can size them distinctly
-    // (a single shared "Quire Cover" style cannot express a size hierarchy).
+    // The brand spine is PDF-only; Word gets the typographic layout.
+    expect(html).not.toContain("cover-spine");
+    // The logo carries a width ATTRIBUTE (Pandoc honors this, not inline style)
+    // so Word does not embed it at full size.
+    expect(html).toContain('width="44mm"');
+    // Each element carries its OWN custom-style so Word can style them distinctly.
     expect(html).toContain('custom-style="Quire Cover Logo"');
     expect(html).toContain('custom-style="Quire Cover Product"');
     expect(html).toContain('custom-style="Quire Cover Title"');
-    expect(html).toContain('custom-style="Quire Cover Version"');
-    expect(html).toContain('custom-style="Quire Cover Date"');
+    expect(html).toContain('custom-style="Quire Cover Meta"');
+    expect(html).toContain('custom-style="Quire Cover Footer"');
+    // version and date collapse into one meta paragraph, joined by a middot.
+    expect(html).toMatch(/Quire Cover Meta"><p>v1\.2\.3 · 2026-05-25<\/p>/);
     // No bare shared wrapper style.
     expect(html).not.toMatch(/custom-style="Quire Cover"/);
   });
@@ -167,8 +193,8 @@ describe("renderCover", () => {
     expect(html).toContain('custom-style="Quire Cover Title"');
     expect(html).not.toContain("Quire Cover Logo");
     expect(html).not.toContain("Quire Cover Product");
-    expect(html).not.toContain("Quire Cover Version");
-    expect(html).not.toContain("Quire Cover Date");
+    expect(html).not.toContain("Quire Cover Meta");
+    expect(html).not.toContain("Quire Cover Footer");
   });
 });
 

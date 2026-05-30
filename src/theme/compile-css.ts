@@ -28,7 +28,7 @@ export function compileCss(tokens: BrandTokens): string {
   const fields = buildFields();
   const code = buildCode();
   const inline = buildInline();
-  const structural = buildStructural();
+  const structural = buildStructural(tokens);
   const structuralLists = buildStructuralLists();
 
   const pageDescription = buildPageDescription();
@@ -112,6 +112,9 @@ function buildPageFurniture(): string {
    printed), so body page numbers stay continuous with their physical position. */
 .cover { page: cover; }
 @page cover {
+  /* No margin: the brand spine is full-bleed to the physical page edges; the
+     cover's main column re-establishes internal padding (see .cover-main). */
+  margin: 0;
   @top-left { content: none; }
   @top-right { content: none; }
   @bottom-center { content: none; }
@@ -885,40 +888,60 @@ function buildInline(): string {
 }`;
 }
 
-function buildStructural(): string {
+function buildStructural(tokens: BrandTokens): string {
+  // Paged.js maps `vh` unreliably, so the cover's full height is emitted as an
+  // explicit sheet height. The cover page has margin:0 (see @page cover), so its
+  // content box is the whole sheet; this height makes the flex spine span it
+  // top-to-bottom. Defaults to A4; Letter is the only other supported size.
+  const sheetHeight =
+    tokens.page.size.trim().toLowerCase() === "letter" ? "11in" : "297mm";
   return `/* Cover and TOC each occupy their own page(s). */
 .cover { break-after: page; }
-.cover > *:first-child { margin-top: 0; }
 .toc { break-after: page; }
 
-/* Cover title block: centered, pushed into the upper-middle of the page. A top
-   padding (rather than flex centering, which Paged.js handles unreliably) gives
-   a predictable position on both A4 and Letter. The logo, product name, version,
-   and date are optional; only the title is always present. */
-.cover { text-align: center; padding-top: 5cm; }
-.cover-logo { margin: 0 0 2em; }
-/* The global content rule sets img { display: block }, so center the logo with
-   auto side margins rather than relying on the cover's text-align. */
-.cover-logo img { display: block; margin: 0 auto; max-width: 48%; max-height: 6cm; }
+/* Cover: a full-bleed brand-color spine down the left edge (the "book spine"),
+   the logo anchoring the top of the white main column, and the title block
+   (kicker, title, blue rule, version/date, footer) grouped low via
+   margin-top:auto. The cover page drops its margin so the spine is full-bleed;
+   .cover-main restores internal padding. The explicit height fills the sheet so
+   the spine spans full height (flex children stretch). */
+.cover { display: flex; height: ${sheetHeight}; }
+.cover-spine { flex: 0 0 16mm; background: var(--color-accent); }
+.cover-main {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  padding: 26mm 24mm 24mm;
+}
+/* Explicit width + height:auto preserves the wordmark aspect ratio. (width:auto
+   here would let the column's align-items:stretch force the width while max-height
+   capped the height, distorting the logo.) align-self:flex-start is belt-and-braces
+   against the stretch. */
+.cover-logo { display: block; align-self: flex-start; width: 44mm; height: auto; margin: 0; }
+.cover-hero { margin-top: auto; }
 .cover-product {
-  font-family: var(--font-heading);
-  font-size: 1.3em;
-  letter-spacing: 0.1em;
+  font-family: var(--font-body);
+  font-size: 0.95em;
+  letter-spacing: 0.07em;
   text-transform: uppercase;
-  color: var(--color-muted);
-  margin: 0 0 0.4em;
+  color: var(--color-link);
+  margin: 0 0 1.8em;
 }
-.cover .doc-title,
-.cover .cover-title {
+.cover .doc-title {
   font-family: var(--font-heading);
-  font-size: 2.6em;
-  line-height: 1.15;
-  font-weight: 700;
+  font-size: 2.8em;
+  line-height: 1.07;
+  font-weight: 400;
+  letter-spacing: -0.01em;
   color: var(--color-heading);
-  margin: 0.3em 0;
+  margin: 0;
 }
-.cover-version { font-size: 1.15em; color: var(--color-muted); margin: 1.2em 0 0; }
-.cover-date { font-size: 1em; color: var(--color-muted); margin: 0.3em 0 0; }
+.cover-rule { height: 2px; width: 42mm; background: var(--color-accent); margin: 2.4em 0 1.9em; }
+.cover-meta { font-family: var(--font-body); font-size: 1.05em; color: var(--color-muted); margin: 0; }
+.cover-meta .cover-version { font-family: var(--font-heading); color: var(--color-heading); }
+.cover-meta .cover-sep { margin: 0 0.5em; }
+.cover-footer { font-family: var(--font-body); font-size: 0.85em; color: var(--color-muted); margin: 3.2em 0 0; }
 
 /* Each top-level (depth-0) chapter starts on a fresh page. Only depth-0
    structural headings carry .chapter-start (set in walkTree); nested

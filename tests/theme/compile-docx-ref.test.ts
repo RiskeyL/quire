@@ -198,7 +198,7 @@ describe("compileDocxReference", () => {
     }
   });
 
-  it("injects per-element cover styles (logo, product, title, version, date) with a size hierarchy", async () => {
+  it("injects per-element cover styles (logo, kicker, title, meta, footer), left-aligned with a blue rule", async () => {
     const dir = await mkdtemp(join(tmpdir(), "quire-cdr-cover-"));
     const out = join(dir, "ref.docx");
     try {
@@ -206,39 +206,49 @@ describe("compileDocxReference", () => {
       const zip = await JSZip.loadAsync(await readFile(out));
       const stylesXml = await zip.file("word/styles.xml")!.async("string");
 
-      // All five cover element styles must exist.
+      // The five cover element styles must exist...
       for (const id of [
         "QuireCoverLogo",
         "QuireCoverProduct",
         "QuireCoverTitle",
-        "QuireCoverVersion",
-        "QuireCoverDate",
+        "QuireCoverMeta",
+        "QuireCoverFooter",
       ]) {
         expect(stylesXml).toContain(`w:styleId="${id}"`);
       }
+      // ...and the old centered version/date styles must be gone.
+      expect(stylesXml).not.toContain('w:styleId="QuireCoverVersion"');
+      expect(stylesXml).not.toContain('w:styleId="QuireCoverDate"');
 
       const styleBlock = (id: string) =>
         stylesXml.match(
           new RegExp(`<w:style[^>]*w:styleId="${id}"[^>]*>[\\s\\S]*?<\\/w:style>`)
         )![0];
 
-      // The title is the largest line: bold, heading color (FF0000), centered.
+      // Title: heading color (FF0000), left-aligned, with a blue (accent 2563EB)
+      // bottom-border rule. Not bold (the heading font is already a heavy weight,
+      // so w:b would synthesize a double-weight).
       const title = styleBlock("QuireCoverTitle");
-      expect(title).toContain("<w:b ");
       expect(title).toContain('w:val="FF0000"');
-      expect(title).toContain('<w:jc w:val="center"');
+      expect(title).toContain('<w:jc w:val="left"');
+      expect(title).toMatch(/<w:pBdr><w:bottom[^>]*w:color="2563EB"/);
+      expect(title).not.toContain("<w:b ");
 
-      // The product, version, and date lines are muted (6B7280) and smaller than
-      // the title, establishing the hierarchy.
+      // Kicker: the brand accent blue (2563EB), uppercase.
       const product = styleBlock("QuireCoverProduct");
-      expect(product).toContain('w:val="6B7280"');
-      const titleSz = Number(title.match(/<w:sz w:val="(\d+)"/)![1]);
-      const productSz = Number(product.match(/<w:sz w:val="(\d+)"/)![1]);
-      const versionSz = Number(styleBlock("QuireCoverVersion").match(/<w:sz w:val="(\d+)"/)![1]);
-      const dateSz = Number(styleBlock("QuireCoverDate").match(/<w:sz w:val="(\d+)"/)![1]);
-      expect(titleSz).toBeGreaterThan(productSz);
-      expect(productSz).toBeGreaterThanOrEqual(versionSz);
-      expect(versionSz).toBeGreaterThanOrEqual(dateSz);
+      expect(product).toContain('w:val="2563EB"');
+      expect(product).toContain("<w:caps");
+
+      // Meta and footer are muted (6B7280).
+      expect(styleBlock("QuireCoverMeta")).toContain('w:val="6B7280"');
+      expect(styleBlock("QuireCoverFooter")).toContain('w:val="6B7280"');
+
+      // Size hierarchy: the title is the largest; the meta line steps down to the footer.
+      const sz = (id: string) =>
+        Number(styleBlock(id).match(/<w:sz w:val="(\d+)"/)![1]);
+      expect(sz("QuireCoverTitle")).toBeGreaterThan(sz("QuireCoverProduct"));
+      expect(sz("QuireCoverTitle")).toBeGreaterThan(sz("QuireCoverMeta"));
+      expect(sz("QuireCoverMeta")).toBeGreaterThanOrEqual(sz("QuireCoverFooter"));
     } finally {
       await rm(dir, { recursive: true, force: true });
     }

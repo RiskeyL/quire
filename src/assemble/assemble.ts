@@ -222,14 +222,20 @@ const TOC_ID = "quire-toc";
 export interface CoverMeta {
   /** The manual/document title (always shown). */
   title: string;
-  /** Brand product name shown above the title (omitted when blank). */
+  /**
+   * Small uppercase kicker above the title (the brand "eyebrow", e.g.
+   * "Documentation"). Sourced from the theme `brand.productName`; omitted when
+   * blank. Named `productName` for backward compatibility with the token.
+   */
   productName?: string;
-  /** Release/version label shown below the title (omitted when blank). */
+  /** Release/version label shown in the cover meta line (omitted when blank). */
   version?: string;
-  /** Publish date shown below the version (omitted when blank). */
+  /** Publish date shown in the cover meta line (omitted when blank). */
   date?: string;
   /** Embedded logo image as a `data:` URI (omitted when absent). */
   logoDataUri?: string;
+  /** Footer URL low on the cover (e.g. "docs.dify.ai"); omitted when blank. */
+  url?: string;
   /**
    * Render for Word rather than the PDF. Each cover element becomes its own
    * paragraph wrapped in a div carrying a per-element `custom-style`
@@ -249,60 +255,111 @@ function hasText(value: string | undefined): value is string {
 }
 
 /**
- * Render the document cover as an HTML fragment. The title always appears; the
- * logo, product name, version, and date appear only when provided.
+ * Render the document cover as an HTML fragment, following the Dify brand
+ * "book-spine" layout: a full-bleed brand-color spine down the left edge, the
+ * logo anchoring the top of the white main column, and the title block (kicker,
+ * title, blue rule, version/date, footer URL) grouped low. The title is always
+ * present; every other element appears only when provided.
  *
- * For Word (`forWord`), each present element is wrapped in a div carrying its
- * own `custom-style` so Pandoc stamps a distinct paragraph style per line, which
- * `compile-docx-ref` defines with a size hierarchy. For the PDF, the elements are
- * plain `<p>`s (the title an `<h1 id="quire-cover">` for the PDF outline), styled
- * by the cover CSS in `compile-css`.
+ * The PDF and Word paths diverge because Pandoc cannot reproduce page-level
+ * layout: {@link renderCoverPdf} builds the full spine layout for Chromium,
+ * while {@link renderCoverWord} emits a left-aligned typographic adaptation
+ * (per-element `custom-style` paragraphs, no spine) that `compile-docx-ref`
+ * styles. Both share the `Quire Cover` style prefix so the export step can
+ * relocate the run (see `moveCoverToFront`).
  */
 export function renderCover(meta: CoverMeta): string {
-  const w = meta.forWord === true;
+  return meta.forWord === true ? renderCoverWord(meta) : renderCoverPdf(meta);
+}
+
+/** PDF cover: brand spine + white main column with the title block low. */
+function renderCoverPdf(meta: CoverMeta): string {
+  const main: string[] = [];
+  if (hasText(meta.logoDataUri)) {
+    main.push(`<img class="cover-logo" src="${meta.logoDataUri}" alt="" />`);
+  }
+  const hero: string[] = [];
+  if (hasText(meta.productName)) {
+    hero.push(`<p class="cover-product">${escapeHtml(meta.productName)}</p>`);
+  }
+  // The title is always present; it keeps the fixed id and .doc-title class so
+  // pagedjs builds the outline entry and string-set captures the running-header
+  // title (both are global, so nesting it inside .cover-hero is fine).
+  hero.push(`<h1 class="doc-title" id="${COVER_ID}">${escapeHtml(meta.title)}</h1>`);
+  hero.push(`<div class="cover-rule"></div>`);
+  const metaParts: string[] = [];
+  if (hasText(meta.version)) {
+    metaParts.push(`<span class="cover-version">${escapeHtml(meta.version)}</span>`);
+  }
+  if (hasText(meta.date)) {
+    metaParts.push(`<span class="cover-date">${escapeHtml(meta.date)}</span>`);
+  }
+  if (metaParts.length > 0) {
+    hero.push(
+      `<p class="cover-meta">${metaParts.join(`<span class="cover-sep">·</span>`)}</p>`
+    );
+  }
+  if (hasText(meta.url)) {
+    hero.push(`<p class="cover-footer">${escapeHtml(meta.url)}</p>`);
+  }
+  main.push(`<div class="cover-hero">${hero.join("")}</div>`);
+  return `<section class="cover"><div class="cover-spine"></div><div class="cover-main">${main.join("")}</div></section>`;
+}
+
+/**
+ * Word cover: a left-aligned typographic adaptation. The spine is dropped (no
+ * Pandoc equivalent) and the blue rule becomes a bottom border on the title
+ * style. Each element is a div with its own `custom-style`, which `compile-docx-ref`
+ * defines; version and date collapse into one meta paragraph.
+ */
+function renderCoverWord(meta: CoverMeta): string {
   const parts: string[] = [];
   if (hasText(meta.logoDataUri)) {
-    const img = `<img src="${meta.logoDataUri}" alt="${escapeHtml(meta.productName ?? "")}" />`;
+    // Pandoc ignores external CSS (and the inline `style` width), so the logo
+    // size must be set via the width ATTRIBUTE, which Pandoc honors and scales
+    // the height from proportionally. 44mm matches the PDF cover logo.
+    const img = `<img src="${meta.logoDataUri}" alt="" width="44mm" />`;
     parts.push(
-      w
-        ? `<div class="cover-logo" custom-style="Quire Cover Logo"><p>${img}</p></div>`
-        : `<p class="cover-logo">${img}</p>`
+      `<div class="cover-logo" custom-style="Quire Cover Logo"><p>${img}</p></div>`
     );
   }
   if (hasText(meta.productName)) {
-    const t = escapeHtml(meta.productName);
     parts.push(
-      w
-        ? `<div class="cover-product" custom-style="Quire Cover Product"><p>${t}</p></div>`
-        : `<p class="cover-product">${t}</p>`
+      `<div class="cover-product" custom-style="Quire Cover Product"><p>${escapeHtml(meta.productName)}</p></div>`
     );
   }
-  // The title is always present.
-  const titleText = escapeHtml(meta.title);
   parts.push(
-    w
-      ? `<div class="cover-title" custom-style="Quire Cover Title"><p>${titleText}</p></div>`
-      : `<h1 class="doc-title" id="${COVER_ID}">${titleText}</h1>`
+    `<div class="cover-title" custom-style="Quire Cover Title"><p>${escapeHtml(meta.title)}</p></div>`
   );
-  if (hasText(meta.version)) {
-    const t = escapeHtml(meta.version);
+  const metaText = [meta.version, meta.date]
+    .filter(hasText)
+    .map((s) => escapeHtml(s))
+    .join(" · ");
+  if (metaText !== "") {
     parts.push(
-      w
-        ? `<div class="cover-version" custom-style="Quire Cover Version"><p>${t}</p></div>`
-        : `<p class="cover-version">${t}</p>`
+      `<div class="cover-meta" custom-style="Quire Cover Meta"><p>${metaText}</p></div>`
     );
   }
-  if (hasText(meta.date)) {
-    const t = escapeHtml(meta.date);
+  if (hasText(meta.url)) {
     parts.push(
-      w
-        ? `<div class="cover-date" custom-style="Quire Cover Date"><p>${t}</p></div>`
-        : `<p class="cover-date">${t}</p>`
+      `<div class="cover-footer" custom-style="Quire Cover Footer"><p>${escapeHtml(meta.url)}</p></div>`
     );
   }
-  // The section itself carries no custom-style: in the Word path each child div
-  // applies its own, and a bare wrapper style would have nothing to attach to.
   return `<section class="cover">${parts.join("")}</section>`;
+}
+
+/**
+ * Derive the cover footer URL from a published-site base URL: strip the scheme
+ * and any trailing slash (e.g. "https://docs.dify.ai/" -> "docs.dify.ai").
+ * Returns undefined when no base URL is set, so the footer is omitted.
+ */
+function coverUrlFromBaseUrl(baseUrl: string | undefined): string | undefined {
+  if (baseUrl === undefined || baseUrl.trim() === "") return undefined;
+  const stripped = baseUrl
+    .trim()
+    .replace(/^[a-z][a-z0-9+.-]*:\/\//i, "")
+    .replace(/\/+$/, "");
+  return stripped === "" ? undefined : stripped;
 }
 
 /** Derive a human-readable title from a page node. */
@@ -512,6 +569,7 @@ export function assembleDocument(
         version: options.version,
         date: options.date,
         logoDataUri: options.logoDataUri,
+        url: coverUrlFromBaseUrl(options.baseUrl),
         forWord: options.coverForWord,
       })
     : "";
