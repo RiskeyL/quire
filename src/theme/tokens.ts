@@ -9,7 +9,17 @@ import { z } from "zod";
 /** Fully-resolved brand tokens (all fields present after merging with defaults). */
 export interface BrandTokens {
   page: { size: "A4" | "Letter"; margin: string };
-  colors: { text: string; heading: string; link: string; accent: string; muted: string };
+  colors: {
+    text: string;
+    heading: string;
+    link: string;
+    accent: string;
+    muted: string;
+    surface: string;
+    border: string;
+  };
+  semantic: { success: string; caution: string; danger: string };
+  shape: { radius: string };
   typography: {
     bodyFont: string;
     headingFont: string;
@@ -41,7 +51,11 @@ export const DEFAULT_TOKENS: BrandTokens = {
     link: "#2563eb",
     accent: "#2563eb",
     muted: "#6b7280",
+    surface: "#f2f2f2",
+    border: "#d9d9d9",
   },
+  semantic: { success: "#15803d", caution: "#b45309", danger: "#b91c1c" },
+  shape: { radius: "4px" },
   typography: {
     bodyFont: "Georgia, 'Times New Roman', serif",
     headingFont: "Helvetica, Arial, sans-serif",
@@ -84,9 +98,18 @@ const partialColorsSchema = z
     link: z.string(),
     accent: z.string(),
     muted: z.string(),
+    surface: z.string(),
+    border: z.string(),
   })
   .strict()
   .partial();
+
+const partialSemanticSchema = z
+  .object({ success: z.string(), caution: z.string(), danger: z.string() })
+  .strict()
+  .partial();
+
+const partialShapeSchema = z.object({ radius: z.string() }).strict().partial();
 
 const partialTypographySchema = z
   .object({
@@ -132,6 +155,8 @@ const partialThemeSchema = z
   .object({
     page: partialPageSchema,
     colors: partialColorsSchema,
+    semantic: partialSemanticSchema,
+    shape: partialShapeSchema,
     typography: partialTypographySchema,
     toc: partialTocSchema,
     meta: partialMetaSchema,
@@ -192,6 +217,8 @@ function applyOverrides(partial: PartialTheme): BrandTokens {
   return {
     page: mergeSection(DEFAULT_TOKENS.page, partial.page ?? {}),
     colors: mergeSection(DEFAULT_TOKENS.colors, partial.colors ?? {}),
+    semantic: mergeSection(DEFAULT_TOKENS.semantic, partial.semantic ?? {}),
+    shape: mergeSection(DEFAULT_TOKENS.shape, partial.shape ?? {}),
     typography: mergeSection(DEFAULT_TOKENS.typography, partial.typography ?? {}),
     toc: mergeSection(DEFAULT_TOKENS.toc, partial.toc ?? {}),
     meta: mergeSection(DEFAULT_TOKENS.meta, partial.meta ?? {}),

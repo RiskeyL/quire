@@ -84,6 +84,36 @@ describe("parseTheme", () => {
   it("malformed YAML throws a clear parse error", () => {
     expect(() => parseTheme("colors: [unclosed")).toThrow(/parse|YAML|yaml/i);
   });
+
+  it("T1 defaults: surface, border, semantic, shape", () => {
+    const t = parseTheme("");
+    expect(t.colors.surface).toBe("#f2f2f2");
+    expect(t.colors.border).toBe("#d9d9d9");
+    expect(t.semantic).toEqual({ success: "#15803d", caution: "#b45309", danger: "#b91c1c" });
+    expect(t.shape).toEqual({ radius: "4px" });
+  });
+
+  it("partial override: semantic.danger only", () => {
+    const t = parseTheme('semantic:\n  danger: "#990000"\n');
+    expect(t.semantic.danger).toBe("#990000");
+    expect(t.semantic.success).toBe(DEFAULT_TOKENS.semantic.success);
+    expect(t.semantic.caution).toBe(DEFAULT_TOKENS.semantic.caution);
+  });
+
+  it("partial override: shape.radius and colors.surface", () => {
+    const t = parseTheme('shape:\n  radius: "0"\ncolors:\n  surface: "#ffffff"\n');
+    expect(t.shape.radius).toBe("0");
+    expect(t.colors.surface).toBe("#ffffff");
+    expect(t.colors.border).toBe(DEFAULT_TOKENS.colors.border);
+  });
+
+  it("rejects an unknown key in semantic", () => {
+    expect(() => parseTheme('semantic:\n  bogus: "#000000"\n')).toThrow(/unknown option/);
+  });
+
+  it("rejects an unknown key in shape", () => {
+    expect(() => parseTheme('shape:\n  bogus: "0"\n')).toThrow(/unknown option/);
+  });
 });
 
 describe("parseTheme — meta.showDescription token", () => {
