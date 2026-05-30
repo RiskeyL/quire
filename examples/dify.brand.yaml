@@ -13,6 +13,16 @@ colors:
   link: "#2563eb"     # Hyperlink color — PDF links and the Word Hyperlink style
   accent: "#2563eb"   # Accent — PDF rules/accents, Word Info callout border + blockquote bar
   muted: "#6b7280"    # Captions/secondary text — PDF, plus Word blockquote + page-description
+  surface: "#f2f2f2"  # Light fills — code blocks, callouts, panels, table header row (PDF and Word)
+  border: "#d9d9d9"   # Hairlines — table cells, card/panel borders, hr, separators (PDF and Word)
+
+semantic:
+  success: "#15803d"  # Tip and Check callouts — PDF left bar and Word accent bar
+  caution: "#b45309"  # Note callout and the required-field badge
+  danger: "#b91c1c"   # Warning and Danger callouts
+
+shape:
+  radius: "4px"       # Corner radius for code, callouts, cards, panels, badges. PDF only (Word corners are square); "0" = sharp.
 
 typography:
   bodyFont: "Georgia, 'Times New Roman', serif"      # Body font stack — PDF uses full stack; Word uses the first family name
