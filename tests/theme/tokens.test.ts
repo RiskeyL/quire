@@ -114,6 +114,44 @@ describe("parseTheme", () => {
   it("rejects an unknown key in shape", () => {
     expect(() => parseTheme('shape:\n  bogus: "0"\n')).toThrow(/unknown option/);
   });
+
+  it("T2 defaults", () => {
+    const t = parseTheme("");
+    expect(t.toc.depth).toBe(3);
+    expect(t.headings.scale).toEqual([2, 1.5, 1.25, 1.1, 1, 0.85]);
+    expect(t.headings.weight).toEqual([700, 700, 600, 600, 600, 600]);
+    expect(t.links.underline).toBe(true);
+    expect(t.density).toBe("normal");
+    expect(t.header).toEqual({ left: "docTitle", center: "none", right: "chapter" });
+    expect(t.footer).toEqual({ left: "none", center: "pageNumber", right: "none" });
+    expect(t.furniture).toEqual({ fontSize: "9pt", color: "#6b7280" });
+    expect(t.pageNumbers).toEqual({ restartAtBody: true });
+  });
+
+  it("partial override: toc.depth keeps title", () => {
+    const t = parseTheme("toc:\n  depth: 2\n");
+    expect(t.toc.depth).toBe(2);
+    expect(t.toc.title).toBe(DEFAULT_TOKENS.toc.title);
+  });
+
+  it("partial override: header.right only", () => {
+    const t = parseTheme("header:\n  right: none\n");
+    expect(t.header.right).toBe("none");
+    expect(t.header.left).toBe("docTitle");
+  });
+
+  it("density accepts an enum value and rejects others", () => {
+    expect(parseTheme("density: compact\n").density).toBe("compact");
+    expect(() => parseTheme("density: huge\n")).toThrow();
+  });
+
+  it("links.underline can be turned off", () => {
+    expect(parseTheme("links:\n  underline: false\n").links.underline).toBe(false);
+  });
+
+  it("rejects unknown key in furniture", () => {
+    expect(() => parseTheme("furniture:\n  bogus: x\n")).toThrow(/unknown option/);
+  });
 });
 
 describe("parseTheme — meta.showDescription token", () => {

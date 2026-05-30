@@ -27,7 +27,14 @@ export interface BrandTokens {
     baseSize: string;
     lineHeight: number;
   };
-  toc: { title: string };
+  toc: { title: string; depth: number };
+  headings: { scale: number[]; weight: number[] };
+  links: { underline: boolean };
+  density: "compact" | "normal" | "relaxed";
+  header: { left: string; center: string; right: string };
+  footer: { left: string; center: string; right: string };
+  furniture: { fontSize: string; color: string };
+  pageNumbers: { restartAtBody: boolean };
   meta: { showDescription: boolean };
   tables: { layout: "fixed" | "auto" };
   /**
@@ -68,7 +75,14 @@ export const DEFAULT_TOKENS: BrandTokens = {
     baseSize: "11pt",
     lineHeight: 1.5,
   },
-  toc: { title: "Contents" },
+  toc: { title: "Contents", depth: 3 },
+  headings: { scale: [2, 1.5, 1.25, 1.1, 1, 0.85], weight: [700, 700, 600, 600, 600, 600] },
+  links: { underline: true },
+  density: "normal",
+  header: { left: "docTitle", center: "none", right: "chapter" },
+  footer: { left: "none", center: "pageNumber", right: "none" },
+  furniture: { fontSize: "9pt", color: "#6b7280" },
+  pageNumbers: { restartAtBody: true },
   meta: { showDescription: true },
   // "fixed" (PDF table-layout) distributes column widths evenly and lets cell
   // content wrap, so a long unbreakable token can't force a column wider than the
@@ -125,9 +139,17 @@ const partialTypographySchema = z
 const partialTocSchema = z
   .object({
     title: z.string(),
+    depth: z.number(),
   })
   .strict()
   .partial();
+
+const partialHeadingsSchema = z.object({ scale: z.array(z.number()), weight: z.array(z.number()) }).strict().partial();
+const partialLinksSchema = z.object({ underline: z.boolean() }).strict().partial();
+const partialHeaderSchema = z.object({ left: z.string(), center: z.string(), right: z.string() }).strict().partial();
+const partialFooterSchema = z.object({ left: z.string(), center: z.string(), right: z.string() }).strict().partial();
+const partialFurnitureSchema = z.object({ fontSize: z.string(), color: z.string() }).strict().partial();
+const partialPageNumbersSchema = z.object({ restartAtBody: z.boolean() }).strict().partial();
 
 const partialMetaSchema = z
   .object({
@@ -159,6 +181,13 @@ const partialThemeSchema = z
     shape: partialShapeSchema,
     typography: partialTypographySchema,
     toc: partialTocSchema,
+    headings: partialHeadingsSchema,
+    links: partialLinksSchema,
+    density: z.enum(["compact", "normal", "relaxed"]),
+    header: partialHeaderSchema,
+    footer: partialFooterSchema,
+    furniture: partialFurnitureSchema,
+    pageNumbers: partialPageNumbersSchema,
     meta: partialMetaSchema,
     tables: partialTablesSchema,
     brand: partialBrandSchema,
@@ -221,6 +250,13 @@ function applyOverrides(partial: PartialTheme): BrandTokens {
     shape: mergeSection(DEFAULT_TOKENS.shape, partial.shape ?? {}),
     typography: mergeSection(DEFAULT_TOKENS.typography, partial.typography ?? {}),
     toc: mergeSection(DEFAULT_TOKENS.toc, partial.toc ?? {}),
+    headings: mergeSection(DEFAULT_TOKENS.headings, partial.headings ?? {}),
+    links: mergeSection(DEFAULT_TOKENS.links, partial.links ?? {}),
+    density: partial.density ?? DEFAULT_TOKENS.density,
+    header: mergeSection(DEFAULT_TOKENS.header, partial.header ?? {}),
+    footer: mergeSection(DEFAULT_TOKENS.footer, partial.footer ?? {}),
+    furniture: mergeSection(DEFAULT_TOKENS.furniture, partial.furniture ?? {}),
+    pageNumbers: mergeSection(DEFAULT_TOKENS.pageNumbers, partial.pageNumbers ?? {}),
     meta: mergeSection(DEFAULT_TOKENS.meta, partial.meta ?? {}),
     tables: mergeSection(DEFAULT_TOKENS.tables, partial.tables ?? {}),
     brand: mergeSection(DEFAULT_TOKENS.brand, partial.brand ?? {}),
