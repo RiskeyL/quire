@@ -287,6 +287,52 @@ function patchHeadingStyles(
 }
 
 /**
+ * Scale the Heading1–Heading6 font sizes (and their linked HeadingNChar styles)
+ * to the brand base size times the same em ratios the PDF uses (compile-css:
+ * 2 / 1.5 / 1.25 / 1.1 / 1 / 0.85), so Word headings step down in the same
+ * proportion as the PDF instead of Pandoc's fixed reference sizes. `baseHalfPts`
+ * is the body size in half-points. Replaces the `<w:sz>`/`<w:szCs>` values inside
+ * each heading style's rPr. Pandoc gives Heading1–3 an explicit size but leaves
+ * Heading4–6 to inherit, so when no `<w:sz>` is present this INSERTS one before
+ * `</w:rPr>` (sz/szCs sit after color in CT_RPr order, which is where the heading
+ * rPr ends). The `sz` pattern requires the space after `w:sz`, so it never
+ * matches `w:szCs`. Best-effort: skips a heading style that has no rPr at all.
+ */
+function patchHeadingSizes(xml: string, baseHalfPts: number): string {
+  const ratios: Record<string, number> = {
+    Heading1: 2.0,
+    Heading2: 1.5,
+    Heading3: 1.25,
+    Heading4: 1.1,
+    Heading5: 1.0,
+    Heading6: 0.85,
+  };
+  let result = xml;
+  for (const [id, ratio] of Object.entries(ratios)) {
+    const sz = Math.round(baseHalfPts * ratio);
+    const szEls = `<w:sz w:val="${sz}" /><w:szCs w:val="${sz}" />`;
+    for (const styleId of [id, `${id}Char`]) {
+      const pattern = new RegExp(
+        `(<w:style[^>]*w:styleId="${styleId}"[^>]*>[\\s\\S]*?<\\/w:style>)`
+      );
+      result = result.replace(pattern, (block) => {
+        if (/<w:sz w:val="/.test(block)) {
+          return block
+            .replace(/<w:sz w:val="[^"]*"\s*\/>/, `<w:sz w:val="${sz}" />`)
+            .replace(/<w:szCs w:val="[^"]*"\s*\/>/, `<w:szCs w:val="${sz}" />`);
+        }
+        // No explicit size (Heading4–6): insert one at the end of the rPr.
+        if (/<w:rPr>[\s\S]*?<\/w:rPr>/.test(block)) {
+          return block.replace(/<\/w:rPr>/, `${szEls}</w:rPr>`);
+        }
+        return block;
+      });
+    }
+  }
+  return result;
+}
+
+/**
  * Patch the VerbatimChar style's rFonts to use the given mono font.
  * Best-effort: if the style is not found or fontName is empty, returns xml unchanged.
  */
@@ -509,7 +555,7 @@ const CODE_BLOCK_FILL = "F2F2F2";
  * matches it by name and keeps the shading (verified empirically). If a future
  * reference doc already defines it, the `<w:shd>` is merged into the existing
  * `<w:pPr>` instead (CT_PPr orders shd before `wordWrap`). The injected style
- * mirrors Pandoc's own (basedOn Normal, linked to VerbatimChar, `wordWrap off`).
+ * is basedOn Normal, linked to VerbatimChar, with `wordWrap on` (see below).
  * Idempotent (skips when the fill is present) and best-effort (needs the
  * `</w:styles>` anchor), so the run degrades to an unshaded block.
  */
@@ -532,7 +578,10 @@ function patchCodeBlockShading(xml: string): string {
     `<w:name w:val="Source Code" />` +
     `<w:basedOn w:val="Normal" />` +
     `<w:link w:val="VerbatimChar" />` +
-    `<w:pPr>${shd}<w:wordWrap w:val="off" /></w:pPr>` +
+    // wordWrap on: break long unbreakable code tokens (URLs, class paths) at the
+    // character level instead of overflowing the page. Pandoc's own default is
+    // off; the PDF already wraps via `overflow-wrap: anywhere`.
+    `<w:pPr>${shd}<w:wordWrap w:val="on" /></w:pPr>` +
     `</w:style>`;
   return xml.replace("</w:styles>", `${style}</w:styles>`);
 }
@@ -1051,6 +1100,10 @@ export async function compileDocxReference(
     );
   }
   stylesXml = afterHeadings;
+
+  // Scale heading sizes to the brand base size x the PDF's em ratios, so Word
+  // headings match the PDF proportions rather than Pandoc's fixed sizes. Best-effort.
+  stylesXml = patchHeadingSizes(stylesXml, halfPts);
 
   // Mono font in VerbatimChar (best-effort)
   stylesXml = patchMonoFont(stylesXml, monoFontName);

@@ -141,6 +141,53 @@ describe("compileDocxReference", () => {
     }
   });
 
+  it("scales heading sizes to the brand base size times the PDF em ratios", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "quire-cdr-"));
+    const out = join(dir, "ref.docx");
+    try {
+      await compileDocxReference(CUSTOM_TOKENS, out);
+      const stylesXml = await (await JSZip.loadAsync(await readFile(out)))
+        .file("word/styles.xml")!
+        .async("string");
+      const sz = (id: string) => {
+        const block = stylesXml.match(
+          new RegExp(`<w:style[^>]*w:styleId="${id}"[^>]*>[\\s\\S]*?</w:style>`)
+        )![0];
+        return Number(block.match(/<w:sz w:val="(\d+)"/)![1]);
+      };
+      // base 13pt = 26 half-points; Heading1 = 26 x 2 = 52, Heading2 = 26 x 1.5 = 39.
+      expect(sz("Heading1")).toBe(52);
+      expect(sz("Heading2")).toBe(39);
+      // Strictly descending through the levels.
+      expect(sz("Heading1")).toBeGreaterThan(sz("Heading2"));
+      expect(sz("Heading2")).toBeGreaterThan(sz("Heading3"));
+      expect(sz("Heading3")).toBeGreaterThan(sz("Heading4"));
+      expect(sz("Heading4")).toBeGreaterThan(sz("Heading5"));
+      expect(sz("Heading5")).toBeGreaterThan(sz("Heading6"));
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("sets wordWrap on for the SourceCode style so long code lines break in Word", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "quire-cdr-"));
+    const out = join(dir, "ref.docx");
+    try {
+      await compileDocxReference(CUSTOM_TOKENS, out);
+      const stylesXml = await (await JSZip.loadAsync(await readFile(out)))
+        .file("word/styles.xml")!
+        .async("string");
+      const block =
+        stylesXml.match(
+          /<w:style[^>]*w:styleId="SourceCode"[^>]*>[\s\S]*?<\/w:style>/
+        )?.[0] ?? "";
+      expect(block).toContain('<w:wordWrap w:val="on"');
+      expect(block).not.toContain('w:val="off"');
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
+
   it("end-to-end: branded reference doc propagates heading color and body font into output docx", async () => {
     // This test verifies the "swapping the reference file changes Word output" claim.
     const dir = await mkdtemp(join(tmpdir(), "quire-e2e-"));
