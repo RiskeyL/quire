@@ -856,66 +856,113 @@ function patchCoverStyle(
 const HEADER_RID = "rId90";
 const FOOTER_RID = "rId91";
 
-// Shared run properties for the muted, ~9pt furniture text, matching the PDF's
-// @page margin-box styling (#6b7280 / 9pt). w:sz is in half-points → 18 = 9pt.
-const FURNITURE_RPR = '<w:rPr><w:color w:val="6B7280" /><w:sz w:val="18" /></w:rPr>';
+/** Muted, sized run properties for the header/footer text, from the furniture token. */
+function furnitureRpr(furniture: BrandTokens["furniture"]): string {
+  const color = hexColor(furniture.color) ?? "6B7280";
+  const sz = ptToHalfPoints(furniture.fontSize);
+  return `<w:rPr><w:color w:val="${color}" /><w:sz w:val="${sz}" /><w:szCs w:val="${sz}" /></w:rPr>`;
+}
 
 /**
- * Build word/header1.xml: the document title flush-left, and a STYLEREF field
- * for the current Heading 1 flush-right. The right alignment uses a single
- * right-aligned tab stop at the content width (page width minus left+right
- * margins), so the title sits left and the chapter sits right on one line.
- * Mirrors the PDF running header (doc title @top-left, chapter @top-right).
- *
- * `titleText` is XML-escaped. When empty, the title run is omitted but the
- * STYLEREF chapter field still renders (header degrades gracefully).
+ * The run(s) for one header/footer slot: a field for the dynamic keywords, text
+ * for docTitle/literals, or nothing for "none". Every run carries the furniture rPr.
  */
-function buildHeaderXml(titleText: string, contentWidthTwips: number): string {
-  const escaped = escapeXml(titleText);
-  const titleRun = escaped
-    ? `<w:r>${FURNITURE_RPR}<w:t xml:space="preserve">${escaped}</w:t></w:r>`
-    : "";
-  // STYLEREF "Heading 1" \* MERGEFORMAT — shows the in-effect Heading 1 text.
-  // Each run carries the muted/9pt rPr so the whole header line is uniform.
-  const stylerefField =
-    `<w:r>${FURNITURE_RPR}<w:fldChar w:fldCharType="begin" /></w:r>` +
-    `<w:r>${FURNITURE_RPR}<w:instrText xml:space="preserve"> STYLEREF "Heading 1" \\* MERGEFORMAT </w:instrText></w:r>` +
-    `<w:r>${FURNITURE_RPR}<w:fldChar w:fldCharType="separate" /></w:r>` +
-    `<w:r>${FURNITURE_RPR}<w:t xml:space="preserve"></w:t></w:r>` +
-    `<w:r>${FURNITURE_RPR}<w:fldChar w:fldCharType="end" /></w:r>`;
+function furnitureSlotRun(value: string, rpr: string, docTitle: string): string {
+  switch (value) {
+    case "none":
+      return "";
+    case "docTitle": {
+      const escaped = escapeXml(docTitle);
+      return escaped ? `<w:r>${rpr}<w:t xml:space="preserve">${escaped}</w:t></w:r>` : "";
+    }
+    case "chapter":
+      return (
+        `<w:r>${rpr}<w:fldChar w:fldCharType="begin" /></w:r>` +
+        `<w:r>${rpr}<w:instrText xml:space="preserve"> STYLEREF "Heading 1" \\* MERGEFORMAT </w:instrText></w:r>` +
+        `<w:r>${rpr}<w:fldChar w:fldCharType="separate" /></w:r>` +
+        `<w:r>${rpr}<w:t xml:space="preserve"></w:t></w:r>` +
+        `<w:r>${rpr}<w:fldChar w:fldCharType="end" /></w:r>`
+      );
+    case "pageNumber":
+      return (
+        `<w:r>${rpr}<w:fldChar w:fldCharType="begin" /></w:r>` +
+        `<w:r>${rpr}<w:instrText xml:space="preserve"> PAGE </w:instrText></w:r>` +
+        `<w:r>${rpr}<w:fldChar w:fldCharType="separate" /></w:r>` +
+        `<w:r>${rpr}<w:t xml:space="preserve">1</w:t></w:r>` +
+        `<w:r>${rpr}<w:fldChar w:fldCharType="end" /></w:r>`
+      );
+    default:
+      return `<w:r>${rpr}<w:t xml:space="preserve">${escapeXml(value)}</w:t></w:r>`;
+  }
+}
+
+/**
+ * A 3-cell tabbed furniture paragraph: left content, a center tab stop at half
+ * the content width, center content, a right tab stop at the content width, and
+ * right content. Empty ("none") cells collapse, so the default header renders
+ * title-left + chapter-right and the default footer renders a centered page number.
+ */
+function furnitureParagraph(
+  slots: BrandTokens["header"] | BrandTokens["footer"],
+  rpr: string,
+  docTitle: string,
+  contentWidthTwips: number
+): string {
+  const centerPos = Math.round(contentWidthTwips / 2);
+  return (
+    `<w:p>` +
+    `<w:pPr><w:tabs><w:tab w:val="center" w:pos="${centerPos}" /><w:tab w:val="right" w:pos="${contentWidthTwips}" /></w:tabs></w:pPr>` +
+    furnitureSlotRun(slots.left, rpr, docTitle) +
+    `<w:r>${rpr}<w:tab /></w:r>` +
+    furnitureSlotRun(slots.center, rpr, docTitle) +
+    `<w:r>${rpr}<w:tab /></w:r>` +
+    furnitureSlotRun(slots.right, rpr, docTitle) +
+    `</w:p>`
+  );
+}
+
+/**
+ * Build word/header1.xml as a 3-cell tabbed paragraph driven by the header slots
+ * and furniture token. The left/center/right slots accept keywords (`docTitle`,
+ * `chapter`, `pageNumber`, `none`) or literal text. Furniture font size and color
+ * drive the run properties. The defaults (docTitle left, chapter right) reproduce
+ * the previous fixed layout.
+ */
+function buildHeaderXml(
+  header: BrandTokens["header"],
+  furniture: BrandTokens["furniture"],
+  docTitle: string,
+  contentWidthTwips: number
+): string {
+  const p = furnitureParagraph(header, furnitureRpr(furniture), docTitle, contentWidthTwips);
   return (
     `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n` +
     `<w:hdr xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main" ` +
     `xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">` +
-    `<w:p>` +
-    `<w:pPr><w:tabs><w:tab w:val="right" w:pos="${contentWidthTwips}" /></w:tabs></w:pPr>` +
-    titleRun +
-    `<w:r>${FURNITURE_RPR}<w:tab /></w:r>` +
-    stylerefField +
-    `</w:p>` +
+    p +
     `</w:hdr>`
   );
 }
 
 /**
- * Build word/footer1.xml: a centered PAGE field for the page number, styled
- * with the same muted/9pt furniture run properties as the header.
+ * Build word/footer1.xml as a 3-cell tabbed paragraph driven by the footer slots
+ * and furniture token. The left/center/right slots accept keywords (`docTitle`,
+ * `chapter`, `pageNumber`, `none`) or literal text. Furniture font size and color
+ * drive the run properties. The default (pageNumber center) reproduces the previous
+ * fixed centered-PAGE layout.
  */
-function buildFooterXml(): string {
-  const pageField =
-    `<w:r>${FURNITURE_RPR}<w:fldChar w:fldCharType="begin" /></w:r>` +
-    `<w:r>${FURNITURE_RPR}<w:instrText xml:space="preserve"> PAGE </w:instrText></w:r>` +
-    `<w:r>${FURNITURE_RPR}<w:fldChar w:fldCharType="separate" /></w:r>` +
-    `<w:r>${FURNITURE_RPR}<w:t xml:space="preserve">1</w:t></w:r>` +
-    `<w:r>${FURNITURE_RPR}<w:fldChar w:fldCharType="end" /></w:r>`;
+function buildFooterXml(
+  footer: BrandTokens["footer"],
+  furniture: BrandTokens["furniture"],
+  docTitle: string,
+  contentWidthTwips: number
+): string {
+  const p = furnitureParagraph(footer, furnitureRpr(furniture), docTitle, contentWidthTwips);
   return (
     `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n` +
     `<w:ftr xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main" ` +
     `xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">` +
-    `<w:p>` +
-    `<w:pPr><w:jc w:val="center" /></w:pPr>` +
-    pageField +
-    `</w:p>` +
+    p +
     `</w:ftr>`
   );
 }
@@ -1218,10 +1265,10 @@ export async function compileDocxReference(
   // right-aligned tab stop sits here so the chapter title is flush-right.
   const contentWidth = pgW - margins.left - margins.right;
 
-  // Header (Feature 2): title left, STYLEREF chapter right.
-  zip.file("word/header1.xml", buildHeaderXml(options?.docTitle ?? "", contentWidth));
-  // Footer (Feature 2): centered PAGE field.
-  zip.file("word/footer1.xml", buildFooterXml());
+  // Header (Feature 2): slot-driven 3-cell tabbed paragraph.
+  zip.file("word/header1.xml", buildHeaderXml(tokens.header, tokens.furniture, options?.docTitle ?? "", contentWidth));
+  // Footer (Feature 2): slot-driven 3-cell tabbed paragraph.
+  zip.file("word/footer1.xml", buildFooterXml(tokens.footer, tokens.furniture, options?.docTitle ?? "", contentWidth));
 
   // Content types: register the header/footer parts (best-effort).
   const ctFile = zip.file("[Content_Types].xml");

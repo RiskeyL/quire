@@ -361,8 +361,8 @@ describe("compileDocxReference", () => {
       const footerXml = await footerFile!.async("string");
       // PAGE field for the page number.
       expect(footerXml).toMatch(/<w:instrText[^>]*>\s*PAGE\s*<\/w:instrText>/);
-      // Centered.
-      expect(footerXml).toMatch(/<w:jc w:val="center"\s*\/>/);
+      // Slot-driven 3-cell layout: center tab stop present (pageNumber is in center slot).
+      expect(footerXml).toMatch(/<w:tab w:val="center"/);
     } finally {
       await rm(dir, { recursive: true, force: true });
     }
@@ -750,6 +750,42 @@ describe("compileDocxReference", () => {
       const bt2 = (await (await JSZip.loadAsync(await readFile(out2))).file("word/styles.xml")!.async("string"))
         .match(/<w:style[^>]*w:styleId="BodyText"[^>]*>[\s\S]*?<\/w:style>/)![0];
       expect(bt2).toContain('w:after="180"');
+    } finally { await rm(dir, { recursive: true, force: true }); }
+  });
+
+  it("builds the Word header/footer from slots and furniture", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "quire-cdr-"));
+    try {
+      const out = join(dir, "ref.docx");
+      await compileDocxReference(CUSTOM_TOKENS, out, { docTitle: "Quire Sample Title" });
+      const zip = await JSZip.loadAsync(await readFile(out));
+      const header = await zip.file("word/header1.xml")!.async("string");
+      const footer = await zip.file("word/footer1.xml")!.async("string");
+      // default header: docTitle left, STYLEREF chapter right; furniture 9pt (#6B7280)
+      expect(header).toContain("Quire Sample Title");
+      expect(header).toContain('STYLEREF "Heading 1"');
+      expect(header).toContain('<w:sz w:val="18" />');
+      expect(header).toContain('<w:color w:val="6B7280" />');
+      // default footer: centered PAGE
+      expect(footer).toContain(" PAGE ");
+    } finally { await rm(dir, { recursive: true, force: true }); }
+  });
+
+  it("honors custom footer slots and furniture size/color", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "quire-cdr-"));
+    try {
+      const out = join(dir, "ref.docx");
+      const custom: BrandTokens = {
+        ...CUSTOM_TOKENS,
+        footer: { left: "Confidential", center: "none", right: "pageNumber" },
+        furniture: { fontSize: "8pt", color: "#999999" },
+      };
+      await compileDocxReference(custom, out, { docTitle: "T" });
+      const footer = await (await JSZip.loadAsync(await readFile(out))).file("word/footer1.xml")!.async("string");
+      expect(footer).toContain("Confidential");
+      expect(footer).toContain(" PAGE ");
+      expect(footer).toContain('<w:sz w:val="16" />'); // 8pt
+      expect(footer).toContain('<w:color w:val="999999" />');
     } finally { await rm(dir, { recursive: true, force: true }); }
   });
 });
