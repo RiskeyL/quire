@@ -10,6 +10,7 @@ export async function htmlToDocx(
   outPath: string,
   options?: {
     toc?: boolean;
+    tocDepth?: number;
     referenceDoc?: string;
     frontMatterBreak?: boolean;
     updateFields?: boolean;
@@ -24,7 +25,7 @@ export async function htmlToDocx(
     await writeFile(htmlPath, html, "utf8");
     const args = [htmlPath, "-f", "html", "-o", outPath];
     if (options?.toc) {
-      args.push("--toc", "--toc-depth=3");
+      args.push("--toc", `--toc-depth=${options.tocDepth ?? 3}`);
     }
     if (options?.referenceDoc) {
       args.push(`--reference-doc=${options.referenceDoc}`);

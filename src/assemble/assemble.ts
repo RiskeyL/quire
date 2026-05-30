@@ -551,6 +551,7 @@ export function assembleDocument(
     toc?: boolean;
     css?: string;
     tocTitle?: string;
+    tocDepth?: number;
     showDescription?: boolean;
     baseUrl?: string;
     /** Optional cover metadata (product name, version, date, embedded logo). */
@@ -577,7 +578,7 @@ export function assembleDocument(
   // (which carry ids from rehype-slug + structural-heading ids from walkTree).
   const body = assembleBody(tree, rendered, options.showDescription, options.baseUrl);
   const toc = options.toc
-    ? buildTocFromHeadings(body, { title: options.tocTitle ?? "Contents" })
+    ? buildTocFromHeadings(body, { title: options.tocTitle ?? "Contents", maxDepth: options.tocDepth })
     : "";
   // Wrap the body so the PDF can restart page numbering at 1 here: the cover and
   // TOC are unnumbered front matter, and `.doc-body { counter-reset: page }`

@@ -210,6 +210,7 @@ export async function runConvert(paths: string[], options: ConvertOptions): Prom
         toc: useToc,
         css: compileCss(tokens),
         tocTitle: tokens.toc.title,
+        tocDepth: tokens.toc.depth,
         showDescription,
         baseUrl: options.baseUrl,
         productName: tokens.brand.productName,
@@ -263,6 +264,7 @@ export async function runConvert(paths: string[], options: ConvertOptions): Prom
         // only appears from the body. Mirrors the PDF's named-page suppression.
         await htmlToDocx(docxHtml, `${base}.docx`, {
           toc: useToc,
+          tocDepth: tokens.toc.depth,
           referenceDoc: refPath,
           frontMatterBreak: true,
           // Flag fields for update so Word populates the (otherwise empty) TOC
@@ -277,7 +279,7 @@ export async function runConvert(paths: string[], options: ConvertOptions): Prom
           process.stderr.write(
             `Warning: could not apply brand to the Word output (${err.message}). Falling back to Pandoc defaults.\n`
           );
-          await htmlToDocx(docxHtml, `${base}.docx`, { toc: useToc, updateFields: true, moveCover: wantCover });
+          await htmlToDocx(docxHtml, `${base}.docx`, { toc: useToc, tocDepth: tokens.toc.depth, updateFields: true, moveCover: wantCover });
         } else {
           throw err;
         }

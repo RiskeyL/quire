@@ -680,3 +680,50 @@ describe("assembleDocument with baseUrl option", () => {
     expect(html).toContain(`href="https://docs.dify.ai/en/use-dify/workflow/overview"`);
   });
 });
+
+describe("assembleDocument tocDepth option", () => {
+  // A two-level tree so the body contains both h1 (section, tier 1) and
+  // h2 (page title, tier 2) structural headings, making depth filtering visible.
+  const tree: Tree = [
+    {
+      type: "section",
+      title: "Chapter",
+      children: [{ type: "page", file: "p.md", title: "Page" }],
+    },
+  ];
+  const rendered = new Map([["p.md", "<p>body</p>"]]);
+
+  it("limits the TOC to tier 1 only when tocDepth is 1", () => {
+    const html = assembleDocument(tree, rendered, {
+      title: "Doc",
+      cover: false,
+      toc: true,
+      tocDepth: 1,
+    });
+    // The h1 section heading (tier 1) must appear in the TOC.
+    expect(html).toContain('class="toc-entry toc-level-1"');
+    // The h2 page-title heading (tier 2) must be excluded.
+    expect(html).not.toContain('class="toc-entry toc-level-2"');
+  });
+
+  it("includes tier 2 entries when tocDepth is 3 (default)", () => {
+    const html = assembleDocument(tree, rendered, {
+      title: "Doc",
+      cover: false,
+      toc: true,
+      tocDepth: 3,
+    });
+    expect(html).toContain('class="toc-entry toc-level-1"');
+    expect(html).toContain('class="toc-entry toc-level-2"');
+  });
+
+  it("defaults to depth 3 (includes tier 2) when tocDepth is omitted", () => {
+    const html = assembleDocument(tree, rendered, {
+      title: "Doc",
+      cover: false,
+      toc: true,
+    });
+    expect(html).toContain('class="toc-entry toc-level-1"');
+    expect(html).toContain('class="toc-entry toc-level-2"');
+  });
+});

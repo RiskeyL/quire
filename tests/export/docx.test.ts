@@ -210,6 +210,54 @@ describe("insertFrontMatterSection", () => {
   });
 });
 
+describe("htmlToDocx tocDepth", () => {
+  // Pandoc emits the TOC depth range in the field instruction as `\o "1-N"`.
+  // In the raw XML this appears as `&quot;1-N&quot;` (XML-escaped quotes).
+  // --toc-depth=2 → &quot;1-2&quot;; --toc-depth=3 → &quot;1-3&quot;.
+  it("passes tocDepth=2 to pandoc, producing a TOC field limited to 1-2", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "quire-docx-toc-depth-"));
+    const out = join(dir, "out.docx");
+    const html =
+      "<!doctype html><html><body>" +
+      "<h1>Ch</h1><h2>Sec</h2><h3>Sub</h3><p>body</p>" +
+      "</body></html>";
+    await htmlToDocx(html, out, { toc: true, tocDepth: 2 });
+    const zip = await JSZip.loadAsync(await readFile(out));
+    const xml = await zip.file("word/document.xml")!.async("string");
+    expect(xml).toContain("&quot;1-2&quot;");
+    expect(xml).not.toContain("&quot;1-3&quot;");
+    await rm(dir, { recursive: true, force: true });
+  });
+
+  it("passes tocDepth=3 to pandoc, producing a TOC field covering 1-3", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "quire-docx-toc-depth3-"));
+    const out = join(dir, "out.docx");
+    const html =
+      "<!doctype html><html><body>" +
+      "<h1>Ch</h1><h2>Sec</h2><h3>Sub</h3><p>body</p>" +
+      "</body></html>";
+    await htmlToDocx(html, out, { toc: true, tocDepth: 3 });
+    const zip = await JSZip.loadAsync(await readFile(out));
+    const xml = await zip.file("word/document.xml")!.async("string");
+    expect(xml).toContain("&quot;1-3&quot;");
+    await rm(dir, { recursive: true, force: true });
+  });
+
+  it("defaults to 1-3 when tocDepth is omitted", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "quire-docx-toc-default-"));
+    const out = join(dir, "out.docx");
+    const html =
+      "<!doctype html><html><body>" +
+      "<h1>Ch</h1><h2>Sec</h2><h3>Sub</h3><p>body</p>" +
+      "</body></html>";
+    await htmlToDocx(html, out, { toc: true });
+    const zip = await JSZip.loadAsync(await readFile(out));
+    const xml = await zip.file("word/document.xml")!.async("string");
+    expect(xml).toContain("&quot;1-3&quot;");
+    await rm(dir, { recursive: true, force: true });
+  });
+});
+
 describe("moveCoverToFront", () => {
   // Mirrors the real Pandoc order: a metadata Title paragraph, then the TOC sdt,
   // then the cover paragraphs, then the body Heading1s. The cover now uses one
