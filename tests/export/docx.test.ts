@@ -69,6 +69,7 @@ describe("htmlToDocx", () => {
       meta: { showDescription: true },
       tables: { layout: "fixed" },
       brand: {},
+      cover: { layout: "spine", spineWidth: "16mm", logoWidth: "44mm" },
     };
 
     await compileDocxReference(tokens, refOut);

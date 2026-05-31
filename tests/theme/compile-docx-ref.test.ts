@@ -46,6 +46,7 @@ const CUSTOM_TOKENS: BrandTokens = {
   shape: { radius: "9px" },
   tables: { layout: "fixed" },
   brand: {},
+  cover: { layout: "spine", spineWidth: "16mm", logoWidth: "44mm" },
 };
 
 describe("compileDocxReference", () => {

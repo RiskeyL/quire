@@ -43,6 +43,7 @@ export interface BrandTokens {
    * (resolved and embedded at convert time); `productName` is plain text.
    */
   brand: { logo?: string; productName?: string };
+  cover: { layout: "spine" | "plain"; spineWidth: string; logoWidth: string };
 }
 
 // ---------------------------------------------------------------------------
@@ -91,6 +92,7 @@ export const DEFAULT_TOKENS: BrandTokens = {
   // No logo or product name by default; the cover then shows just the title
   // (plus any per-run version/date).
   brand: {},
+  cover: { layout: "spine", spineWidth: "16mm", logoWidth: "44mm" },
 };
 
 // ---------------------------------------------------------------------------
@@ -173,6 +175,11 @@ const partialBrandSchema = z
   .strict()
   .partial();
 
+const partialCoverSchema = z
+  .object({ layout: z.enum(["spine", "plain"]), spineWidth: z.string(), logoWidth: z.string() })
+  .strict()
+  .partial();
+
 const partialThemeSchema = z
   .object({
     page: partialPageSchema,
@@ -191,6 +198,7 @@ const partialThemeSchema = z
     meta: partialMetaSchema,
     tables: partialTablesSchema,
     brand: partialBrandSchema,
+    cover: partialCoverSchema,
   })
   .strict()
   .partial();
@@ -260,6 +268,7 @@ function applyOverrides(partial: PartialTheme): BrandTokens {
     meta: mergeSection(DEFAULT_TOKENS.meta, partial.meta ?? {}),
     tables: mergeSection(DEFAULT_TOKENS.tables, partial.tables ?? {}),
     brand: mergeSection(DEFAULT_TOKENS.brand, partial.brand ?? {}),
+    cover: mergeSection(DEFAULT_TOKENS.cover, partial.cover ?? {}),
   };
 }
 

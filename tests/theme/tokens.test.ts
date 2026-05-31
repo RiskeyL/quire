@@ -152,6 +152,21 @@ describe("parseTheme", () => {
   it("rejects unknown key in furniture", () => {
     expect(() => parseTheme("furniture:\n  bogus: x\n")).toThrow(/unknown option/);
   });
+
+  it("T3 cover defaults", () => {
+    expect(parseTheme("").cover).toEqual({ layout: "spine", spineWidth: "16mm", logoWidth: "44mm" });
+  });
+
+  it("cover.layout accepts plain and rejects others", () => {
+    expect(parseTheme("cover:\n  layout: plain\n").cover.layout).toBe("plain");
+    expect(() => parseTheme("cover:\n  layout: banner\n")).toThrow();
+  });
+
+  it("partial override: cover.logoWidth keeps layout", () => {
+    const t = parseTheme('cover:\n  logoWidth: "30mm"\n');
+    expect(t.cover.logoWidth).toBe("30mm");
+    expect(t.cover.layout).toBe("spine");
+  });
 });
 
 describe("parseTheme — meta.showDescription token", () => {
