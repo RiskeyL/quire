@@ -6,6 +6,7 @@
     "test": "vitest run",
     "dev": "tsx src/cli.ts",
     "build": "tsc",
+    "build:designer": "tsx scripts/build-designer.ts",
     "test:watch": "vitest"
   },
   "keywords": [],
@@ -38,6 +39,8 @@
     "@types/js-yaml": "^4.0.9",
     "@types/mdast": "^4.0.4",
     "@types/node": "^25.9.1",
+    "esbuild": "0.28.0",
+    "pagedjs": "0.4.3",
     "pagedjs-cli": "^0.4.3",
     "tsx": "^4.22.3",
     "typescript": "^6.0.3",
