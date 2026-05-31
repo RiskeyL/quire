@@ -611,9 +611,16 @@ function createLivePreviewController(
   // 9. Initial YAML render
   refreshYaml();
 
-  // 10. Initial preview render (uses the same relayout machinery as live updates)
+  // 10. Initial preview render. If a host page injected a theme via
+  // window.__QUIRE_INITIAL_THEME__ (set by `quire design <theme.yaml>`),
+  // load it now. Otherwise fall back to the default initial render.
+  const injected = (window as unknown as { __QUIRE_INITIAL_THEME__?: string }).__QUIRE_INITIAL_THEME__;
   try {
-    await livePreview.initialRender();
+    if (typeof injected === "string" && injected.trim() !== "") {
+      loadThemeFromText(injected);
+    } else {
+      await livePreview.initialRender();
+    }
   } catch (err) {
     previewEl.textContent =
       "Quire designer preview failed: " +

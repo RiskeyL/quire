@@ -3,6 +3,7 @@ import { Command, Option } from "commander";
 import { createRequire } from "node:module";
 import { runConvert } from "./commands/convert.js";
 import { runInit } from "./commands/init.js";
+import { runDesign } from "./commands/design.js";
 import { loadRunConfig, mergeRunConfig } from "./commands/run-config.js";
 
 const require = createRequire(import.meta.url);
@@ -74,5 +75,11 @@ program
   .action(async (dir: string, opts: { out?: string }) => {
     await runInit(dir, { out: opts.out });
   });
+
+program
+  .command("design")
+  .description("Open the theme designer in your browser (optionally pre-loading a theme)")
+  .argument("[theme]", "theme YAML file to pre-load into the designer")
+  .action(async (theme: string | undefined) => { await runDesign(theme); });
 
 await program.parseAsync();

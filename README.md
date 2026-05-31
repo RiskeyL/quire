@@ -104,6 +104,29 @@ quire init docs/ --out manuals/docs.yaml
 
 Page titles are intentionally omitted from the scaffold: Quire reads each title from the page's own frontmatter, so the frontmatter stays the single source of truth. Edit the generated file to set section titles and reorder as needed.
 
+## Theme designer
+
+The theme designer is a browser-based tool for editing brand tokens with a live PDF preview. Build it once after compiling the project:
+
+```bash
+npm run build:designer   # emits dist/designer.html
+```
+
+Open it directly in your browser, or use the CLI to pre-load an existing theme:
+
+```bash
+quire design                   # open the designer with default tokens
+quire design themes/brand.yaml # open with brand.yaml tokens pre-loaded
+```
+
+When launched with a theme file, the designer opens with that theme's tokens already filled in. You can tweak colors, fonts, and page layout while watching the PDF preview update, then use Copy or Download to export the result as a theme YAML.
+
+To run the headless designer smoke test (requires a local Chromium):
+
+```bash
+QUIRE_BROWSER_TESTS=1 npm test
+```
+
 ## Manifests
 
 A manifest is a YAML list that defines what goes into the document and in what order. Two entry types nest freely:
