@@ -312,7 +312,15 @@ function createLivePreviewController(
           resolve();
           return;
         }
-        await runRelayout();
+        // Always resolve, even if pagination throws, so the returned promise
+        // never hangs (a hung boot render would leave a blank preview with no
+        // feedback). Surface the failure in the preview pane instead.
+        try {
+          await runRelayout();
+        } catch (err) {
+          previewEl.textContent =
+            "Preview render failed: " + (err instanceof Error ? err.message : String(err));
+        }
         resolve();
       }, delay);
     });
@@ -423,6 +431,9 @@ function createLivePreviewController(
     }
     formHandle.setValues(tokens);
     refreshYaml();
+    // The preview logo (previewLogoDataUri) is a preview-only aid, not part of
+    // the theme, so it is intentionally kept across loads (you can compare
+    // themes against the same logo). It is never serialized into the YAML.
     void livePreview.initialRender();
     showStatus("Loaded theme", false);
   }
@@ -561,6 +572,7 @@ function createLivePreviewController(
             void livePreview.initialRender();
           }
         };
+        reader.onerror = () => showStatus("Could not read image file", true);
         reader.readAsDataURL(file);
       });
     }
@@ -578,7 +590,7 @@ function createLivePreviewController(
           btnCopy.textContent = orig;
           btnCopy.classList.remove("qd-btn-flash");
         }, 1500);
-      });
+      }).catch(() => showStatus("Could not copy to clipboard", true));
     } else {
       // Fallback: select from a textarea
       const ta = document.createElement("textarea");
