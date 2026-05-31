@@ -208,6 +208,18 @@ describe("insertFrontMatterSection", () => {
       "</w:body></w:document>";
     expect(insertFrontMatterSection(noSect)).toBe(noSect);
   });
+
+  it("insertFrontMatterSection restarts body numbering only when restartAtBody is true", () => {
+    const doc =
+      `<w:document><w:body>` +
+      `<w:p><w:pPr><w:pStyle w:val="Heading1" /></w:pPr></w:p>` +
+      `<w:sectPr><w:headerReference w:type="default" r:id="rId90" />` +
+      `<w:footerReference w:type="default" r:id="rId91" />` +
+      `<w:pgSz w:w="11906" w:h="16838" /></w:sectPr>` +
+      `</w:body></w:document>`;
+    expect(insertFrontMatterSection(doc, true)).toContain('<w:pgNumType w:start="1" />');
+    expect(insertFrontMatterSection(doc, false)).not.toContain("<w:pgNumType");
+  });
 });
 
 describe("htmlToDocx tocDepth", () => {

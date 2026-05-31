@@ -1156,6 +1156,14 @@ describe("compileCss", () => {
     });
   });
 
+  describe("T2.7 tokens: pageNumbers.restartAtBody", () => {
+    it("pageNumbers.restartAtBody gates the body counter reset", () => {
+      expect(compileCss(DEFAULT_TOKENS)).toContain(".doc-body { counter-reset: page 1; }");
+      const continuous: BrandTokens = { ...DEFAULT_TOKENS, pageNumbers: { restartAtBody: false } };
+      expect(compileCss(continuous)).not.toContain("counter-reset: page");
+    });
+  });
+
   describe("header/footer slots", () => {
     it("default furniture reproduces the current @page boxes", () => {
       const css = compileCss(DEFAULT_TOKENS);

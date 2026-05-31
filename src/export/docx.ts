@@ -16,6 +16,7 @@ export async function htmlToDocx(
     updateFields?: boolean;
     /** Relocate the cover ahead of the TOC and drop Pandoc's auto Title para. */
     moveCover?: boolean;
+    restartAtBody?: boolean;
   }
 ): Promise<void> {
   await assertBinary("pandoc", "Install it with: brew install pandoc");
@@ -39,6 +40,7 @@ export async function htmlToDocx(
         frontMatterBreak: options?.frontMatterBreak ?? false,
         updateFields: options?.updateFields ?? false,
         moveCover: options?.moveCover ?? false,
+        restartAtBody: options?.restartAtBody ?? true,
       });
     }
   } catch (err) {
@@ -66,7 +68,7 @@ export async function htmlToDocx(
  * furniture on every page rather than corrupting the document. Exported for
  * unit testing.
  */
-export function insertFrontMatterSection(documentXml: string): string {
+export function insertFrontMatterSection(documentXml: string, restartAtBody = true): string {
   // The body section's properties: the <w:sectPr> just before </w:body>.
   const bodySectPr = documentXml.match(
     /<w:sectPr\b[^>]*>[\s\S]*?<\/w:sectPr>(?=\s*<\/w:body>)/
@@ -93,12 +95,16 @@ export function insertFrontMatterSection(documentXml: string): string {
     .replace(/<w:headerReference\b[^>]*\/>/g, "")
     .replace(/<w:footerReference\b[^>]*\/>/g, "");
 
-  // Body section: restart page numbering at 1, so the first body page shows "1"
-  // (the cover/TOC are unnumbered front matter). pgNumType is appended before
-  // </w:sectPr>; Word reads sectPr children order-independently.
-  const bodySectPrNumbered = bodySectPr.includes("<w:pgNumType")
-    ? bodySectPr
-    : bodySectPr.replace("</w:sectPr>", '<w:pgNumType w:start="1" /></w:sectPr>');
+  // Body section: when restartAtBody is true (default), restart page numbering
+  // at 1 so the first body page shows "1" (the cover/TOC are unnumbered front
+  // matter). pgNumType is appended before </w:sectPr>; Word reads sectPr
+  // children order-independently. When false, keep bodySectPr unchanged so
+  // numbering runs continuously through the front matter.
+  const bodySectPrNumbered = restartAtBody
+    ? bodySectPr.includes("<w:pgNumType")
+      ? bodySectPr
+      : bodySectPr.replace("</w:sectPr>", '<w:pgNumType w:start="1" /></w:sectPr>')
+    : bodySectPr;
 
   // The body sectPr sits after the first Heading1, so swapping it does not shift
   // pOpen. Apply the numbering change, then insert the front-matter break.
@@ -218,7 +224,7 @@ export function stripDataUriDescriptions(documentXml: string): string {
  */
 async function applyDocxPostProcessing(
   docxPath: string,
-  opts: { frontMatterBreak: boolean; updateFields: boolean; moveCover: boolean }
+  opts: { frontMatterBreak: boolean; updateFields: boolean; moveCover: boolean; restartAtBody: boolean }
 ): Promise<void> {
   const zip = await JSZip.loadAsync(await readFile(docxPath));
   let changed = false;
@@ -231,7 +237,7 @@ async function applyDocxPostProcessing(
     // sit ahead of the TOC so the split (before the first Heading1) puts both in
     // the furniture-free front-matter section.
     if (opts.moveCover) patched = moveCoverToFront(patched);
-    if (opts.frontMatterBreak) patched = insertFrontMatterSection(patched);
+    if (opts.frontMatterBreak) patched = insertFrontMatterSection(patched, opts.restartAtBody);
     if (patched !== xml) {
       zip.file("word/document.xml", patched);
       changed = true;

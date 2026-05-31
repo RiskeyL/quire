@@ -273,13 +273,14 @@ export async function runConvert(paths: string[], options: ConvertOptions): Prom
           // Relocate the cover ahead of the TOC (and drop Pandoc's auto Title
           // para) when a cover was rendered.
           moveCover: wantCover,
+          restartAtBody: tokens.pageNumbers.restartAtBody,
         });
       } catch (err) {
         if (err instanceof DocxReferenceError) {
           process.stderr.write(
             `Warning: could not apply brand to the Word output (${err.message}). Falling back to Pandoc defaults.\n`
           );
-          await htmlToDocx(docxHtml, `${base}.docx`, { toc: useToc, tocDepth: tokens.toc.depth, updateFields: true, moveCover: wantCover });
+          await htmlToDocx(docxHtml, `${base}.docx`, { toc: useToc, tocDepth: tokens.toc.depth, updateFields: true, moveCover: wantCover, restartAtBody: tokens.pageNumbers.restartAtBody });
         } else {
           throw err;
         }

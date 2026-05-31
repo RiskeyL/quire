@@ -18,7 +18,7 @@ import { densityFactor } from "./density.js";
 export function compileCss(tokens: BrandTokens): string {
   const root = buildRoot(tokens);
   const page = buildPage(tokens);
-  const pageFurniture = buildPageFurniture(tokens.header, tokens.footer, tokens.furniture);
+  const pageFurniture = buildPageFurniture(tokens.header, tokens.footer, tokens.furniture, tokens.pageNumbers);
   const elements = buildElements(tokens.links.underline);
   const content = buildContent(tokens.tables.layout, tokens.headings);
   const boxed = buildBoxed();
@@ -113,6 +113,7 @@ function buildPageFurniture(
   header: BrandTokens["header"],
   footer: BrandTokens["footer"],
   furniture: BrandTokens["furniture"],
+  pageNumbers: BrandTokens["pageNumbers"],
 ): string {
   const boxes: Array<[string, string]> = [
     ["top-left", header.left], ["top-center", header.center], ["top-right", header.right],
@@ -161,12 +162,12 @@ ${marginBoxes}
   @bottom-left { content: none; } @bottom-center { content: none; } @bottom-right { content: none; }
 }
 
-/* The body restarts page numbering at 1: the cover and TOC are unnumbered front
-   matter. .doc-body wraps the body (see assembleDocument) and begins on a fresh
-   page after the TOC's break-after, so resetting the page counter here makes the
-   first body page "1". The TOC's target-counter entries then resolve to these
-   body-relative numbers. */
-.doc-body { counter-reset: page 1; }`;
+/* The body page counter: when restartAtBody is true (default), the counter is
+   reset to 1 so the first body page shows "1" and TOC target-counter entries
+   resolve to body-relative numbers. When false, the reset is omitted and
+   numbering runs continuously through the front matter instead (the first body
+   page shows its absolute physical number). */
+${pageNumbers.restartAtBody ? ".doc-body { counter-reset: page 1; }" : ""}`;
 }
 
 function buildElements(linkUnderline: boolean): string {
