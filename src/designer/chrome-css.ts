@@ -520,4 +520,40 @@ html, body {
 #qd-preview-pane.qd-relayout-pulse {
   animation: qd-relayout-pulse 400ms ease-out forwards;
 }
+
+/* ---- Status message (load success / error) ---- */
+#qd-status {
+  font-family: var(--mono);
+  font-size: var(--font-xs);
+  padding: 0 8px;
+  opacity: 0;
+  transition: opacity 0.15s ease;
+  white-space: nowrap;
+  pointer-events: none;
+}
+
+#qd-status.qd-status-ok {
+  color: var(--accent);
+  opacity: 1;
+}
+
+#qd-status.qd-status-error {
+  color: #c0574a;
+  opacity: 1;
+}
+
+/* ---- Drag-and-drop overlay ---- */
+#qd-drop-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  pointer-events: none;
+}
+
+#qd-drop-overlay.qd-drop-active {
+  display: block;
+  border: 3px solid var(--accent);
+  background: rgba(245,166,35,0.06);
+}
 `;

@@ -8,7 +8,7 @@
 
 import { Previewer } from "pagedjs";
 import { compileCss } from "../theme/compile-css.js";
-import { DEFAULT_TOKENS } from "../theme/tokens.js";
+import { DEFAULT_TOKENS, parseTheme } from "../theme/tokens.js";
 import { serializeTheme } from "../theme/serialize-theme.js";
 import { renderCover } from "../assemble/cover.js";
 import { CHROME_CSS } from "./chrome-css.js";
@@ -16,6 +16,7 @@ import { FORM_SPEC } from "./form-spec.js";
 import { createForm } from "./form.js";
 import { classifyTokenChange } from "./update-classifier.js";
 import type { BrandTokens } from "../theme/tokens.js";
+import type { FormHandle } from "./form.js";
 
 // Injected at build time by esbuild `define` (see scripts/build-designer.ts).
 declare const __QUIRE_SAMPLE_BODY__: string;
@@ -40,6 +41,9 @@ function buildShell(): {
   previewPane: HTMLElement;
   btnCopy: HTMLButtonElement;
   btnDownload: HTMLButtonElement;
+  btnLoad: HTMLButtonElement;
+  fileInputTheme: HTMLInputElement;
+  statusEl: HTMLElement;
   yamlGroup: HTMLElement;
   yamlPre: HTMLPreElement;
   pageCount: HTMLElement;
@@ -66,6 +70,23 @@ function buildShell(): {
   const actions = document.createElement("div");
   actions.id = "qd-actions";
 
+  // Status message (auto-clears; shown on load success or error)
+  const statusEl = document.createElement("span");
+  statusEl.id = "qd-status";
+
+  // Hidden file input for theme YAML load
+  const fileInputTheme = document.createElement("input");
+  fileInputTheme.type = "file";
+  fileInputTheme.accept = ".yaml,.yml,text/yaml";
+  fileInputTheme.style.display = "none";
+  fileInputTheme.id = "qd-file-input-theme";
+
+  const btnLoad = document.createElement("button");
+  btnLoad.className = "qd-btn";
+  btnLoad.textContent = "Load";
+  btnLoad.type = "button";
+  btnLoad.title = "Load a theme YAML file";
+
   const btnCopy = document.createElement("button");
   btnCopy.className = "qd-btn";
   btnCopy.textContent = "Copy YAML";
@@ -76,6 +97,9 @@ function buildShell(): {
   btnDownload.textContent = "Download .yaml";
   btnDownload.type = "button";
 
+  actions.appendChild(statusEl);
+  actions.appendChild(fileInputTheme);
+  actions.appendChild(btnLoad);
   actions.appendChild(btnCopy);
   actions.appendChild(btnDownload);
   topbar.appendChild(actions);
@@ -148,7 +172,7 @@ function buildShell(): {
 
   // yamlGroup is returned (not appended here) so the boot can place it at the
   // bottom of the panel AFTER createForm has populated the form groups.
-  return { topbar, panel, previewPane, btnCopy, btnDownload, yamlGroup, yamlPre, pageCount };
+  return { topbar, panel, previewPane, btnCopy, btnDownload, btnLoad, fileInputTheme, statusEl, yamlGroup, yamlPre, pageCount };
 }
 
 // ---------------------------------------------------------------------------
@@ -188,7 +212,7 @@ function removePagedjsStyles(): void {
 }
 
 /** Build the full content string for pagination (cover rebuilds live; toc/body are static). */
-function buildContent(tokens: BrandTokens): string {
+function buildContent(tokens: BrandTokens, logoDataUri?: string): string {
   const cover = renderCover({
     title: __QUIRE_SAMPLE_TITLE__,
     productName: tokens.brand?.productName ?? "Documentation",
@@ -197,6 +221,7 @@ function buildContent(tokens: BrandTokens): string {
     url: "docs.example.com",
     layout: tokens.cover.layout,
     logoWidth: tokens.cover.logoWidth,
+    logoDataUri: logoDataUri,
   });
   return cover + __QUIRE_SAMPLE_TOC__ + __QUIRE_SAMPLE_BODY__;
 }
@@ -217,6 +242,7 @@ function createLivePreviewController(
   previewEl: HTMLElement,
   previewPane: HTMLElement,
   pageCount: HTMLElement,
+  getLogoDataUri: () => string | undefined,
 ): LivePreviewController {
   // The single controlled stylesheet element.
   const themeLiveEl = ensureThemeLiveEl();
@@ -234,7 +260,7 @@ function createLivePreviewController(
     relayoutRunning = true;
     try {
       const css = compileCss(tokens);
-      const content = buildContent(tokens);
+      const content = buildContent(tokens, getLogoDataUri());
 
       // Clear previous pagedjs output and its injected style nodes.
       previewEl.innerHTML = "";
@@ -331,10 +357,13 @@ function createLivePreviewController(
     return;
   }
 
-  const { panel, previewPane, btnCopy, btnDownload, yamlGroup, yamlPre, pageCount } = shell;
+  const { panel, previewPane, btnCopy, btnDownload, btnLoad, fileInputTheme, statusEl, yamlGroup, yamlPre, pageCount } = shell;
 
   // 2. Working token state (deep clone so DEFAULT_TOKENS is never mutated)
   const tokens: BrandTokens = deepClone(DEFAULT_TOKENS);
+
+  // Preview-only logo data URI — stored outside tokens so it never reaches serializeTheme.
+  let previewLogoDataUri: string | undefined;
 
   // 3. Resolve the preview element (created inside buildShell)
   const previewEl = document.getElementById("quire-preview");
@@ -344,21 +373,198 @@ function createLivePreviewController(
   }
 
   // 4. Create the live preview controller (wires #qd-theme-live and manages relayouts)
-  const livePreview = createLivePreviewController(tokens, previewEl, previewPane, pageCount);
+  const livePreview = createLivePreviewController(
+    tokens, previewEl, previewPane, pageCount,
+    () => previewLogoDataUri,
+  );
 
   // 5. YAML update helper
   function refreshYaml(): void {
     yamlPre.textContent = serializeTheme(tokens);
   }
 
+  // Status message helper (auto-clears after a few seconds)
+  let statusTimer: ReturnType<typeof setTimeout> | null = null;
+  function showStatus(msg: string, isError: boolean): void {
+    if (statusTimer !== null) clearTimeout(statusTimer);
+    statusEl.textContent = msg;
+    statusEl.className = isError ? "qd-status qd-status-error" : "qd-status qd-status-ok";
+    statusTimer = setTimeout(() => {
+      statusEl.textContent = "";
+      statusEl.className = "qd-status";
+    }, 4000);
+  }
+
   // 6. Build token form: onChange fires after the form writes the new value into tokens
-  createForm(panel, FORM_SPEC, tokens, (path, _value) => {
+  let formHandle: FormHandle;
+  formHandle = createForm(panel, FORM_SPEC, tokens, (path, _value) => {
     refreshYaml();
     livePreview.onTokenChange(path);
   });
 
   // Append the YAML group at the bottom of the panel, after the form groups.
   panel.appendChild(yamlGroup);
+
+  // ---- Load theme (shared logic for all three input methods) ----
+  function loadThemeFromText(text: string): void {
+    let next: BrandTokens;
+    try {
+      next = parseTheme(text);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      showStatus(`Could not load theme: ${msg}`, true);
+      return;
+    }
+    // Mutate the working tokens object in place so the live preview reads the same ref.
+    const nextObj = next as unknown as Record<string, unknown>;
+    const tokensObj = tokens as unknown as Record<string, unknown>;
+    for (const key of Object.keys(nextObj)) {
+      tokensObj[key] = nextObj[key];
+    }
+    formHandle.setValues(tokens);
+    refreshYaml();
+    void livePreview.initialRender();
+    showStatus("Loaded theme", false);
+  }
+
+  // ---- Load trigger 1: file-picker button ----
+  btnLoad.addEventListener("click", () => { fileInputTheme.click(); });
+  fileInputTheme.addEventListener("change", () => {
+    const file = fileInputTheme.files?.[0];
+    if (!file) return;
+    file.text().then((text) => {
+      loadThemeFromText(text);
+    }).catch(() => {
+      showStatus("Could not read file", true);
+    });
+    // Reset so selecting the same file again fires change.
+    fileInputTheme.value = "";
+  });
+
+  // ---- Load trigger 2: drag-and-drop ----
+  const dropOverlay = document.createElement("div");
+  dropOverlay.id = "qd-drop-overlay";
+  document.getElementById("quire-app")?.appendChild(dropOverlay);
+
+  window.addEventListener("dragover", (e: DragEvent) => {
+    if (!e.dataTransfer?.types.includes("Files")) return;
+    e.preventDefault();
+    dropOverlay.classList.add("qd-drop-active");
+  });
+
+  window.addEventListener("dragleave", (e: DragEvent) => {
+    // Only clear when leaving the window entirely (relatedTarget is null)
+    if (e.relatedTarget == null) {
+      dropOverlay.classList.remove("qd-drop-active");
+    }
+  });
+
+  window.addEventListener("drop", (e: DragEvent) => {
+    e.preventDefault();
+    dropOverlay.classList.remove("qd-drop-active");
+    const file = e.dataTransfer?.files?.[0];
+    if (!file) return;
+    file.text().then((text) => {
+      loadThemeFromText(text);
+    }).catch(() => {
+      showStatus("Could not read dropped file", true);
+    });
+  });
+
+  // ---- Load trigger 3: paste (when focus is not in an editable element) ----
+  document.addEventListener("paste", (e: ClipboardEvent) => {
+    const target = e.target as HTMLElement | null;
+    if (target) {
+      const tag = target.tagName.toLowerCase();
+      if (tag === "input" || tag === "textarea") return;
+      if (target.isContentEditable) return;
+    }
+    const text = e.clipboardData?.getData("text");
+    if (!text) return;
+    loadThemeFromText(text);
+  });
+
+  // ---- Preview-only logo file-picker ----
+  // Find the Brand group element (last group appended by createForm that has title "BRAND").
+  const brandGroup = ((): HTMLElement | null => {
+    const groups = panel.querySelectorAll(".qd-group");
+    for (let i = groups.length - 1; i >= 0; i--) {
+      const titleEl = groups[i].querySelector(".qd-group-title");
+      if (titleEl?.textContent === "BRAND") return groups[i] as HTMLElement;
+    }
+    return null;
+  })();
+
+  if (brandGroup) {
+    const brandBody = brandGroup.querySelector(".qd-group-body") as HTMLElement | null;
+    if (brandBody) {
+      // Hidden file input for logo
+      const fileInputLogo = document.createElement("input");
+      fileInputLogo.type = "file";
+      fileInputLogo.accept = "image/*";
+      fileInputLogo.style.display = "none";
+      fileInputLogo.id = "qd-file-input-logo";
+
+      // Field row matching the standard .qd-field layout
+      const logoRow = document.createElement("div");
+      logoRow.className = "qd-field";
+
+      const logoLabel = document.createElement("span");
+      logoLabel.className = "qd-field-label";
+      logoLabel.textContent = "preview logo";
+
+      const logoControlWrap = document.createElement("div");
+      logoControlWrap.className = "qd-field-control";
+
+      const btnPickLogo = document.createElement("button");
+      btnPickLogo.className = "qd-btn";
+      btnPickLogo.type = "button";
+      btnPickLogo.textContent = "Choose image";
+      btnPickLogo.addEventListener("click", () => { fileInputLogo.click(); });
+
+      const btnClearLogo = document.createElement("button");
+      btnClearLogo.className = "qd-btn";
+      btnClearLogo.type = "button";
+      btnClearLogo.textContent = "Clear";
+      btnClearLogo.style.display = "none";
+      btnClearLogo.addEventListener("click", () => {
+        previewLogoDataUri = undefined;
+        btnClearLogo.style.display = "none";
+        btnPickLogo.textContent = "Choose image";
+        fileInputLogo.value = "";
+        void livePreview.initialRender();
+      });
+
+      logoControlWrap.appendChild(btnPickLogo);
+      logoControlWrap.appendChild(btnClearLogo);
+      logoRow.appendChild(logoLabel);
+      logoRow.appendChild(logoControlWrap);
+
+      // Help text
+      const logoHelp = document.createElement("div");
+      logoHelp.className = "qd-field-help";
+      logoHelp.textContent = "Preview only. Set brand.logo to a file path in your theme to use it at conversion time.";
+
+      brandBody.appendChild(fileInputLogo);
+      brandBody.querySelector(".qd-group-fields")?.appendChild(logoRow);
+      brandBody.querySelector(".qd-group-fields")?.appendChild(logoHelp);
+
+      fileInputLogo.addEventListener("change", () => {
+        const file = fileInputLogo.files?.[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = () => {
+          if (typeof reader.result === "string") {
+            previewLogoDataUri = reader.result;
+            btnPickLogo.textContent = file.name.length > 16 ? file.name.slice(0, 14) + "..." : file.name;
+            btnClearLogo.style.display = "";
+            void livePreview.initialRender();
+          }
+        };
+        reader.readAsDataURL(file);
+      });
+    }
+  }
 
   // 7. Copy YAML
   btnCopy.addEventListener("click", () => {
