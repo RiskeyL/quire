@@ -46,7 +46,7 @@ export function compileCss(tokens: BrandTokens): string {
 // file is authored by the trusted user running the tool — a value containing
 // </style> or } would break out of the block.
 function buildRoot(tokens: BrandTokens): string {
-  const { colors, typography, semantic, shape } = tokens;
+  const { colors, typography, semantic, shape, badges, components } = tokens;
   const rhythm = densityFactor(tokens.density);
   return `:root {
   --color-text: ${colors.text};
@@ -66,6 +66,8 @@ function buildRoot(tokens: BrandTokens): string {
   --semantic-danger: ${semantic.danger};
   --radius: ${shape.radius};
   --rhythm: ${rhythm};
+  --badge-color: ${badges.color === "accent" ? "var(--color-accent)" : badges.color === "muted" ? "var(--color-muted)" : badges.color};
+  --component-gap: ${components.gap};
 }`;
 }
 
@@ -328,7 +330,7 @@ function buildBoxed(): string {
   border-left: 3px solid var(--color-muted);
   background: var(--color-surface);
   border-radius: 0 var(--radius) var(--radius) 0;
-  margin: calc(1em * var(--rhythm)) 0;
+  margin: calc(1em * var(--rhythm) * var(--component-gap)) 0;
   /* Callouts are usually short, so keeping them whole avoids an orphaned label. */
   break-inside: avoid;
 }
@@ -362,7 +364,7 @@ function buildBoxed(): string {
   border: 1px solid var(--color-border);
   border-radius: var(--radius);
   padding: 0.85em 1em;
-  margin: calc(1em * var(--rhythm)) 0;
+  margin: calc(1em * var(--rhythm) * var(--component-gap)) 0;
   background: var(--color-surface);
 }
 .panel > *:first-child { margin-top: 0; }
@@ -397,7 +399,7 @@ function buildBoxed(): string {
 function buildFigure(): string {
   return `/* ---- Figure (Frame component) ---- */
 .frame {
-  margin: calc(1.25em * var(--rhythm)) 0;
+  margin: calc(1.25em * var(--rhythm) * var(--component-gap)) 0;
   text-align: center;
   break-inside: avoid;
 }
@@ -646,7 +648,7 @@ function buildCards(): string {
 /* No attempt at CSS columns or grid — print stacks everything vertically.   */
 .card-group,
 .columns {
-  margin: calc(1em * var(--rhythm)) 0;
+  margin: calc(1em * var(--rhythm) * var(--component-gap)) 0;
 }
 
 /* ---- Column ---- */
@@ -805,7 +807,7 @@ function buildCode(): string {
 /* No break-inside: avoid — code blocks can be long; forcing them whole       */
 /* would leave a blank gap (mirrors .tab/.accordion/.card/.step decisions).   */
 .code-group {
-  margin: calc(1em * var(--rhythm)) 0;
+  margin: calc(1em * var(--rhythm) * var(--component-gap)) 0;
   border: 1px solid var(--color-border);
   border-radius: var(--radius);
   padding: 0.5em 0.75em;
@@ -885,8 +887,8 @@ function buildInline(): string {
   font-weight: 600;
   padding: 0.1em 0.45em;
   border-radius: var(--radius);
-  border: 1px solid var(--color-muted);  /* token-driven neutral border */
-  color: var(--color-muted);
+  border: 1px solid var(--badge-color);  /* token-driven badge border */
+  color: var(--badge-color);
   letter-spacing: 0.03em;
   vertical-align: middle;
 }

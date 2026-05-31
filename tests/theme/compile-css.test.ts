@@ -981,10 +981,10 @@ describe("compileCss", () => {
       );
     });
 
-    it(".badge uses var(--color-muted) for border or color", () => {
+    it(".badge uses var(--badge-color) for border and color (token-driven)", () => {
       const css = compileCss(DEFAULT_TOKENS);
       const badgeRule = css.match(/\.badge\b[^{]*\{[^}]*\}/)?.[0] ?? "";
-      expect(badgeRule).toContain("var(--color-muted)");
+      expect(badgeRule).toContain("var(--badge-color)");
     });
 
     it("emits a .tooltip rule", () => {
@@ -1165,6 +1165,22 @@ describe("compileCss", () => {
       const c2 = compileCss(custom);
       expect(c2).toContain(".cover-spine { flex: 0 0 20mm;");
       expect(c2).toMatch(/\.cover-logo \{[^}]*width: 30mm;/);
+    });
+  });
+
+  describe("T4 badges + components", () => {
+    it("badge color resolves from the token", () => {
+      const css = compileCss(DEFAULT_TOKENS);
+      expect(css).toContain("--badge-color: var(--color-muted)"); // default muted
+      expect(css).toMatch(/\.badge \{[^}]*border: 1px solid var\(--badge-color\)/);
+      expect(css).toMatch(/\.badge \{[^}]*color: var\(--badge-color\)/);
+      expect(compileCss({ ...DEFAULT_TOKENS, badges: { color: "accent" } })).toContain("--badge-color: var(--color-accent)");
+      expect(compileCss({ ...DEFAULT_TOKENS, badges: { color: "#ff0000" } })).toContain("--badge-color: #ff0000");
+    });
+    it("component gap is a custom property and scales the named component margins", () => {
+      expect(compileCss(DEFAULT_TOKENS)).toContain("--component-gap: 1");
+      expect(compileCss(DEFAULT_TOKENS)).toMatch(/\.callout \{[^}]*margin: calc\(1em \* var\(--rhythm\) \* var\(--component-gap\)\) 0;/);
+      expect(compileCss({ ...DEFAULT_TOKENS, components: { gap: 2 } })).toContain("--component-gap: 2");
     });
   });
 
