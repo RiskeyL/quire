@@ -26,4 +26,28 @@ describe("buildDesignerHtml", () => {
     },
     30000,
   );
+
+  it(
+    "bundles the REAL theme modules (not stubs), proving the preview cannot drift",
+    async () => {
+      const html = await buildDesignerHtml();
+
+      // Distinctive source strings from each real module the designer reuses.
+      // If any module were reimplemented/stubbed inside the designer, these
+      // exact markers would be absent.
+
+      // compile-css.ts (the real PDF stylesheet compiler)
+      expect(html).toContain("--semantic-success");
+      expect(html).toContain("--component-gap");
+
+      // cover.ts (the extracted, shared cover template)
+      expect(html).toContain("cover-spine");
+      expect(html).toContain("Quire Cover Title");
+
+      // update-classifier.ts (restyle vs relayout decision)
+      expect(html).toContain("relayout");
+      expect(html).toContain("restyle");
+    },
+    30000,
+  );
 });
