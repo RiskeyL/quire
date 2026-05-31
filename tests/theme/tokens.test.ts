@@ -167,6 +167,20 @@ describe("parseTheme", () => {
     expect(t.cover.logoWidth).toBe("30mm");
     expect(t.cover.layout).toBe("spine");
   });
+
+  it("T4 badges and components defaults", () => {
+    const t = parseTheme("");
+    expect(t.badges).toEqual({ color: "muted" });
+    expect(t.components).toEqual({ gap: 1 });
+  });
+  it("badges.color accepts a keyword or hex", () => {
+    expect(parseTheme("badges:\n  color: accent\n").badges.color).toBe("accent");
+    expect(parseTheme('badges:\n  color: "#ff0000"\n').badges.color).toBe("#ff0000");
+  });
+  it("components.gap accepts a number and rejects a string", () => {
+    expect(parseTheme("components:\n  gap: 1.5\n").components.gap).toBe(1.5);
+    expect(() => parseTheme('components:\n  gap: "big"\n')).toThrow();
+  });
 });
 
 describe("parseTheme — meta.showDescription token", () => {

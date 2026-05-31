@@ -44,6 +44,8 @@ export interface BrandTokens {
    */
   brand: { logo?: string; productName?: string };
   cover: { layout: "spine" | "plain"; spineWidth: string; logoWidth: string };
+  badges: { color: string };
+  components: { gap: number };
 }
 
 // ---------------------------------------------------------------------------
@@ -93,6 +95,8 @@ export const DEFAULT_TOKENS: BrandTokens = {
   // (plus any per-run version/date).
   brand: {},
   cover: { layout: "spine", spineWidth: "16mm", logoWidth: "44mm" },
+  badges: { color: "muted" },
+  components: { gap: 1 },
 };
 
 // ---------------------------------------------------------------------------
@@ -180,6 +184,9 @@ const partialCoverSchema = z
   .strict()
   .partial();
 
+const partialBadgesSchema = z.object({ color: z.string() }).strict().partial();
+const partialComponentsSchema = z.object({ gap: z.number() }).strict().partial();
+
 const partialThemeSchema = z
   .object({
     page: partialPageSchema,
@@ -199,6 +206,8 @@ const partialThemeSchema = z
     tables: partialTablesSchema,
     brand: partialBrandSchema,
     cover: partialCoverSchema,
+    badges: partialBadgesSchema,
+    components: partialComponentsSchema,
   })
   .strict()
   .partial();
@@ -269,6 +278,8 @@ function applyOverrides(partial: PartialTheme): BrandTokens {
     tables: mergeSection(DEFAULT_TOKENS.tables, partial.tables ?? {}),
     brand: mergeSection(DEFAULT_TOKENS.brand, partial.brand ?? {}),
     cover: mergeSection(DEFAULT_TOKENS.cover, partial.cover ?? {}),
+    badges: mergeSection(DEFAULT_TOKENS.badges, partial.badges ?? {}),
+    components: mergeSection(DEFAULT_TOKENS.components, partial.components ?? {}),
   };
 }
 

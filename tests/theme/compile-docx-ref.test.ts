@@ -47,6 +47,8 @@ const CUSTOM_TOKENS: BrandTokens = {
   tables: { layout: "fixed" },
   brand: {},
   cover: { layout: "spine", spineWidth: "16mm", logoWidth: "44mm" },
+  badges: { color: "muted" },
+  components: { gap: 1 },
 };
 
 describe("compileDocxReference", () => {
