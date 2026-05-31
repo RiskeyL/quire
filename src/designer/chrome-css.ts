@@ -509,4 +509,15 @@ html, body {
   pointer-events: none;
   z-index: 5;
 }
+
+/* ---- Relayout pulse: brief highlight on the preview pane after repagination ---- */
+@keyframes qd-relayout-pulse {
+  0%   { box-shadow: inset 0 0 0 2px rgba(245,166,35,0.0); }
+  25%  { box-shadow: inset 0 0 0 2px rgba(245,166,35,0.55); }
+  100% { box-shadow: inset 0 0 0 2px rgba(245,166,35,0.0); }
+}
+
+#qd-preview-pane.qd-relayout-pulse {
+  animation: qd-relayout-pulse 400ms ease-out forwards;
+}
 `;
