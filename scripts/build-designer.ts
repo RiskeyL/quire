@@ -30,39 +30,15 @@ export async function buildDesignerHtml(): Promise<string> {
 
   const bundleJs = result.outputFiles[0].text;
 
-  // Designer shell CSS: neutral PDF-viewer gray background, centered pages.
-  // Paged.js emits .pagedjs_page elements for each paginated sheet.
-  const shellCss = `
-    * { box-sizing: border-box; }
-    body {
-      margin: 0;
-      padding: 32px 0;
-      background: #525659;
-      min-height: 100vh;
-    }
-    #quire-preview {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      gap: 24px;
-    }
-    .pagedjs_page {
-      background: #ffffff;
-      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.45);
-    }
-  `.trim();
-
   const html = `<!doctype html>
 <html>
 <head>
 <meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Quire Theme Designer</title>
-<style>
-${shellCss}
-</style>
 </head>
 <body>
-<div id="quire-preview"></div>
+<div id="quire-app"></div>
 <script>
 ${bundleJs}
 </script>
