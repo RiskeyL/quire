@@ -4,7 +4,7 @@ import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import JSZip from "jszip";
 import { runConvert } from "../../src/commands/convert.js";
-import { loadTheme } from "../../src/theme/tokens.js";
+import { loadTheme } from "../../src/theme/load-theme.js";
 
 // ---------------------------------------------------------------------------
 // Sample theme file round-trip

@@ -1,4 +1,3 @@
-import { readFile } from "node:fs/promises";
 import { load } from "js-yaml";
 import { z } from "zod";
 
@@ -313,21 +312,4 @@ export function parseTheme(yamlText: string): BrandTokens {
   }
 
   return applyOverrides(result.data);
-}
-
-/**
- * Read a theme file from disk and return fully-resolved BrandTokens.
- *
- * Throws a clear error if the file cannot be read or the YAML is malformed.
- */
-export async function loadTheme(filePath: string): Promise<BrandTokens> {
-  let text: string;
-  try {
-    text = await readFile(filePath, "utf8");
-  } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err);
-    throw new Error(`Cannot read theme file "${filePath}": ${msg}`);
-  }
-
-  return parseTheme(text);
 }

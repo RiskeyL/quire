@@ -12,7 +12,8 @@ import { htmlToDocx } from "../export/docx.js";
 import { loadManifest } from "../resolve/manifest.js";
 import { collectPages, formatTree, type PageNode, type Tree } from "../resolve/tree.js";
 import { assembleDocument } from "../assemble/assemble.js";
-import { loadTheme, DEFAULT_TOKENS } from "../theme/tokens.js";
+import { DEFAULT_TOKENS } from "../theme/tokens.js";
+import { loadTheme } from "../theme/load-theme.js";
 import { compileCss } from "../theme/compile-css.js";
 import { compileDocxReference, DocxReferenceError } from "../theme/compile-docx-ref.js";
 
