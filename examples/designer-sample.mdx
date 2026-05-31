@@ -1,0 +1,244 @@
+---
+title: Quire Theme Designer Sample
+description: A kitchen-sink document that exercises every styled element so all theme tokens are visible in the live preview.
+---
+
+# Quire Theme Designer Sample
+
+This document exercises every styled element that Quire can render. Change a
+theme token and watch the corresponding element update in the preview.
+
+The body includes **bold text**, *italic text*, `inline code`, and an external
+[link](https://example.com). All of these use inline-formatting rules driven by
+your typography and link tokens.
+
+---
+
+## Typography
+
+### Heading Level Three
+
+#### Heading Level Four
+
+##### Heading Level Five
+
+###### Heading Level Six
+
+The six heading levels above let you verify that `headings.scale` and
+`headings.weight` tokens visibly affect every tier. The paragraph you are
+reading now uses `--font-body`, `--base-size`, and `--line-height`.
+
+> A blockquote sits here. It should pick up the muted border color from
+> `--color-border` and any indent spacing your theme applies.
+
+---
+
+## Code
+
+A standalone fenced code block:
+
+```typescript
+function greet(name: string): string {
+  return `Hello, ${name}!`;
+}
+```
+
+A `<CodeGroup>` with two labeled blocks:
+
+<CodeGroup>
+
+```bash Mac
+brew install node
+```
+
+```bash Linux
+apt-get install nodejs
+```
+
+</CodeGroup>
+
+---
+
+## Tables
+
+GFM tables use your `tables.layout` token for borders and spacing.
+
+| Component     | CSS class         | Token group     |
+|:--------------|:------------------|:----------------|
+| Callout       | `.callout`        | `semantic`      |
+| Card          | `.card`           | `components`    |
+| Steps         | `.steps`          | `components`    |
+| Badge         | `.badge`          | `badges`        |
+
+---
+
+## Callouts
+
+<Info>
+An **Info** callout. Background and border come from the info semantic color.
+</Info>
+
+<Tip>
+A **Tip** callout. Uses the success semantic color family.
+</Tip>
+
+<Note>
+A **Note** callout. Uses the muted/border color family.
+</Note>
+
+<Warning>
+A **Warning** callout. Uses the caution semantic color family.
+</Warning>
+
+<Danger>
+A **Danger** callout. Uses the danger semantic color family.
+</Danger>
+
+<Check>
+A **Check** (Success) callout. Uses the success semantic color family.
+</Check>
+
+---
+
+## Boxed Components
+
+<Panel>
+A **Panel** renders as an `<aside class="panel">`. It is a framed sidebar box,
+useful for complementary information alongside the main flow.
+</Panel>
+
+<Update label="2024-10-01" description="v1.0.0">
+An **Update** entry with a date label and version description. The `.update-label`
+element picks up your heading font and accent color.
+</Update>
+
+---
+
+## Cards and Columns
+
+<CardGroup cols={2}>
+  <Card title="Getting Started" href="https://example.com/start">
+    Deploy your first document with a single command.
+  </Card>
+  <Card title="Theme Tokens">
+    Customize every color, font, and spacing value from one YAML file.
+  </Card>
+</CardGroup>
+
+<Columns>
+  <Column>
+    **Left column.** Columns use the `--component-gap` token for the gutter
+    between them.
+  </Column>
+  <Column>
+    **Right column.** Each `<Column>` renders as `<div class="column">` inside
+    `<div class="columns">`.
+  </Column>
+</Columns>
+
+---
+
+## Steps
+
+<Steps>
+  <Step title="Install Quire">
+    Run `npm install -g quire` to install the CLI globally.
+  </Step>
+  <Step title="Add a theme file">
+    Create `quire.config.yaml` at the root of your docs repo.
+  </Step>
+  <Step title="Export to PDF">
+    Run `quire export --format pdf` to produce a branded PDF.
+  </Step>
+</Steps>
+
+---
+
+## API Fields
+
+<ParamField path="user_id" type="string" required>
+  The unique identifier of the user making the request. Must be a valid UUID.
+</ParamField>
+
+<ParamField body="options" type="object">
+  Optional configuration object.
+  <ParamField body="timeout" type="number">
+    Request timeout in milliseconds. Defaults to `30000`.
+  </ParamField>
+</ParamField>
+
+<ResponseField name="status" type="string" required>
+  Either `"ok"` or `"error"`.
+</ResponseField>
+
+---
+
+## Frame
+
+<Frame caption="A 1x1 placeholder image demonstrating the Frame component">
+  <img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==" alt="sample" />
+</Frame>
+
+---
+
+## Inline Components
+
+A status indicator: <Badge>New</Badge> and a colored variant: <Badge color="green">Active</Badge>.
+
+---
+
+## Tree and CheckList
+
+A file-tree showing a typical project layout:
+
+<Tree>
+  <Tree.Folder name="src">
+    <Tree.File name="cli.ts" />
+    <Tree.File name="render.ts" />
+  </Tree.Folder>
+  <Tree.Folder name="tests">
+    <Tree.File name="render.test.ts" />
+  </Tree.Folder>
+  <Tree.File name="package.json" />
+</Tree>
+
+A checklist for a release workflow:
+
+<CheckList>
+  <CheckListItem id="tests">All tests passing</CheckListItem>
+  <CheckListItem id="changelog">Changelog updated</CheckListItem>
+  <CheckListItem id="tag">Git tag created</CheckListItem>
+</CheckList>
+
+---
+
+## Disclosure Components
+
+### Tabs
+
+<Tabs>
+  <Tab title="macOS">
+    Install via Homebrew: `brew install node`
+  </Tab>
+  <Tab title="Linux">
+    Install via apt: `apt-get install nodejs`
+  </Tab>
+</Tabs>
+
+### Accordion
+
+<AccordionGroup>
+  <Accordion title="What output formats does Quire support?">
+    Quire exports to PDF (via Paged.js + Chromium) and Word (via Pandoc).
+  </Accordion>
+  <Accordion title="Do I need a separate license for each export?">
+    No. A single theme file governs both PDF and Word exports.
+  </Accordion>
+</AccordionGroup>
+
+### Expandable
+
+<Expandable title="Advanced options">
+  You can pass `--density compact` to reduce vertical rhythm throughout the
+  document, or `--density spacious` to increase it.
+</Expandable>
