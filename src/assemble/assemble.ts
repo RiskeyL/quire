@@ -247,6 +247,17 @@ export interface CoverMeta {
    * can find and relocate the contiguous run (see `moveCoverToFront`).
    */
   forWord?: boolean;
+  /**
+   * PDF cover layout: `"spine"` (default) shows the brand-color bar down the
+   * left edge; `"plain"` omits it and the main column fills the full width.
+   * Has no effect when `forWord` is true (the Word cover never has a spine).
+   */
+  layout?: "spine" | "plain";
+  /**
+   * Logo width on the Word cover. Pandoc honors the HTML `width` attribute and
+   * scales the height proportionally. Defaults to `"44mm"` (matching the PDF cover).
+   */
+  logoWidth?: string;
 }
 
 /** True when an optional cover field has visible content. */
@@ -303,7 +314,8 @@ function renderCoverPdf(meta: CoverMeta): string {
     hero.push(`<p class="cover-footer">${escapeHtml(meta.url)}</p>`);
   }
   main.push(`<div class="cover-hero">${hero.join("")}</div>`);
-  return `<section class="cover"><div class="cover-spine"></div><div class="cover-main">${main.join("")}</div></section>`;
+  const spine = (meta.layout ?? "spine") === "spine" ? `<div class="cover-spine"></div>` : "";
+  return `<section class="cover">${spine}<div class="cover-main">${main.join("")}</div></section>`;
 }
 
 /**
@@ -317,8 +329,8 @@ function renderCoverWord(meta: CoverMeta): string {
   if (hasText(meta.logoDataUri)) {
     // Pandoc ignores external CSS (and the inline `style` width), so the logo
     // size must be set via the width ATTRIBUTE, which Pandoc honors and scales
-    // the height from proportionally. 44mm matches the PDF cover logo.
-    const img = `<img src="${meta.logoDataUri}" alt="" width="44mm" />`;
+    // the height from proportionally. Defaults to 44mm matching the PDF cover logo.
+    const img = `<img src="${meta.logoDataUri}" alt="" width="${meta.logoWidth ?? "44mm"}" />`;
     parts.push(
       `<div class="cover-logo" custom-style="Quire Cover Logo"><p>${img}</p></div>`
     );
@@ -561,6 +573,10 @@ export function assembleDocument(
     logoDataUri?: string;
     /** Render the cover for Word (title as a styled paragraph, not an `<h1>`). */
     coverForWord?: boolean;
+    /** PDF cover layout: `"spine"` (default) or `"plain"`. Passed through to `renderCover`. */
+    coverLayout?: "spine" | "plain";
+    /** Logo width for the Word cover (defaults to `"44mm"`). Passed through to `renderCover`. */
+    coverLogoWidth?: string;
   }
 ): string {
   const cover = options.cover
@@ -572,6 +588,8 @@ export function assembleDocument(
         logoDataUri: options.logoDataUri,
         url: coverUrlFromBaseUrl(options.baseUrl),
         forWord: options.coverForWord,
+        layout: options.coverLayout,
+        logoWidth: options.coverLogoWidth,
       })
     : "";
   // Assemble the body first so the TOC can be built from its actual headings

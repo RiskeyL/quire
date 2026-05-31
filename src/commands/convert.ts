@@ -217,6 +217,8 @@ export async function runConvert(paths: string[], options: ConvertOptions): Prom
         version: options.docVersion,
         date: options.date,
         logoDataUri,
+        coverLayout: tokens.cover.layout,
+        coverLogoWidth: tokens.cover.logoWidth,
       })
     : "";
   // The Word cover is rendered with custom-style="Quire Cover" (coverForWord),
@@ -238,6 +240,8 @@ export async function runConvert(paths: string[], options: ConvertOptions): Prom
         date: options.date,
         logoDataUri,
         coverForWord: true,
+        coverLayout: tokens.cover.layout,
+        coverLogoWidth: tokens.cover.logoWidth,
       })
     : "";
 

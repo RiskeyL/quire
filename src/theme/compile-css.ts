@@ -925,7 +925,7 @@ function buildStructural(tokens: BrandTokens): string {
    .cover-main restores internal padding. The explicit height fills the sheet so
    the spine spans full height (flex children stretch). */
 .cover { display: flex; height: ${sheetHeight}; }
-.cover-spine { flex: 0 0 16mm; background: var(--color-accent); }
+.cover-spine { flex: 0 0 ${tokens.cover.spineWidth}; background: var(--color-accent); }
 .cover-main {
   flex: 1 1 auto;
   min-width: 0;
@@ -937,7 +937,7 @@ function buildStructural(tokens: BrandTokens): string {
    here would let the column's align-items:stretch force the width while max-height
    capped the height, distorting the logo.) align-self:flex-start is belt-and-braces
    against the stretch. */
-.cover-logo { display: block; align-self: flex-start; width: 44mm; height: auto; margin: 0; }
+.cover-logo { display: block; align-self: flex-start; width: ${tokens.cover.logoWidth}; height: auto; margin: 0; }
 .cover-hero { margin-top: auto; }
 .cover-product {
   font-family: var(--font-body);

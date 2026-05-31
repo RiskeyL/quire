@@ -198,6 +198,21 @@ describe("renderCover", () => {
   });
 });
 
+describe("renderCover layout and logoWidth (T3.2)", () => {
+  it("renderCover PDF shows the spine for layout spine and omits it for plain", () => {
+    expect(renderCover({ title: "T", layout: "spine" })).toContain('<div class="cover-spine"></div>');
+    const plain = renderCover({ title: "T", layout: "plain" });
+    expect(plain).not.toContain("cover-spine");
+    expect(plain).toContain('class="cover-main"');
+    expect(renderCover({ title: "T" })).toContain('<div class="cover-spine"></div>'); // default = spine
+  });
+  it("renderCover Word logo width follows logoWidth", () => {
+    const data = "data:image/png;base64,AAA";
+    expect(renderCover({ title: "T", forWord: true, logoDataUri: data, logoWidth: "30mm" })).toContain('width="30mm"');
+    expect(renderCover({ title: "T", forWord: true, logoDataUri: data })).toContain('width="44mm"'); // default
+  });
+});
+
 describe("assembleDocument", () => {
   const tree: Tree = [{ type: "page", file: "x.md", title: "X" }];
   const rendered = new Map([["x.md", "<p>body</p>"]]);

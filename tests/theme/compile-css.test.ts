@@ -1156,6 +1156,18 @@ describe("compileCss", () => {
     });
   });
 
+  describe("T3.2 tokens: cover.spineWidth and cover.logoWidth", () => {
+    it("cover spine width and logo width come from tokens", () => {
+      const css = compileCss(DEFAULT_TOKENS);
+      expect(css).toContain(".cover-spine { flex: 0 0 16mm;");
+      expect(css).toMatch(/\.cover-logo \{[^}]*width: 44mm;/);
+      const custom: BrandTokens = { ...DEFAULT_TOKENS, cover: { layout: "spine", spineWidth: "20mm", logoWidth: "30mm" } };
+      const c2 = compileCss(custom);
+      expect(c2).toContain(".cover-spine { flex: 0 0 20mm;");
+      expect(c2).toMatch(/\.cover-logo \{[^}]*width: 30mm;/);
+    });
+  });
+
   describe("T2.7 tokens: pageNumbers.restartAtBody", () => {
     it("pageNumbers.restartAtBody gates the body counter reset", () => {
       expect(compileCss(DEFAULT_TOKENS)).toContain(".doc-body { counter-reset: page 1; }");
