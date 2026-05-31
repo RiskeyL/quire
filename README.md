@@ -143,6 +143,16 @@ colors:
   link: "#2563eb"       # hyperlinks
   accent: "#2563eb"     # rules, the Info callout bar, the blockquote bar
   muted: "#6b7280"      # captions, the page-description lede, secondary text
+  surface: "#f2f2f2"    # light fills: code blocks, callouts, panels, table header row
+  border: "#d9d9d9"     # hairlines: table cells, card/panel borders, hr, separators
+
+semantic:
+  success: "#15803d"    # Tip and Check callout accents
+  caution: "#b45309"    # Note callout and the required-field badge
+  danger: "#b91c1c"     # Warning and Danger callout accents
+
+shape:
+  radius: "4px"         # corner radius for code, callouts, cards, panels, badges (PDF only; Word corners are square)
 
 typography:
   bodyFont: "Georgia, 'Times New Roman', serif"      # PDF uses the full stack; Word uses the first family
@@ -151,8 +161,48 @@ typography:
   baseSize: "11pt"
   lineHeight: 1.5       # PDF only
 
+headings:
+  scale: [2, 1.5, 1.25, 1.1, 1, 0.85]    # h1 through h6 font sizes in em
+  weight: [700, 700, 600, 600, 600, 600]  # h1 through h6 font weights (PDF only; Word uses the heading font family)
+
 toc:
   title: "Contents"     # heading above the PDF table of contents
+  depth: 3              # heading levels shown in the TOC
+
+links:
+  underline: true       # underline hyperlinks in both PDF and Word; set false to remove in both
+                        # Note: the old Pandoc default for Word had no underline; the default true now adds one
+                        # to match the PDF. Set links.underline: false to restore the old no-underline Word behavior.
+
+density: "normal"       # vertical rhythm preset: "compact", "normal", or "relaxed"
+
+header:                 # running-header slots (PDF and Word)
+  left: "docTitle"      # keywords: docTitle, chapter, pageNumber, none; or any literal text
+  center: "none"
+  right: "chapter"
+
+footer:                 # running-footer slots (PDF and Word), same keyword set as header
+  left: "none"
+  center: "pageNumber"
+  right: "none"
+
+furniture:
+  fontSize: "9pt"       # running header/footer text size
+  color: "#6b7280"      # running header/footer text color
+
+pageNumbers:
+  restartAtBody: true   # restart page numbering at the first body page; set false for continuous numbering
+
+cover:
+  layout: "spine"       # "spine" (brand-color bar on left edge) or "plain" (PDF only; Word cover is always plain)
+  spineWidth: "16mm"    # width of the spine bar (PDF only)
+  logoWidth: "44mm"     # cover logo width
+
+badges:
+  color: "muted"        # badge border and text color: "accent", "muted", or a hex value (PDF only)
+
+components:
+  gap: 1                # multiplier on vertical spacing around callouts, cards, panels, code groups, frames (PDF only)
 
 tables:
   layout: fixed         # "fixed" (default) = equal columns, content wraps; "auto" = content-fit
@@ -170,6 +220,7 @@ A few things worth knowing:
 - **`typography.monoFont`** must lead with a font name that Word can resolve, because the Word export picks the first family literally (it cannot follow a CSS fallback chain). Consolas is a safe lead: Microsoft Office bundles it on both Windows and macOS. Chromium falls through the rest of the stack for the PDF.
 - **`tables.layout: fixed`** governs both outputs. It gives every table equal-width columns and lets long unbreakable tokens (such as fully-qualified class paths) wrap, instead of stretching one column past the page edge and clipping the last one.
 - **Logos**: PNG and JPG render reliably in both formats. SVG is reliable in the PDF but unreliable in Word, so prefer a raster logo if you need both.
+- **PDF-only tokens**: `shape.radius`, `headings.weight`, `cover.layout`, `cover.spineWidth`, `badges.color`, and `components.gap` apply to the PDF only. The corresponding Word behavior is either fixed by design or governed by the heading font family.
 
 ## The cover
 

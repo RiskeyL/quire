@@ -33,6 +33,45 @@ typography:
 
 toc:
   title: "Contents"   # Heading text displayed above the table of contents (PDF only; Word uses Pandoc's native TOC, which supplies its own heading).
+  depth: 3            # Number of heading levels shown in the TOC (PDF and Word).
+
+headings:
+  scale: [2, 1.5, 1.25, 1.1, 1, 0.85]     # h1 through h6 font sizes in em (PDF and Word).
+  weight: [700, 700, 600, 600, 600, 600]   # h1 through h6 font weights. PDF only (Word heading weight comes from the heading font family).
+
+links:
+  underline: true     # Underline hyperlinks in both PDF and Word. Set false to remove the underline in both formats.
+                      # Note for existing users: Pandoc's default Word hyperlink had no underline; the default true adds one to match the PDF. Set false to restore the old no-underline Word behavior.
+
+density: "normal"     # Vertical rhythm preset: "compact", "normal", or "relaxed" (scales paragraph and block spacing). PDF and Word.
+
+header:
+  left: "docTitle"    # Running-header left slot. Keywords: docTitle, chapter, pageNumber, none. Or any literal text. (PDF and Word)
+  center: "none"      # Running-header center slot.
+  right: "chapter"    # Running-header right slot.
+
+footer:
+  left: "none"        # Running-footer left slot. Same keyword set as header. (PDF and Word)
+  center: "pageNumber" # Running-footer center slot.
+  right: "none"       # Running-footer right slot.
+
+furniture:
+  fontSize: "9pt"     # Running header and footer text size (PDF and Word).
+  color: "#6b7280"    # Running header and footer text color (PDF and Word).
+
+pageNumbers:
+  restartAtBody: true # Restart page numbering at the first body page (cover and TOC are unnumbered front matter). Set false for continuous numbering. PDF and Word.
+
+cover:
+  layout: "spine"     # Cover layout: "spine" (brand-color bar down the left edge) or "plain" (no bar). PDF only (the Word cover is always plain).
+  spineWidth: "16mm"  # Width of the cover spine bar. PDF only.
+  logoWidth: "44mm"   # Cover logo width (PDF and Word).
+
+badges:
+  color: "muted"      # Badge border and text color: "accent", "muted", or a hex value. PDF only.
+
+components:
+  gap: 1              # Multiplier on the vertical spacing around component blocks (callouts, cards, panels, code groups, frames). PDF only.
 
 # brand:
 #   logo: ./logo.png       # Cover logo. Path is relative to THIS theme file (or absolute). PNG/JPG render in both PDF and Word; SVG is reliable in the PDF but iffy in Word.
