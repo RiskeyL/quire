@@ -109,6 +109,12 @@ export const FORM_SPEC: GroupSpec[] = [
         help: "Cover logo width, e.g. 44mm",
       },
       {
+        path: "cover.titleSize",
+        label: "title size",
+        control: "text",
+        help: "Cover title font size, e.g. 2.8em or 32pt (PDF only)",
+      },
+      {
         path: "brand.productName",
         label: "product name",
         control: "text",

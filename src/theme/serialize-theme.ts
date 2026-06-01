@@ -150,6 +150,7 @@ export function serializeTheme(tokens: BrandTokens, notes?: string): string {
   lines.push(`  logoWidth: ${str(tokens.cover.logoWidth)}   # Cover logo width`);
   lines.push(`  titleAnchor: ${str(tokens.cover.titleAnchor)}  # Title block position: "top", "center", or "bottom" (PDF only)`);
   lines.push(`  align: ${str(tokens.cover.align)}       # Cover alignment: "left" or "center" (PDF only)`);
+  lines.push(`  titleSize: ${str(tokens.cover.titleSize)}  # Cover title font size, e.g. "2.8em" or "32pt" (PDF only)`);
   lines.push("");
 
   // -- badges ----------------------------------------------------------------

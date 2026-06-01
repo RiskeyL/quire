@@ -48,6 +48,8 @@ export interface BrandTokens {
     logoWidth: string;
     titleAnchor: "top" | "center" | "bottom";
     align: "left" | "center";
+    /** Cover title font size, e.g. "2.8em" or "32pt" (PDF only). */
+    titleSize: string;
   };
   badges: { color: string };
   components: { gap: number };
@@ -99,7 +101,7 @@ export const DEFAULT_TOKENS: BrandTokens = {
   // No logo or product name by default; the cover then shows just the title
   // (plus any per-run version/date).
   brand: {},
-  cover: { layout: "spine", spineWidth: "16mm", logoWidth: "44mm", titleAnchor: "bottom", align: "left" },
+  cover: { layout: "spine", spineWidth: "16mm", logoWidth: "44mm", titleAnchor: "bottom", align: "left", titleSize: "2.8em" },
   badges: { color: "muted" },
   components: { gap: 1 },
 };
@@ -191,6 +193,7 @@ const partialCoverSchema = z
     logoWidth: z.string(),
     titleAnchor: z.enum(["top", "center", "bottom"]),
     align: z.enum(["left", "center"]),
+    titleSize: z.string(),
   })
   .strict()
   .partial();

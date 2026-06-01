@@ -69,7 +69,7 @@ describe("htmlToDocx", () => {
       meta: { showDescription: true },
       tables: { layout: "fixed" },
       brand: {},
-      cover: { layout: "spine", spineWidth: "16mm", logoWidth: "44mm", titleAnchor: "bottom", align: "left" },
+      cover: { layout: "spine", spineWidth: "16mm", logoWidth: "44mm", titleAnchor: "bottom", align: "left", titleSize: "2.8em" },
       badges: { color: "muted" },
       components: { gap: 1 },
     };

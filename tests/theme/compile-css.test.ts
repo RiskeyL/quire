@@ -1163,10 +1163,16 @@ describe("compileCss", () => {
       const css = compileCss(DEFAULT_TOKENS);
       expect(css).toContain(".cover-spine { flex: 0 0 16mm;");
       expect(css).toMatch(/\.cover-logo \{[^}]*width: 44mm;/);
-      const custom: BrandTokens = { ...DEFAULT_TOKENS, cover: { layout: "spine", spineWidth: "20mm", logoWidth: "30mm", titleAnchor: "bottom", align: "left" } };
+      const custom: BrandTokens = { ...DEFAULT_TOKENS, cover: { layout: "spine", spineWidth: "20mm", logoWidth: "30mm", titleAnchor: "bottom", align: "left", titleSize: "2.8em" } };
       const c2 = compileCss(custom);
       expect(c2).toContain(".cover-spine { flex: 0 0 20mm;");
       expect(c2).toMatch(/\.cover-logo \{[^}]*width: 30mm;/);
+    });
+
+    it("cover title size comes from tokens", () => {
+      expect(compileCss(DEFAULT_TOKENS)).toMatch(/\.cover \.doc-title \{[^}]*font-size: 2\.8em;/);
+      const custom: BrandTokens = { ...DEFAULT_TOKENS, cover: { ...DEFAULT_TOKENS.cover, titleSize: "40pt" } };
+      expect(compileCss(custom)).toMatch(/\.cover \.doc-title \{[^}]*font-size: 40pt;/);
     });
   });
 

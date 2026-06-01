@@ -969,7 +969,7 @@ ${heroRule}
 }
 .cover .doc-title {
   font-family: var(--font-heading);
-  font-size: 2.8em;
+  font-size: ${tokens.cover.titleSize};
   line-height: 1.07;
   font-weight: 400;
   letter-spacing: -0.01em;
