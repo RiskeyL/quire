@@ -495,7 +495,7 @@ class Renderer {
    * multi-line lists and paragraphs render normally outside tables.
    */
   private cleanBlock(text: unknown): string {
-    return String(text ?? "").trim();
+    return rewriteApiLinks(String(text ?? "")).trim();
   }
 }
 
@@ -522,7 +522,7 @@ class Renderer {
  * `` `code` `` still renders.
  */
 export function cleanCell(text: unknown): string {
-  const raw = String(text ?? "");
+  const raw = rewriteApiLinks(String(text ?? ""));
   if (raw.trim() === "") return "";
 
   const lines = raw.split(/\r?\n/);
@@ -559,4 +559,20 @@ export function cleanCell(text: unknown): string {
 /** Escape `|` so cell content cannot break the surrounding GFM table. */
 function escapePipes(text: string): string {
   return text.replace(/\|/g, "\\|");
+}
+
+/**
+ * Rewrite cross-reference links that point at API Reference pages, e.g.
+ * `/api-reference/applications/get-app-parameters`, into in-document anchors,
+ * e.g. `#get-app-parameters`, so they jump within the generated document instead
+ * of out to the website. The link's last path segment is the kebab-cased endpoint
+ * summary, which is the heading id Quire assigns (via rehype-slug). Links to other
+ * (non-API-reference) pages are left untouched; the converter turns those into live
+ * site URLs when run with `--base-url`.
+ */
+function rewriteApiLinks(text: string): string {
+  return text.replace(
+    /\]\(\/(?:[a-z]{2}\/)?api-reference\/[^)\s]*?\/([^)\s/#?]+)\)/g,
+    (_match, slug: string) => `](#${slug})`,
+  );
 }

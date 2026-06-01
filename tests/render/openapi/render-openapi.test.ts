@@ -470,6 +470,31 @@ describe("renderOpenApiMarkdown", () => {
     });
   });
 
+  it("rewrites API-reference cross-links to in-document anchors, leaving other links alone", () => {
+    const spec: OpenApiSpec = {
+      paths: {
+        "/x": {
+          post: {
+            tags: ["T"],
+            summary: "X",
+            description:
+              "See [Get App Parameters](/api-reference/applications/get-app-parameters) and the [Quick Start](/en/use-dify/getting-started/quick-start).",
+            responses: {
+              "200": { description: "Body keyed by [Upload File](/api-reference/files/upload-file)." },
+            },
+          },
+        },
+      },
+    };
+    const md = renderOpenApiMarkdown(spec);
+    // API-reference links (in both block and cell text) become in-document anchors.
+    expect(md).toContain("[Get App Parameters](#get-app-parameters)");
+    expect(md).toContain("[Upload File](#upload-file)");
+    expect(md).not.toContain("/api-reference/");
+    // Non-API links are left for the converter's --base-url handling.
+    expect(md).toContain("[Quick Start](/en/use-dify/getting-started/quick-start)");
+  });
+
   it("renders a small realistic spec end to end", () => {
     const spec: OpenApiSpec = {
       info: { title: "Demo API", description: "A tiny demo." },
