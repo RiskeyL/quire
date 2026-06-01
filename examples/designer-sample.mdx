@@ -28,8 +28,8 @@ The six heading levels above let you verify that `headings.scale` and
 `headings.weight` tokens visibly affect every tier. The paragraph you are
 reading now uses `--font-body`, `--base-size`, and `--line-height`.
 
-> A blockquote sits here. It should pick up the muted border color from
-> `--color-border` and any indent spacing your theme applies.
+> A blockquote sits here. Its left border uses `--color-accent` and its text
+> uses `--color-muted`.
 
 ---
 
@@ -61,7 +61,8 @@ apt-get install nodejs
 
 ## Tables
 
-GFM tables use your `tables.layout` token for borders and spacing.
+GFM tables draw borders from `--color-border` and shade the header with
+`--color-surface`; `tables.layout` controls column sizing (fixed or auto).
 
 | Component     | CSS class         | Token group     |
 |:--------------|:------------------|:----------------|
@@ -75,7 +76,7 @@ GFM tables use your `tables.layout` token for borders and spacing.
 ## Callouts
 
 <Info>
-An **Info** callout. Background and border come from the info semantic color.
+An **Info** callout. Uses the info semantic color family.
 </Info>
 
 <Tip>
@@ -83,11 +84,11 @@ A **Tip** callout. Uses the success semantic color family.
 </Tip>
 
 <Note>
-A **Note** callout. Uses the muted/border color family.
+A **Note** callout. Uses the caution semantic color family.
 </Note>
 
 <Warning>
-A **Warning** callout. Uses the caution semantic color family.
+A **Warning** callout. Uses the danger semantic color family.
 </Warning>
 
 <Danger>
@@ -108,8 +109,8 @@ useful for complementary information alongside the main flow.
 </Panel>
 
 <Update label="2024-10-01" description="v1.0.0">
-An **Update** entry with a date label and version description. The `.update-label`
-element picks up your heading font and accent color.
+An **Update** entry with a bold date label and a muted version description, set
+off by a left rule in `--color-muted`.
 </Update>
 
 ---
@@ -127,8 +128,8 @@ element picks up your heading font and accent color.
 
 <Columns>
   <Column>
-    **Left column.** Columns use the `--component-gap` token for the gutter
-    between them.
+    **Left column.** Columns stack vertically in print; the `--component-gap`
+    token sets the spacing around the block.
   </Column>
   <Column>
     **Right column.** Each `<Column>` renders as `<div class="column">` inside
@@ -145,10 +146,10 @@ element picks up your heading font and accent color.
     Run `npm install -g quire` to install the CLI globally.
   </Step>
   <Step title="Add a theme file">
-    Create `quire.config.yaml` at the root of your docs repo.
+    Create a `theme.yaml` brand file with your colors, fonts, and layout.
   </Step>
   <Step title="Export to PDF">
-    Run `quire export --format pdf` to produce a branded PDF.
+    Run `quire convert --theme theme.yaml --format pdf` to produce a branded PDF.
   </Step>
 </Steps>
 
@@ -183,7 +184,7 @@ element picks up your heading font and accent color.
 
 ## Inline Components
 
-A status indicator: <Badge>New</Badge> and a colored variant: <Badge color="green">Active</Badge>.
+A status indicator: <Badge>New</Badge> and <Badge color="green">Active</Badge>. Badges use the `badges.color` token; per-badge `color` props are neutral in print.
 
 ---
 
@@ -239,6 +240,6 @@ A checklist for a release workflow:
 ### Expandable
 
 <Expandable title="Advanced options">
-  You can pass `--density compact` to reduce vertical rhythm throughout the
-  document, or `--density spacious` to increase it.
+  Set `density: compact` in your theme to reduce vertical rhythm throughout the
+  document, or `density: relaxed` to increase it.
 </Expandable>

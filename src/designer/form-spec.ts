@@ -140,7 +140,7 @@ export const FORM_SPEC: GroupSpec[] = [
         min: 1,
         max: 6,
         step: 1,
-        help: "Number of heading levels shown in the TOC (1-6)",
+        help: "Heading levels shown in the exported TOC (1-6). The preview's TOC is a fixed sample and does not change with this value.",
       },
     ],
   },

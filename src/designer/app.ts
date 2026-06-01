@@ -687,7 +687,7 @@ function createLivePreviewController(
       // Help text
       const logoHelp = document.createElement("div");
       logoHelp.className = "qd-field-help";
-      logoHelp.textContent = "A placeholder logo is loaded so you can gauge placement and size; choose your own or clear it. Preview only — set brand.logo to a file path in your theme to embed a real logo at conversion time.";
+      logoHelp.textContent = "A placeholder logo is loaded so you can gauge placement and size; choose your own or clear it. Preview only: set brand.logo to a file path in your theme to embed a real logo at conversion time.";
 
       coverBody.appendChild(fileInputLogo);
       coverBody.querySelector(".qd-group-fields")?.appendChild(logoRow);
@@ -807,7 +807,7 @@ function createLivePreviewController(
               }
             }
             btn.textContent = `${families.length} fonts`;
-            showStatus(`Detected ${families.length} fonts — pick from the ▾ on each font field`, false);
+            showStatus(`Detected ${families.length} fonts; pick from the ▾ on each font field`, false);
           })
           .catch(() => showStatus("Could not access installed fonts", true));
       });
