@@ -134,6 +134,7 @@ A manifest is a YAML list that defines what goes into the document and in what o
 
 - A **page**: `{ file: <path> }`, with an optional `title:` (otherwise the page's frontmatter title is used).
 - A **section**: `{ section: <title>, children: [ … ] }`, holding pages or further sections.
+- An **OpenAPI spec**: `{ openapi: <path>, title: <label> }`. The JSON spec is converted to a chapter whose operations are grouped under their tags (each a sub-section), followed by a schema appendix. `title` is the chapter name shown in the running header (e.g. the API's name); it is not taken from the spec. Pass `--base-url` so the spec's site-relative cross-links resolve to live URLs.
 
 ```yaml
 - section: "Getting Started"
@@ -151,6 +152,19 @@ A manifest is a YAML list that defines what goes into the document and in what o
 ```
 
 Page paths are resolved relative to the manifest's own directory. Each top-level section becomes a chapter that starts on a new page. Sections can nest to any depth; the table of contents and heading hierarchy follow the structure.
+
+To assemble an API reference from several OpenAPI specs, list them as `openapi` entries, each its own chapter:
+
+```yaml
+- openapi: api/openapi_chat.json
+  title: "Chat and Agent"
+- openapi: api/openapi_workflow.json
+  title: "Workflow"
+```
+
+```bash
+quire convert --manifest api-reference.yaml --title "API Reference" --base-url https://docs.example.com -o build/api-reference
+```
 
 ## Brand themes
 
