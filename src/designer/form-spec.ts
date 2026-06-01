@@ -3,10 +3,14 @@
  * Declarative spec for the designer token-editing form.
  * Pure data — no DOM, no Node builtins. Browser-pure.
  *
- * Groups and fields are ordered to match the serialize-theme.ts output order
- * so the YAML preview section headers align with the form groups.
+ * Groups are organized for editing ergonomics, not to mirror the YAML output
+ * order. Token areas that carry a single control (shape, links, density, page
+ * numbers, meta, tables, badges, components) are folded into broader sections
+ * (STYLE, CONTENT, FURNITURE) so the panel reads as a dozen meaningful groups
+ * rather than two dozen one-line accordions. The YAML preview is still the full
+ * serialize-theme output; it does not depend on this grouping.
  *
- * brand.logo is excluded (deferred to D5d file-picker).
+ * brand.logo is excluded (set via the logo file-picker, not a token field).
  */
 
 export type ControlType =
@@ -81,21 +85,10 @@ export const FORM_SPEC: GroupSpec[] = [
     id: "semantic",
     title: "SEMANTIC",
     fields: [
+      { path: "semantic.info",    label: "info",    control: "color", help: "Info callout" },
       { path: "semantic.success", label: "success", control: "color", help: "Tip and Check callouts" },
       { path: "semantic.caution", label: "caution", control: "color", help: "Note callout and required-field badge" },
       { path: "semantic.danger",  label: "danger",  control: "color", help: "Warning and Danger callouts" },
-    ],
-  },
-  {
-    id: "shape",
-    title: "SHAPE",
-    fields: [
-      {
-        path: "shape.radius",
-        label: "radius",
-        control: "text",
-        help: "Corner radius for code blocks, callouts, badges. Use 0 for sharp corners.",
-      },
     ],
   },
   {
@@ -144,6 +137,40 @@ export const FORM_SPEC: GroupSpec[] = [
     ],
   },
   {
+    id: "style",
+    title: "STYLE",
+    fields: [
+      {
+        path: "shape.radius",
+        label: "radius",
+        control: "text",
+        help: "Corner radius for code blocks, callouts, badges. Use 0 for sharp corners.",
+      },
+      {
+        path: "density",
+        label: "density",
+        control: "select",
+        options: ["compact", "normal", "relaxed"],
+        help: "Vertical rhythm preset: scales paragraph and block spacing",
+      },
+      {
+        path: "components.gap",
+        label: "block gap",
+        control: "number",
+        min: 0,
+        max: 3,
+        step: 0.1,
+        help: "Multiplier on vertical spacing around component blocks (PDF only)",
+      },
+      {
+        path: "badges.color",
+        label: "badge color",
+        control: "text",
+        help: 'Badge border and text color: "accent", "muted", or a hex value (PDF only)',
+      },
+    ],
+  },
+  {
     id: "toc",
     title: "TOC",
     fields: [
@@ -161,31 +188,6 @@ export const FORM_SPEC: GroupSpec[] = [
         max: 6,
         step: 1,
         help: "Number of heading levels shown in the TOC (1-6)",
-      },
-    ],
-  },
-  {
-    id: "links",
-    title: "LINKS",
-    fields: [
-      {
-        path: "links.underline",
-        label: "underline",
-        control: "toggle",
-        help: "Underline hyperlinks in PDF and Word",
-      },
-    ],
-  },
-  {
-    id: "density",
-    title: "DENSITY",
-    fields: [
-      {
-        path: "density",
-        label: "density",
-        control: "select",
-        options: ["compact", "normal", "relaxed"],
-        help: "Vertical rhythm preset: scales paragraph and block spacing",
       },
     ],
   },
@@ -213,42 +215,36 @@ export const FORM_SPEC: GroupSpec[] = [
     fields: [
       { path: "furniture.fontSize", label: "font size", control: "text",  help: "Running header and footer text size, e.g. 9pt" },
       { path: "furniture.color",    label: "color",     control: "color", help: "Running header and footer text color" },
-    ],
-  },
-  {
-    id: "pageNumbers",
-    title: "PAGE NUMBERS",
-    fields: [
       {
         path: "pageNumbers.restartAtBody",
-        label: "restart at body",
+        label: "restart numbering",
         control: "toggle",
         help: "Restart page numbering at the first body page; cover and TOC are unnumbered",
       },
     ],
   },
   {
-    id: "meta",
-    title: "META",
+    id: "content",
+    title: "CONTENT",
     fields: [
+      {
+        path: "links.underline",
+        label: "link underline",
+        control: "toggle",
+        help: "Underline hyperlinks in PDF and Word",
+      },
+      {
+        path: "tables.layout",
+        label: "table layout",
+        control: "select",
+        options: ["fixed", "auto"],
+        help: '"fixed" gives equal-width columns; "auto" sizes columns to content',
+      },
       {
         path: "meta.showDescription",
         label: "show description",
         control: "toggle",
         help: "Render each page's frontmatter description as a lede beneath the title",
-      },
-    ],
-  },
-  {
-    id: "tables",
-    title: "TABLES",
-    fields: [
-      {
-        path: "tables.layout",
-        label: "layout",
-        control: "select",
-        options: ["fixed", "auto"],
-        help: '"fixed" gives equal-width columns; "auto" sizes columns to content',
       },
     ],
   },
@@ -275,46 +271,12 @@ export const FORM_SPEC: GroupSpec[] = [
         control: "text",
         help: "Cover logo width, e.g. 44mm",
       },
-    ],
-  },
-  {
-    id: "badges",
-    title: "BADGES",
-    fields: [
-      {
-        path: "badges.color",
-        label: "color",
-        control: "text",
-        help: 'Badge border and text color: "accent", "muted", or a hex value (PDF only)',
-      },
-    ],
-  },
-  {
-    id: "components",
-    title: "COMPONENTS",
-    fields: [
-      {
-        path: "components.gap",
-        label: "gap",
-        control: "number",
-        min: 0,
-        max: 3,
-        step: 0.1,
-        help: "Multiplier on vertical spacing around component blocks (PDF only)",
-      },
-    ],
-  },
-  {
-    id: "brand",
-    title: "BRAND",
-    fields: [
       {
         path: "brand.productName",
         label: "product name",
         control: "text",
         help: "Product name shown above the title on the cover (both PDF and Word). Omit to hide.",
       },
-      // brand.logo deferred to D5d (requires file-picker)
     ],
   },
 ];

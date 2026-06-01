@@ -86,7 +86,7 @@ describe("parseTheme", () => {
     const t = parseTheme("");
     expect(t.colors.surface).toBe("#f2f2f2");
     expect(t.colors.border).toBe("#d9d9d9");
-    expect(t.semantic).toEqual({ success: "#15803d", caution: "#b45309", danger: "#b91c1c" });
+    expect(t.semantic).toEqual({ info: "#2563eb", success: "#15803d", caution: "#b45309", danger: "#b91c1c" });
     expect(t.shape).toEqual({ radius: "4px" });
   });
 

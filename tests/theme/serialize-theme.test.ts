@@ -12,7 +12,7 @@ describe("serializeTheme", () => {
       ...DEFAULT_TOKENS,
       page: { size: "Letter", margin: "1in" },
       colors: { ...DEFAULT_TOKENS.colors, accent: "#0033ff", surface: "#ffffff" },
-      semantic: { success: "#0a0a01", caution: "#0a0a02", danger: "#0a0a03" },
+      semantic: { info: "#0a0a04", success: "#0a0a01", caution: "#0a0a02", danger: "#0a0a03" },
       shape: { radius: "0" },
       typography: { bodyFont: "Inter, sans-serif", headingFont: "Söhne, sans-serif", monoFont: "Fira Code, monospace", baseSize: "12pt", lineHeight: 1.6 },
       toc: { title: "Table of Contents", depth: 4 },

@@ -67,6 +67,7 @@ export function serializeTheme(tokens: BrandTokens, notes?: string): string {
 
   // -- semantic --------------------------------------------------------------
   lines.push("semantic:");
+  lines.push(`  info: ${str(tokens.semantic.info)}     # Info callout`);
   lines.push(`  success: ${str(tokens.semantic.success)}  # Tip and Check callouts`);
   lines.push(`  caution: ${str(tokens.semantic.caution)}  # Note callout and required-field badge`);
   lines.push(`  danger: ${str(tokens.semantic.danger)}   # Warning and Danger callouts`);

@@ -61,6 +61,7 @@ function buildRoot(tokens: BrandTokens): string {
   --font-mono: ${typography.monoFont};
   --base-size: ${typography.baseSize};
   --line-height: ${typography.lineHeight};
+  --semantic-info: ${semantic.info};
   --semantic-success: ${semantic.success};
   --semantic-caution: ${semantic.caution};
   --semantic-danger: ${semantic.danger};
@@ -319,7 +320,7 @@ function buildPageDescription(): string {
  * Boxed / aside component styling: callouts (Info/Tip/Warning/Note/Check/Danger
  * and the generic Callout), the Panel aside, and the Update changelog box.
  *
- * Per-type left-border colours: info uses var(--color-accent); tip/check use
+ * Per-type left-border colours: info uses var(--semantic-info); tip/check use
  * var(--semantic-success); note/warning/danger use var(--semantic-caution) and
  * var(--semantic-danger). Surface fill uses var(--color-surface).
  */
@@ -343,10 +344,10 @@ function buildBoxed(): string {
   text-transform: uppercase;
   letter-spacing: 0.04em;
 }
-/* Per-type left-border colour. info uses var(--color-accent); tip/check use
+/* Per-type left-border colour. info uses var(--semantic-info); tip/check use
    var(--semantic-success); note uses var(--semantic-caution); warning/danger
    use var(--semantic-danger). */
-.callout-info { border-left-color: var(--color-accent); }
+.callout-info { border-left-color: var(--semantic-info); }
 .callout-tip { border-left-color: var(--semantic-success); }
 .callout-note { border-left-color: var(--semantic-caution); }
 .callout-warning { border-left-color: var(--semantic-danger); }

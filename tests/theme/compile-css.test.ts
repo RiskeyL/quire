@@ -511,9 +511,9 @@ describe("compileCss", () => {
       );
     });
 
-    it(".callout-info border uses var(--color-accent)", () => {
+    it(".callout-info border uses var(--semantic-info)", () => {
       expect(compileCss(DEFAULT_TOKENS)).toMatch(
-        /\.callout-info[^{]*\{[^}]*border-left-color:\s*var\(--color-accent\)/
+        /\.callout-info[^{]*\{[^}]*border-left-color:\s*var\(--semantic-info\)/
       );
     });
 
@@ -1119,6 +1119,7 @@ describe("compileCss", () => {
       const css = compileCss(DEFAULT_TOKENS);
       expect(css).toContain("--color-surface: #f2f2f2");
       expect(css).toContain("--color-border: #d9d9d9");
+      expect(css).toContain("--semantic-info: #2563eb");
       expect(css).toContain("--semantic-success: #15803d");
       expect(css).toContain("--semantic-caution: #b45309");
       expect(css).toContain("--semantic-danger: #b91c1c");
@@ -1131,6 +1132,7 @@ describe("compileCss", () => {
     });
     it("callout accents use the semantic vars", () => {
       const css = compileCss(DEFAULT_TOKENS);
+      expect(css).toContain(".callout-info { border-left-color: var(--semantic-info); }");
       expect(css).toContain(".callout-tip { border-left-color: var(--semantic-success); }");
       expect(css).toContain(".callout-note { border-left-color: var(--semantic-caution); }");
       expect(css).toContain(".callout-warning { border-left-color: var(--semantic-danger); }");

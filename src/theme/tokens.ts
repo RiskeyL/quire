@@ -17,7 +17,7 @@ export interface BrandTokens {
     surface: string;
     border: string;
   };
-  semantic: { success: string; caution: string; danger: string };
+  semantic: { info: string; success: string; caution: string; danger: string };
   shape: { radius: string };
   typography: {
     bodyFont: string;
@@ -63,7 +63,7 @@ export const DEFAULT_TOKENS: BrandTokens = {
     surface: "#f2f2f2",
     border: "#d9d9d9",
   },
-  semantic: { success: "#15803d", caution: "#b45309", danger: "#b91c1c" },
+  semantic: { info: "#2563eb", success: "#15803d", caution: "#b45309", danger: "#b91c1c" },
   shape: { radius: "4px" },
   typography: {
     bodyFont: "Georgia, 'Times New Roman', serif",
@@ -124,7 +124,7 @@ const partialColorsSchema = z
   .partial();
 
 const partialSemanticSchema = z
-  .object({ success: z.string(), caution: z.string(), danger: z.string() })
+  .object({ info: z.string(), success: z.string(), caution: z.string(), danger: z.string() })
   .strict()
   .partial();
 
