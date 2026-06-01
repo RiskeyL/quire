@@ -46,7 +46,7 @@ export function compileCss(tokens: BrandTokens): string {
 // file is authored by the trusted user running the tool — a value containing
 // </style> or } would break out of the block.
 function buildRoot(tokens: BrandTokens): string {
-  const { colors, typography, semantic, shape, badges, components } = tokens;
+  const { colors, typography, semantic, shape, badges, components, image } = tokens;
   const rhythm = densityFactor(tokens.density);
   return `:root {
   --color-text: ${colors.text};
@@ -69,6 +69,7 @@ function buildRoot(tokens: BrandTokens): string {
   --rhythm: ${rhythm};
   --badge-color: ${badges.color === "accent" ? "var(--color-accent)" : badges.color === "muted" ? "var(--color-muted)" : badges.color};
   --component-gap: ${components.gap};
+  --image-max-height: ${image.maxHeight};
 }`;
 }
 
@@ -292,7 +293,9 @@ hr {
 }
 
 /* ---- Images ---- */
-img { max-width: 100%; height: auto; display: block; }`;
+/* max-height caps a tall image so it scales down to fit one page instead of
+   overflowing the page box and being clipped (Paged.js cannot split an image). */
+img { max-width: 100%; max-height: var(--image-max-height); height: auto; display: block; }`;
 }
 
 /**
@@ -418,6 +421,7 @@ figcaption {
    rules here also cover a bare .mermaid-diagram image. */
 .mermaid-diagram {
   max-width: 100%;
+  max-height: var(--image-max-height);
   height: auto;
   display: block;
   margin: 1em auto;
@@ -982,13 +986,15 @@ ${heroRule}
 .cover-meta .cover-sep { margin: 0 0.5em; }
 .cover-footer { font-family: var(--font-body); font-size: 0.85em; color: var(--color-muted); margin: 3.2em 0 0; }${coverAlign}
 
-/* Each top-level (depth-0) chapter starts on a fresh page. Only depth-0
-   structural headings carry .chapter-start (set in walkTree); nested
-   sections/pages do not, so sub-content flows continuously. The body's first
-   chapter follows the TOC's own \`break-after: page\`, so Paged.js places it at
-   the top of a fresh page; a forced break at the very top of a page is a no-op
-   in Paged.js, so no spurious blank page is produced (verified empirically). */
-.chapter-start { break-before: page; }
+/* Page-break structure. A top-level (depth-0) chapter carries .chapter-start
+   (which also feeds the running-header chapter title via the string-set rule
+   above). Its direct children (depth-1) carry .page-start, which only breaks the
+   page — so the running header keeps showing the chapter, not the sub-page.
+   Deeper nesting (depth >= 2) carries neither, so sub-content flows continuously.
+   The body's first chapter follows the TOC's own \`break-after: page\`, so a
+   forced break at the very top of a page is a no-op in Paged.js (no spurious
+   blank page; verified empirically). */
+.chapter-start, .page-start { break-before: page; }
 
 /* TOC layout: remove bullets; every entry is a link with a target-counter
    page number. The TOC is heading-based (buildTocFromHeadings): each entry is
@@ -1019,7 +1025,16 @@ ${heroRule}
   flex: 0 0 auto;
 }
 /* Nested tiers indent so the heading hierarchy reads on paper. */
-.toc-entry ul { padding-left: 1.5em; }`;
+.toc-entry ul { padding-left: 1.5em; }
+
+/* Chapter landing page: a linked index of the chapter's direct contents. Reuses
+   the .toc-text / .toc-leader spans for the dotted leader; the page number after
+   each entry is the target page of the linked section/page heading. */
+.chapter-contents { margin: 1.6em 0; }
+.chapter-contents ul { list-style: none; padding: 0; margin: 0; }
+.chapter-contents li { margin: 0.5em 0; font-size: 1.08em; }
+.chapter-contents a { display: flex; align-items: baseline; text-decoration: none; color: inherit; }
+.chapter-contents a::after { content: target-counter(attr(href), page); flex: 0 0 auto; }`;
 }
 
 /**

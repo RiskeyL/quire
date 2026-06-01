@@ -37,6 +37,12 @@ export interface BrandTokens {
   meta: { showDescription: boolean };
   tables: { layout: "fixed" | "auto" };
   /**
+   * Maximum rendered height for images and diagrams, as any CSS length (e.g.
+   * "80vh"). Caps a tall image so it fits on one page instead of overflowing the
+   * page box and being clipped (Paged.js cannot split an image across pages).
+   */
+  image: { maxHeight: string };
+  /**
    * Brand identity shown on the cover. Both fields are optional: a brand may
    * have no logo, and the product name is omitted when absent. `logo` is a path
    * (resolved and embedded at convert time); `productName` is plain text.
@@ -98,6 +104,9 @@ export const DEFAULT_TOKENS: BrandTokens = {
   // content wrap, so a long unbreakable token can't force a column wider than the
   // page and clip the last column. "auto" reverts to content-driven sizing.
   tables: { layout: "fixed" },
+  // Cap image height to 80% of the page so a tall image scales down to fit one
+  // page rather than overflowing and getting clipped.
+  image: { maxHeight: "80vh" },
   // No logo or product name by default; the cover then shows just the title
   // (plus any per-run version/date).
   brand: {},
@@ -178,6 +187,8 @@ const partialTablesSchema = z
   .strict()
   .partial();
 
+const partialImageSchema = z.object({ maxHeight: z.string() }).strict().partial();
+
 const partialBrandSchema = z
   .object({
     logo: z.string(),
@@ -218,6 +229,7 @@ const partialThemeSchema = z
     pageNumbers: partialPageNumbersSchema,
     meta: partialMetaSchema,
     tables: partialTablesSchema,
+    image: partialImageSchema,
     brand: partialBrandSchema,
     cover: partialCoverSchema,
     badges: partialBadgesSchema,
@@ -290,6 +302,7 @@ function applyOverrides(partial: PartialTheme): BrandTokens {
     pageNumbers: mergeSection(DEFAULT_TOKENS.pageNumbers, partial.pageNumbers ?? {}),
     meta: mergeSection(DEFAULT_TOKENS.meta, partial.meta ?? {}),
     tables: mergeSection(DEFAULT_TOKENS.tables, partial.tables ?? {}),
+    image: mergeSection(DEFAULT_TOKENS.image, partial.image ?? {}),
     brand: mergeSection(DEFAULT_TOKENS.brand, partial.brand ?? {}),
     cover: mergeSection(DEFAULT_TOKENS.cover, partial.cover ?? {}),
     badges: mergeSection(DEFAULT_TOKENS.badges, partial.badges ?? {}),

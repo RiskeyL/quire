@@ -59,6 +59,28 @@ export function assignAnchors(tree: Tree): Map<string, string> {
 }
 
 /**
+ * Assign a stable id to every section, in the same depth-first order walkTree
+ * visits them, so the section heading, the chapter-contents landing list, and the
+ * structural TOC all reference the same `quire-section-N` id. Keyed by node
+ * identity (sections have no file path). The prefix won't collide with page
+ * anchors (filename slugs).
+ */
+export function assignSectionIds(tree: Tree): Map<TreeNode, string> {
+  const map = new Map<TreeNode, string>();
+  let n = 0;
+  const walk = (nodes: TreeNode[]): void => {
+    for (const node of nodes) {
+      if (node.type === "section") {
+        map.set(node, `quire-section-${++n}`);
+        walk(node.children);
+      }
+    }
+  };
+  walk(tree);
+  return map;
+}
+
+/**
  * Normalize a manifest-relative file path to a link-resolution key:
  * POSIX-normalize the path, then strip a trailing `.md` or `.mdx` extension
  * (case-insensitive). Used by `buildLinkTargets` and `rewriteCrossLinks`.
@@ -347,6 +369,88 @@ function renderTocList(entries: Array<{ tier: number; id: string; text: string }
 }
 
 /**
+ * Build a structural `<nav class="toc">` from the page tree: one entry per
+ * section and page, nested to the tree's full depth. Unlike `buildTocFromHeadings`,
+ * it includes ONLY structural entries (group titles + page titles), never a
+ * page's internal content headings — so a leaf page contributes a single line and
+ * the TOC mirrors the document's navigation however deep it nests.
+ *
+ * Each entry links to the section's `quire-section-N` id or the page's anchor, so
+ * the `target-counter` page-number CSS resolves for every line. Anchors and
+ * section ids are recomputed here (both deterministic) to match what walkTree
+ * emits in the body.
+ */
+export function buildTocFromTree(tree: Tree, options: { title: string }): string {
+  const anchors = assignAnchors(tree);
+  const sectionIds = assignSectionIds(tree);
+
+  const renderNodes = (nodes: TreeNode[], tier: number): string => {
+    let items = "";
+    for (const node of nodes) {
+      if (node.type === "section") {
+        const id = sectionIds.get(node);
+        if (id === undefined) continue;
+        // The child <ul> nests inside this entry's <li>, which the caller closes.
+        items += tocEntry(id, node.title, tier) + renderNodes(node.children, tier + 1) + "</li>";
+      } else {
+        const id = anchors.get(node.file);
+        if (id === undefined) continue;
+        items += tocEntry(id, pageTitle(node), tier) + "</li>";
+      }
+    }
+    return items === "" ? "" : `<ul>${items}</ul>`;
+  };
+
+  return `<nav class="toc"><h2 class="toc-title" id="${TOC_ID}">${escapeHtml(options.title)}</h2>${renderNodes(tree, 1)}</nav>`;
+}
+
+/** An open TOC `<li>` with the link, text, and dotted leader (caller closes `</li>`). */
+function tocEntry(id: string, text: string, tier: number): string {
+  return `<li class="toc-entry toc-level-${tier}"><a href="#${id}"><span class="toc-text">${escapeHtml(text)}</span><span class="toc-leader" aria-hidden="true"></span></a>`;
+}
+
+/**
+ * The chapter landing list: an index of a top-level chapter's DIRECT children
+ * (its sub-groups and top-level pages), each linking to that child's heading. The
+ * children themselves break to their own pages (depth-1 `.page-start`), so this
+ * list is all that shares the landing page with the chapter title.
+ */
+function renderChapterContents(
+  children: TreeNode[],
+  anchors: Map<string, string>,
+  sectionIds: Map<TreeNode, string>
+): string {
+  let items = "";
+  for (const child of children) {
+    if (child.type === "section") {
+      const id = sectionIds.get(child);
+      if (id !== undefined) items += chapterContentsEntry(id, child.title);
+    } else {
+      const id = anchors.get(child.file);
+      if (id !== undefined) items += chapterContentsEntry(id, pageTitle(child));
+    }
+  }
+  return items === "" ? "" : `<nav class="chapter-contents"><ul>${items}</ul></nav>`;
+}
+
+function chapterContentsEntry(id: string, text: string): string {
+  return `<li><a href="#${id}"><span class="toc-text">${escapeHtml(text)}</span><span class="toc-leader" aria-hidden="true"></span></a></li>`;
+}
+
+/**
+ * Structural-heading class by tree depth. A depth-0 chapter carries
+ * `chapter-start` (page break + the running-header chapter title via string-set).
+ * Its direct children (depth 1) carry `page-start` (page break only, so the
+ * header keeps showing the chapter). Deeper nodes carry neither and flow
+ * continuously.
+ */
+function structuralClass(depth: number): string {
+  if (depth === 0) return "chapter-heading chapter-start";
+  if (depth === 1) return "chapter-heading page-start";
+  return "chapter-heading";
+}
+
+/**
  * Walk the tree depth-first and combine all pages into a single HTML body
  * fragment. Section titles become headings at their depth level; page content
  * has its headings demoted to prevent conflicts with the structural headings.
@@ -358,12 +462,9 @@ export function assembleBody(
   baseUrl?: string
 ): string {
   const anchors = assignAnchors(tree);
+  const sectionIds = assignSectionIds(tree);
   const targets = buildLinkTargets(tree, anchors);
-  // idState is threaded through the recursion so each section heading gets a
-  // unique "quire-section-N" id. pagedjs uses these ids as PDF outline
-  // destinations. The "quire-section-" prefix won't collide with page anchors
-  // (filename slugs) as long as no file is literally named "section-N.md".
-  const body = walkTree(tree, rendered, anchors, targets, 0, { section: 0 }, showDescription, baseUrl);
+  const body = walkTree(tree, rendered, anchors, targets, 0, sectionIds, showDescription, baseUrl);
   return deduplicateIds(body);
 }
 
@@ -448,11 +549,14 @@ export function assembleDocument(
         logoWidth: options.coverLogoWidth,
       })
     : "";
-  // Assemble the body first so the TOC can be built from its actual headings
-  // (which carry ids from rehype-slug + structural-heading ids from walkTree).
   const body = assembleBody(tree, rendered, options.showDescription, options.baseUrl);
+  // The TOC is a structural page index built from the tree (sections + page
+  // titles), not by scanning the body's headings — so a page's internal content
+  // headings never appear and the index mirrors the navigation at full depth.
+  // (`tocDepth` no longer affects the PDF; Word's TOC depth is set on the Pandoc
+  // side in convert.ts.)
   const toc = options.toc
-    ? buildTocFromHeadings(body, { title: options.tocTitle ?? "Contents", maxDepth: options.tocDepth })
+    ? buildTocFromTree(tree, { title: options.tocTitle ?? "Contents" })
     : "";
   // Wrap the body so the PDF can restart page numbering at 1 here: the cover and
   // TOC are unnumbered front matter, and `.doc-body { counter-reset: page }`
@@ -473,7 +577,7 @@ function walkTree(
   anchors: Map<string, string>,
   targets: Map<string, string>,
   depth: number,
-  idState: { section: number },
+  sectionIds: Map<TreeNode, string>,
   showDescription?: boolean,
   baseUrl?: string
 ): string {
@@ -481,20 +585,20 @@ function walkTree(
   for (const node of nodes) {
     if (node.type === "section") {
       const L = Math.min(depth + 1, 6);
-      // Assign a unique id so pagedjs can build a working PDF outline entry
-      // for this section heading. Content sub-headings produced by
-      // demoteHeadings (h4+ in sectioned docs) are intentionally left without
-      // ids — per-heading ids are an M5 / rehype-slug concern.
-      const sectionId = `quire-section-${++idState.section}`;
-      // class="chapter-heading" feeds the `chaptertitle` named string that the
-      // top-right running header reads (see buildPageFurniture in compile-css).
-      // Only structural headings (section + page-title) are marked, never
-      // content sub-headings, so the running header tracks chapters, not prose.
-      // A depth-0 node is a top-level chapter, so it ALSO gets `chapter-start`
-      // (CSS `break-before: page` in the PDF). Nested sections/pages do not.
-      const sectionClass = depth === 0 ? "chapter-heading chapter-start" : "chapter-heading";
-      out += `<h${L} class="${sectionClass}" id="${sectionId}">${escapeHtml(node.title)}</h${L}>`;
-      out += walkTree(node.children, rendered, anchors, targets, depth + 1, idState, showDescription, baseUrl);
+      // The pre-assigned id (assignSectionIds) is a PDF-outline destination and
+      // the link target for the TOC and the chapter-contents list. structuralClass
+      // marks chapters/their direct children for page breaks (and the depth-0
+      // chapter for the running-header title); content sub-headings stay unmarked.
+      const sectionId = sectionIds.get(node);
+      if (sectionId === undefined) {
+        throw new Error(`No id assigned for section "${node.title}".`);
+      }
+      out += `<h${L} class="${structuralClass(depth)}" id="${sectionId}">${escapeHtml(node.title)}</h${L}>`;
+      // A top-level chapter gets a landing page: its title plus a linked index of
+      // its direct contents. Those children break to their own pages (depth-1
+      // page-start), so the landing page holds only the title and this list.
+      if (depth === 0) out += renderChapterContents(node.children, anchors, sectionIds);
+      out += walkTree(node.children, rendered, anchors, targets, depth + 1, sectionIds, showDescription, baseUrl);
     } else {
       // page node
       const L = Math.min(depth + 1, 6);
@@ -508,25 +612,16 @@ function walkTree(
         throw new Error(`No rendered content for page "${node.file}".`);
       }
       const linked = rewriteCrossLinks(content, node.file, targets, baseUrl);
-      // The anchor id moves to the page heading (not the <section> wrapper) so
-      // pagedjs registers it as the PDF outline destination for this entry.
-      // The TOC and cross-links already target "#anchor" — fragment resolution
-      // works the same regardless of which element carries the id.
-      // A <div> (not a <p>) carries the Pandoc custom-style: a Word Para cannot
-      // hold attributes, but a div applies "Page Description" to its paragraph.
-      // The class still drives the PDF (the attribute is inert there).
+      // The anchor id sits on the page heading (not the <section> wrapper) so
+      // pagedjs registers it as the PDF outline destination. A <div> (not a <p>)
+      // carries the Pandoc custom-style for the description lede: a Word Para
+      // cannot hold attributes, but a div applies "Page Description" to it; the
+      // class still drives the PDF (the attribute is inert there).
       const lede =
         showDescription && node.description && node.description.trim() !== ""
           ? `<div class="page-description" custom-style="Page Description">${escapeHtml(flattenDescriptionMarkdown(node.description))}</div>`
           : "";
-      // The page-title heading is a structural heading, so it carries
-      // class="chapter-heading" to update the top-right running header. Content
-      // sub-headings inside `linked` are intentionally left unmarked. A depth-0
-      // page (flat page-list manifest, no enclosing section) is a top-level
-      // chapter, so it ALSO gets `chapter-start`; a page nested under a section
-      // (depth > 0) does not.
-      const pageClass = depth === 0 ? "chapter-heading chapter-start" : "chapter-heading";
-      out += `<section><h${L} class="${pageClass}" id="${anchor}">${escapeHtml(title)}</h${L}>${lede}${demoteHeadings(linked, depth + 1)}</section>`;
+      out += `<section><h${L} class="${structuralClass(depth)}" id="${anchor}">${escapeHtml(title)}</h${L}>${lede}${demoteHeadings(linked, depth + 1)}</section>`;
     }
   }
   return out;

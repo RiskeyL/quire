@@ -229,6 +229,12 @@ describe("compileCss", () => {
       );
     });
 
+    it("emits .page-start { break-before: page } so depth-1 pages start on a new page", () => {
+      expect(compileCss(DEFAULT_TOKENS)).toMatch(
+        /\.page-start\b[^{]*\{[^}]*break-before:\s*page/
+      );
+    });
+
     it("emits target-counter rule exactly", () => {
       expect(compileCss(DEFAULT_TOKENS)).toContain(
         "content: target-counter(attr(href), page)"
@@ -479,6 +485,11 @@ describe("compileCss", () => {
     it("img has display: block", () => {
       // display: block removes the inline descender gap below images in print.
       expect(compileCss(DEFAULT_TOKENS)).toMatch(/\bimg\b[^{]*\{[^}]*display:\s*block/);
+    });
+
+    it("img has a max-height cap from the image token, so a tall image fits one page", () => {
+      expect(compileCss(DEFAULT_TOKENS)).toMatch(/\bimg\b[^{]*\{[^}]*max-height:\s*var\(--image-max-height\)/);
+      expect(compileCss(DEFAULT_TOKENS)).toContain(`--image-max-height: ${DEFAULT_TOKENS.image.maxHeight};`);
     });
   });
 

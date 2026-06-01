@@ -264,6 +264,12 @@ export const FORM_SPEC: GroupSpec[] = [
         help: '"fixed" gives equal-width columns; "auto" sizes columns to content',
       },
       {
+        path: "image.maxHeight",
+        label: "image max height",
+        control: "text",
+        help: "Cap image/diagram height so a tall image fits one page, e.g. 80vh or 220mm",
+      },
+      {
         path: "meta.showDescription",
         label: "show description",
         control: "toggle",

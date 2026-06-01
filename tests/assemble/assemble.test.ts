@@ -57,9 +57,10 @@ describe("assembleBody", () => {
     // The top-level section heading carries BOTH chapter-heading (running header
     // named string) and chapter-start (page break before).
     expect(html).toContain('<h1 class="chapter-heading chapter-start" id="quire-section-1">Guides</h1>');
-    // The nested page-title heading (depth 1) must NOT carry chapter-start.
+    // The nested page-title heading (depth 1) must NOT carry chapter-start; it
+    // carries page-start (break only, so the running header keeps the chapter).
     expect(html).not.toContain('chapter-start" id="guides-intro-md"');
-    expect(html).toContain('<h2 class="chapter-heading" id="guides-intro-md">Intro</h2>');
+    expect(html).toContain('<h2 class="chapter-heading page-start" id="guides-intro-md">Intro</h2>');
   });
 });
 
@@ -89,9 +90,10 @@ describe("assembleBody chapter-start on flat page lists", () => {
     ];
     const rendered = new Map([["a.md", "<p>body</p>"]]);
     const html = assembleBody(tree, rendered);
-    // The section (depth 0) is the chapter; the page (depth 1) is not.
+    // The section (depth 0) is the chapter (chapter-start); the page (depth 1)
+    // gets page-start (break only), not chapter-start.
     expect(html).toContain('<h1 class="chapter-heading chapter-start" id="quire-section-1">Sec</h1>');
-    expect(html).toContain('<h2 class="chapter-heading" id="a-md">A</h2>');
+    expect(html).toContain('<h2 class="chapter-heading page-start" id="a-md">A</h2>');
     expect(html).not.toContain('chapter-start" id="a-md"');
   });
 });
@@ -696,49 +698,80 @@ describe("assembleDocument with baseUrl option", () => {
   });
 });
 
-describe("assembleDocument tocDepth option", () => {
-  // A two-level tree so the body contains both h1 (section, tier 1) and
-  // h2 (page title, tier 2) structural headings, making depth filtering visible.
-  const tree: Tree = [
-    {
-      type: "section",
-      title: "Chapter",
-      children: [{ type: "page", file: "p.md", title: "Page" }],
-    },
-  ];
-  const rendered = new Map([["p.md", "<p>body</p>"]]);
-
-  it("limits the TOC to tier 1 only when tocDepth is 1", () => {
-    const html = assembleDocument(tree, rendered, {
-      title: "Doc",
-      cover: false,
-      toc: true,
-      tocDepth: 1,
-    });
-    // The h1 section heading (tier 1) must appear in the TOC.
-    expect(html).toContain('class="toc-entry toc-level-1"');
-    // The h2 page-title heading (tier 2) must be excluded.
-    expect(html).not.toContain('class="toc-entry toc-level-2"');
-  });
-
-  it("includes tier 2 entries when tocDepth is 3 (default)", () => {
-    const html = assembleDocument(tree, rendered, {
-      title: "Doc",
-      cover: false,
-      toc: true,
-      tocDepth: 3,
-    });
+describe("assembleDocument structural TOC", () => {
+  it("shows the full page/section hierarchy, including deeply nested pages", () => {
+    const tree: Tree = [
+      {
+        type: "section",
+        title: "Build",
+        children: [
+          {
+            type: "section",
+            title: "Nodes",
+            children: [{ type: "page", file: "llm.md", title: "LLM" }],
+          },
+        ],
+      },
+    ];
+    const rendered = new Map([["llm.md", "<p>body</p>"]]);
+    const html = assembleDocument(tree, rendered, { title: "Doc", cover: false, toc: true });
+    // Build (tier 1), Nodes (tier 2), and the LLM page (tier 3) all appear, even
+    // though the page sits three tree-levels deep — no depth cap on the PDF TOC.
     expect(html).toContain('class="toc-entry toc-level-1"');
     expect(html).toContain('class="toc-entry toc-level-2"');
+    expect(html).toContain('class="toc-entry toc-level-3"');
+    expect(html).toContain(">LLM<");
   });
 
-  it("defaults to depth 3 (includes tier 2) when tocDepth is omitted", () => {
-    const html = assembleDocument(tree, rendered, {
-      title: "Doc",
-      cover: false,
-      toc: true,
-    });
-    expect(html).toContain('class="toc-entry toc-level-1"');
-    expect(html).toContain('class="toc-entry toc-level-2"');
+  it("excludes a page's internal content headings from the TOC", () => {
+    const tree: Tree = [{ type: "page", file: "p.md", title: "Page" }];
+    const rendered = new Map([["p.md", '<h2 id="internal-bit">Internal Bit</h2><p>body</p>']]);
+    const html = assembleDocument(tree, rendered, { title: "Doc", cover: false, toc: true });
+    // The page is in the TOC; its in-page heading is not linked from the TOC.
+    const nav = html.match(/<nav class="toc">[\s\S]*?<\/nav>/)?.[0] ?? "";
+    expect(nav).toContain('href="#p-md"');
+    expect(nav).not.toContain('href="#internal-bit"');
+    expect(nav).not.toContain("Internal Bit");
+  });
+});
+
+describe("assembleBody chapter landing page", () => {
+  it("emits a chapter-contents index of a top-level chapter's direct children only", () => {
+    const tree: Tree = [
+      {
+        type: "section",
+        title: "Build",
+        children: [
+          { type: "section", title: "Nodes", children: [{ type: "page", file: "llm.md", title: "LLM" }] },
+          { type: "page", file: "extra.md", title: "Extra" },
+        ],
+      },
+    ];
+    const rendered = new Map([["llm.md", "<p>a</p>"], ["extra.md", "<p>b</p>"]]);
+    const html = assembleBody(tree, rendered);
+    expect(html).toContain('<nav class="chapter-contents">');
+    const nav = html.match(/<nav class="chapter-contents">[\s\S]*?<\/nav>/)?.[0] ?? "";
+    // Lists the DIRECT children: the Nodes sub-group and the Extra page.
+    expect(nav).toMatch(/href="#quire-section-2"[\s\S]*Nodes/);
+    expect(nav).toMatch(/href="#extra-md"[\s\S]*Extra/);
+    // It does NOT recurse into Nodes' own children.
+    expect(nav).not.toContain("LLM");
+  });
+
+  it("breaks depth-1 children (page-start) but leaves depth>=2 continuous", () => {
+    const tree: Tree = [
+      {
+        type: "section",
+        title: "Build",
+        children: [
+          { type: "section", title: "Nodes", children: [{ type: "page", file: "llm.md", title: "LLM" }] },
+        ],
+      },
+    ];
+    const rendered = new Map([["llm.md", "<p>a</p>"]]);
+    const html = assembleBody(tree, rendered);
+    expect(html).toContain('<h1 class="chapter-heading chapter-start" id="quire-section-1">Build</h1>');
+    expect(html).toContain('<h2 class="chapter-heading page-start" id="quire-section-2">Nodes</h2>');
+    expect(html).toContain('<h3 class="chapter-heading" id="llm-md">LLM</h3>');
   });
 });
