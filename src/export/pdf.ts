@@ -3,8 +3,8 @@ import { existsSync, readFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { createRequire } from "node:module";
+import { spawn } from "node:child_process";
 import puppeteer from "puppeteer";
-import { run } from "../util/exec.js";
 
 const require = createRequire(import.meta.url);
 
@@ -41,15 +41,32 @@ export async function htmlToPdf(html: string, outPath: string): Promise<void> {
   const htmlPath = join(dir, "input.html");
   try {
     await writeFile(htmlPath, html, "utf8");
-    // Spawn the CLI with the current Node binary so we never depend on the bin symlink's
-    // location or its executable bit.
-    await run(process.execPath, [resolvePagedjsCli(), htmlPath, "-o", outPath], {
-      env: { ...process.env, PUPPETEER_EXECUTABLE_PATH: puppeteer.executablePath() }
-    });
+    await runPagedjs([resolvePagedjsCli(), htmlPath, "-o", outPath]);
   } catch (err) {
     await rm(outPath, { force: true }).catch(() => {});
     throw err;
   } finally {
     await rm(dir, { recursive: true, force: true });
   }
+}
+
+/**
+ * Spawn pagedjs-cli with the current Node binary (so we never depend on the bin symlink's
+ * location or its executable bit), inheriting stderr so its live progress spinner
+ * (Loading -> Rendering: Page N -> Saved) reaches the terminal. The spinner animates only
+ * on an interactive TTY; under non-TTY stderr (CI, pipes) the spinner library stays quiet
+ * on its own, so logs are not flooded with control characters. stdout is ignored: with an
+ * `-o` output path, pagedjs-cli writes the file itself and prints nothing to stdout.
+ */
+function runPagedjs(args: string[]): Promise<void> {
+  return new Promise<void>((resolve, reject) => {
+    const child = spawn(process.execPath, args, {
+      stdio: ["ignore", "ignore", "inherit"],
+      env: { ...process.env, PUPPETEER_EXECUTABLE_PATH: puppeteer.executablePath() }
+    });
+    child.on("error", reject);
+    child.on("close", (code) =>
+      code === 0 ? resolve() : reject(new Error(`pagedjs-cli exited with code ${code}`))
+    );
+  });
 }

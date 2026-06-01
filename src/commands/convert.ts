@@ -99,8 +99,18 @@ export async function runConvert(paths: string[], options: ConvertOptions): Prom
   // diagram-free runs never launch one) and torn down once in the finally below.
   // Previously each diagram page launched and closed its own browser.
   let mermaidRenderer: { render: DiagramRenderer; close: () => Promise<void> } | null = null;
+  // Per-page render progress: a single updating line on an interactive terminal, quiet
+  // when stderr is not a TTY (CI, pipes) so logs stay clean. The slower pagination phase
+  // that follows shows pagedjs-cli's own spinner.
+  const showProgress = !!process.stderr.isTTY && pages.length > 1;
+  const clearLine = "\r\x1b[K";
+  let renderedCount = 0;
+  let renderDone = false;
   try {
     for (const page of pages) {
+      if (showProgress) {
+        process.stderr.write(`${clearLine}Rendering ${renderedCount + 1}/${pages.length}: ${page.file}`);
+      }
       const resolvedPath = manifestDir
         ? resolve(manifestDir, page.file)
         : resolve(page.file);
@@ -166,8 +176,13 @@ export async function runConvert(paths: string[], options: ConvertOptions): Prom
       const withTables =
         tokens.tables.layout === "fixed" ? setTableColumnWidths(html) : html;
       rendered.set(page.file, withTables);
+      renderedCount++;
     }
+    if (showProgress) process.stderr.write(`${clearLine}Rendered ${pages.length} pages.\n`);
+    renderDone = true;
   } finally {
+    // Move off the in-progress line before any error output if we bailed mid-loop.
+    if (showProgress && !renderDone) process.stderr.write("\n");
     // Tear down the shared mermaid browser once, after all pages are rendered
     // (or if a page throws), mirroring the per-call cleanup renderMermaid did.
     if (mermaidRenderer) await mermaidRenderer.close();
