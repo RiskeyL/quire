@@ -1,20 +1,27 @@
 #!/usr/bin/env node
 import { Command, Option } from "commander";
 import { createRequire } from "node:module";
+import updateNotifier from "update-notifier";
 import { runConvert } from "./commands/convert.js";
 import { runInit } from "./commands/init.js";
 import { runDesign } from "./commands/design.js";
+import { runUpdate } from "./commands/update.js";
 import { loadRunConfig, mergeRunConfig } from "./commands/run-config.js";
 
 const require = createRequire(import.meta.url);
-const { version } = require("../package.json") as { version: string };
+const pkg = require("../package.json") as { name: string; version: string };
+
+// Check npm (throttled, cached, in a detached background process) and print an
+// "update available" notice after the command finishes. Suppressed automatically in
+// CI and non-TTY output, and opt-out via NO_UPDATE_NOTIFIER / --no-update-notifier.
+updateNotifier({ pkg }).notify();
 
 const program = new Command();
 
 program
   .name("quire")
   .description("Convert Markdown/MDX docs to branded PDF and Word")
-  .version(version);
+  .version(pkg.version);
 
 program
   .command("convert")
@@ -81,5 +88,10 @@ program
   .description("Open the theme designer in your browser (optionally pre-loading a theme)")
   .argument("[theme]", "theme YAML file to pre-load into the designer")
   .action(async (theme: string | undefined) => { await runDesign(theme); });
+
+program
+  .command("update")
+  .description("Update Quire to the latest version from npm")
+  .action(async () => { await runUpdate(); });
 
 await program.parseAsync();

@@ -35,13 +35,18 @@ function resolvePagedjsCli(): string {
   return join(root, rel);
 }
 
+export interface PdfProgress {
+  /** Paged.js finished laying out the document; `pages` is the printed page count. */
+  onLaidOut?: (pages: number) => void;
+}
+
 /** Render a full HTML document to a paginated PDF via Paged.js. */
-export async function htmlToPdf(html: string, outPath: string): Promise<void> {
+export async function htmlToPdf(html: string, outPath: string, progress?: PdfProgress): Promise<void> {
   const dir = await mkdtemp(join(tmpdir(), "quire-html-"));
   const htmlPath = join(dir, "input.html");
   try {
     await writeFile(htmlPath, html, "utf8");
-    await runPagedjs([resolvePagedjsCli(), htmlPath, "-o", outPath]);
+    await runPagedjs([resolvePagedjsCli(), htmlPath, "-o", outPath], progress);
   } catch (err) {
     await rm(outPath, { force: true }).catch(() => {});
     throw err;
@@ -50,23 +55,48 @@ export async function htmlToPdf(html: string, outPath: string): Promise<void> {
   }
 }
 
+const ANSI = /\x1b\[[0-9;]*[A-Za-z]/g;
+
 /**
  * Spawn pagedjs-cli with the current Node binary (so we never depend on the bin symlink's
- * location or its executable bit), inheriting stderr so its live progress spinner
- * (Loading -> Rendering: Page N -> Saved) reaches the terminal. The spinner animates only
- * on an interactive TTY; under non-TTY stderr (CI, pipes) the spinner library stays quiet
- * on its own, so logs are not flooded with control characters. stdout is ignored: with an
- * `-o` output path, pagedjs-cli writes the file itself and prints nothing to stdout.
+ * location or its executable bit). Its stderr is piped and discarded rather than inherited,
+ * so its own spinner does not compete with Quire's checklist; the one line we care about,
+ * "Rendering N pages took…", is parsed to report the printed page count. NODE_NO_WARNINGS
+ * silences a deprecation notice pagedjs-cli would otherwise print. On failure the tail of
+ * stderr is included in the thrown error so the cause is still visible.
  */
-function runPagedjs(args: string[]): Promise<void> {
+function runPagedjs(args: string[], progress?: PdfProgress): Promise<void> {
   return new Promise<void>((resolve, reject) => {
     const child = spawn(process.execPath, args, {
-      stdio: ["ignore", "ignore", "inherit"],
-      env: { ...process.env, PUPPETEER_EXECUTABLE_PATH: puppeteer.executablePath() }
+      stdio: ["ignore", "ignore", "pipe"],
+      env: {
+        ...process.env,
+        PUPPETEER_EXECUTABLE_PATH: puppeteer.executablePath(),
+        NODE_NO_WARNINGS: "1"
+      }
+    });
+    let pending = "";
+    let tail = "";
+    let reported = false;
+    child.stderr.setEncoding("utf8");
+    child.stderr.on("data", (chunk: string) => {
+      tail = (tail + chunk).slice(-4000);
+      pending += chunk;
+      const segments = pending.split(/[\r\n]+/);
+      pending = segments.pop() ?? "";
+      for (const seg of segments) {
+        const m = seg.replace(ANSI, "").match(/Rendering\s+(\d+)\s+pages\s+took/i);
+        if (m && !reported) {
+          reported = true;
+          progress?.onLaidOut?.(Number(m[1]));
+        }
+      }
     });
     child.on("error", reject);
     child.on("close", (code) =>
-      code === 0 ? resolve() : reject(new Error(`pagedjs-cli exited with code ${code}`))
+      code === 0
+        ? resolve()
+        : reject(new Error(`pagedjs-cli exited with code ${code}${tail.trim() ? `\n${tail.trim()}` : ""}`))
     );
   });
 }
