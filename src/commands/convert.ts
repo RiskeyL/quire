@@ -2,6 +2,7 @@ import { readFile, mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { basename, dirname, extname, isAbsolute, join, resolve } from "node:path";
 import { renderMdx } from "../render/mdx/render-mdx.js";
+import { renderOpenApiMarkdown, type OpenApiSpec } from "../render/openapi/render-openapi.js";
 import { resolveTitle } from "../render/mdx/title.js";
 import { stripPageChrome } from "../render/strip-chrome.js";
 import { embedImages } from "../render/images.js";
@@ -103,7 +104,13 @@ export async function runConvert(paths: string[], options: ConvertOptions): Prom
       const resolvedPath = manifestDir
         ? resolve(manifestDir, page.file)
         : resolve(page.file);
-      const markdown = await readFile(resolvedPath, "utf8");
+      // An OpenAPI page's `file` is a JSON spec, converted to Markdown here so it
+      // flows through the same render/assemble pipeline as any other page. The
+      // spec becomes a chapter whose tags are its sub-sections; the chapter title
+      // comes from the manifest entry's `title` (via resolveTitle below).
+      const markdown = page.openapi
+        ? renderOpenApiMarkdown(parseOpenApiSpec(await readFile(resolvedPath, "utf8"), page.file))
+        : await readFile(resolvedPath, "utf8");
       const { html: renderedHtml, frontmatter } = renderMdx(markdown, {
         onWarn: (msg) => process.stderr.write(`${msg}\n`),
       });
@@ -293,6 +300,15 @@ export async function runConvert(paths: string[], options: ConvertOptions): Prom
     } finally {
       await rm(refDir, { recursive: true, force: true });
     }
+  }
+}
+
+/** Parse an OpenAPI spec file's contents as JSON, with a file-scoped error. */
+function parseOpenApiSpec(raw: string, file: string): OpenApiSpec {
+  try {
+    return JSON.parse(raw) as OpenApiSpec;
+  } catch (err) {
+    throw new Error(`Could not parse OpenAPI spec "${file}" as JSON: ${(err as Error).message}`);
   }
 }
 

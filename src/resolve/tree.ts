@@ -9,6 +9,12 @@ export interface PageNode {
   file: string;
   title?: string;
   description?: string;
+  /**
+   * When true, `file` points to an OpenAPI spec (JSON) that is converted to
+   * Markdown at render time, rather than a Markdown/MDX source file. The page
+   * becomes a chapter whose tags are its sub-sections.
+   */
+  openapi?: boolean;
 }
 
 export type TreeNode = SectionNode | PageNode;

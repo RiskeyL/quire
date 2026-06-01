@@ -31,6 +31,23 @@ describe("parseManifest", () => {
     ]);
   });
 
+  it("parses an openapi entry into an openapi page with its title", () => {
+    expect(parseManifest('- openapi: api/chat.json\n  title: "Chat and Agent"\n')).toEqual([
+      { type: "page", file: "api/chat.json", openapi: true, title: "Chat and Agent" }
+    ]);
+  });
+
+  it("parses an openapi entry without a title", () => {
+    expect(parseManifest("- openapi: api/chat.json\n")).toEqual([
+      { type: "page", file: "api/chat.json", openapi: true }
+    ]);
+  });
+
+  it("throws if an entry combines openapi with file or section", () => {
+    expect(() => parseManifest("- openapi: a.json\n  file: b.md")).toThrow();
+    expect(() => parseManifest("- openapi: a.json\n  section: X")).toThrow();
+  });
+
   it("throws if an entry has neither section nor file", () => {
     expect(() => parseManifest("- foo: bar")).toThrow();
   });

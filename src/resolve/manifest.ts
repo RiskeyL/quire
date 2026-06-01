@@ -23,9 +23,22 @@ function toNode(raw: unknown, index: number): TreeNode {
   const obj = raw as Record<string, unknown>;
   const hasSection = "section" in obj;
   const hasFile = "file" in obj;
+  const hasOpenapi = "openapi" in obj;
 
-  if (hasSection && hasFile) {
-    throw new Error(`Manifest entry #${index + 1} has both "section" and "file"; it must be one or the other.`);
+  if ([hasSection, hasFile, hasOpenapi].filter(Boolean).length > 1) {
+    throw new Error(`Manifest entry #${index + 1} must have exactly one of "section", "file", or "openapi".`);
+  }
+
+  if (hasOpenapi) {
+    if (typeof obj.openapi !== "string") {
+      throw new Error(`Manifest entry #${index + 1}: "openapi" must be a string path.`);
+    }
+    if ("title" in obj && typeof obj.title !== "string") {
+      throw new Error(`Manifest openapi "${obj.openapi}": "title" must be a string.`);
+    }
+    const node: PageNode = { type: "page", file: obj.openapi, openapi: true };
+    if (typeof obj.title === "string") node.title = obj.title;
+    return node;
   }
 
   if (hasSection) {
