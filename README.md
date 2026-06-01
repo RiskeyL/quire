@@ -21,24 +21,23 @@ Everything passes through HTML, so the two output engines are independent:
 
 ## Install
 
-Quire is not yet published to npm. Clone the repository and build it:
+```bash
+npm install -g @riskeyl/quire
+quire --help
+```
+
+This installs the `quire` command onto your `PATH`. Puppeteer downloads its Chromium during install; there is no separate browser to set up.
+
+To work from source instead, clone and build:
 
 ```bash
 git clone https://github.com/RiskeyL/quire.git
 cd quire
 npm install        # installs dependencies, downloads Chromium, and builds dist/
+npm link           # optional: puts `quire` on your PATH
 ```
 
-`npm install` runs the build automatically (via the `prepare` script), so `dist/` is ready afterward. To rebuild manually, run `npm run build`.
-
-Then run it with `node dist/cli.js …`, or link it onto your `PATH` so `quire` works anywhere:
-
-```bash
-npm link
-quire --help
-```
-
-The examples below use `quire`; substitute `node dist/cli.js` if you did not link.
+`npm install` runs the build automatically (via the `prepare` script), so `dist/` is ready afterward; `npm run build` rebuilds it. Without `npm link`, run the tool as `node dist/cli.js …`.
 
 ## Quick start
 

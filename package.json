@@ -1,5 +1,5 @@
 {
-  "name": "quire",
+  "name": "@riskeyl/quire",
   "version": "0.1.0",
   "description": "Convert Markdown and MDX documentation, including Mintlify components, into brand-consistent PDF and Word files from a single theme file.",
   "keywords": [
@@ -21,6 +21,9 @@
   },
   "license": "MIT",
   "author": "RiskeyL",
+  "publishConfig": {
+    "access": "public"
+  },
   "type": "module",
   "bin": {
     "quire": "dist/cli.js"
