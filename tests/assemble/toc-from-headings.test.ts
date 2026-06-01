@@ -18,8 +18,8 @@ describe("buildTocFromHeadings", () => {
     const count = (re: RegExp) => (html.match(re) ?? []).length;
     expect(count(/<ul>/g)).toBe(count(/<\/ul>/g));
     expect(count(/<li\b/g)).toBe(count(/<\/li>/g));
-    expect(html).toContain('<a href="#a">A</a>');
-    expect(html).toContain('<a href="#b">B</a>');
+    expect(html).toContain('<a href="#a"><span class="toc-text">A</span>');
+    expect(html).toContain('<a href="#b"><span class="toc-text">B</span>');
   });
 
   it("ranks distinct heading levels into tiers regardless of absolute tag numbers", () => {
@@ -32,9 +32,9 @@ describe("buildTocFromHeadings", () => {
     expect(html).toContain('class="toc-entry toc-level-1"');
     expect(html).toContain('class="toc-entry toc-level-2"');
     expect(html).toContain('class="toc-entry toc-level-3"');
-    expect(html).toContain('<a href="#a">A</a>');
-    expect(html).toContain('<a href="#b">B</a>');
-    expect(html).toContain('<a href="#c">C</a>');
+    expect(html).toContain('<a href="#a"><span class="toc-text">A</span>');
+    expect(html).toContain('<a href="#b"><span class="toc-text">B</span>');
+    expect(html).toContain('<a href="#c"><span class="toc-text">C</span>');
   });
 
   it("ranks by RELATIVE depth even when the shallowest heading is not h1", () => {
@@ -44,9 +44,9 @@ describe("buildTocFromHeadings", () => {
       `<h3 id="b">B</h3>` +
       `<h4 id="c">C</h4>`;
     const html = buildTocFromHeadings(body, { title: "Contents" });
-    expect(html).toContain('class="toc-entry toc-level-1"><a href="#a">A</a>');
-    expect(html).toContain('class="toc-entry toc-level-2"><a href="#b">B</a>');
-    expect(html).toContain('class="toc-entry toc-level-3"><a href="#c">C</a>');
+    expect(html).toContain('class="toc-entry toc-level-1"><a href="#a"><span class="toc-text">A</span><span class="toc-leader" aria-hidden="true"></span></a>');
+    expect(html).toContain('class="toc-entry toc-level-2"><a href="#b"><span class="toc-text">B</span><span class="toc-leader" aria-hidden="true"></span></a>');
+    expect(html).toContain('class="toc-entry toc-level-3"><a href="#c"><span class="toc-text">C</span><span class="toc-leader" aria-hidden="true"></span></a>');
   });
 
   it("excludes headings deeper than the 3rd tier by default", () => {
@@ -56,8 +56,8 @@ describe("buildTocFromHeadings", () => {
       `<h3 id="c">C</h3>` +
       `<h4 id="d">D (4th tier)</h4>`;
     const html = buildTocFromHeadings(body, { title: "Contents" });
-    expect(html).toContain('<a href="#a">A</a>');
-    expect(html).toContain('<a href="#c">C</a>');
+    expect(html).toContain('<a href="#a"><span class="toc-text">A</span>');
+    expect(html).toContain('<a href="#c"><span class="toc-text">C</span>');
     expect(html).not.toContain('href="#d"');
     expect(html).not.toContain("D (4th tier)");
   });
@@ -69,7 +69,7 @@ describe("buildTocFromHeadings", () => {
     const html = buildTocFromHeadings(body, { title: "Contents" });
     // The tier-2 entry must be inside a <ul> nested under the tier-1 entry.
     const pattern =
-      /<li class="toc-entry toc-level-1"><a href="#a">A<\/a><ul><li class="toc-entry toc-level-2"><a href="#b">B<\/a><\/li><\/ul><\/li>/;
+      /<li class="toc-entry toc-level-1"><a href="#a"><span class="toc-text">A<\/span><span class="toc-leader" aria-hidden="true"><\/span><\/a><ul><li class="toc-entry toc-level-2"><a href="#b"><span class="toc-text">B<\/span><span class="toc-leader" aria-hidden="true"><\/span><\/a><\/li><\/ul><\/li>/;
     expect(html).toMatch(pattern);
   });
 
@@ -80,8 +80,8 @@ describe("buildTocFromHeadings", () => {
       `<h2 id="">Empty id</h2>` +
       `<h2 id="c">C</h2>`;
     const html = buildTocFromHeadings(body, { title: "Contents" });
-    expect(html).toContain('<a href="#a">A</a>');
-    expect(html).toContain('<a href="#c">C</a>');
+    expect(html).toContain('<a href="#a"><span class="toc-text">A</span>');
+    expect(html).toContain('<a href="#c"><span class="toc-text">C</span>');
     expect(html).not.toContain("No id");
     expect(html).not.toContain("Empty id");
   });
@@ -99,7 +99,7 @@ describe("buildTocFromHeadings", () => {
     // so it cannot break out of the <a> when re-rendered.
     const body = `<h1 id="x">Tags &amp; &lt;Filters&gt;</h1>`;
     const html = buildTocFromHeadings(body, { title: "Contents" });
-    expect(html).toContain('<a href="#x">Tags &amp; &lt;Filters&gt;</a>');
+    expect(html).toContain('<a href="#x"><span class="toc-text">Tags &amp; &lt;Filters&gt;</span>');
   });
 
   it("HTML-escapes the title", () => {
@@ -111,7 +111,7 @@ describe("buildTocFromHeadings", () => {
   it("uses the visible text of a heading, stripping nested markup", () => {
     const body = `<h1 id="a">Hello <em>World</em></h1>`;
     const html = buildTocFromHeadings(body, { title: "Contents" });
-    expect(html).toContain('<a href="#a">Hello World</a>');
+    expect(html).toContain('<a href="#a"><span class="toc-text">Hello World</span>');
   });
 
   it("respects a custom maxDepth", () => {
@@ -120,8 +120,8 @@ describe("buildTocFromHeadings", () => {
       `<h2 id="b">B</h2>` +
       `<h3 id="c">C (excluded at maxDepth 2)</h3>`;
     const html = buildTocFromHeadings(body, { title: "Contents", maxDepth: 2 });
-    expect(html).toContain('<a href="#a">A</a>');
-    expect(html).toContain('<a href="#b">B</a>');
+    expect(html).toContain('<a href="#a"><span class="toc-text">A</span>');
+    expect(html).toContain('<a href="#b"><span class="toc-text">B</span>');
     expect(html).not.toContain('href="#c"');
   });
 

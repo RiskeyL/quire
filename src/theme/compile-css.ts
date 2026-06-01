@@ -1003,11 +1003,20 @@ ${heroRule}
   text-decoration: none;
   color: inherit;
 }
+.toc-text { flex: 0 1 auto; }
+/* Dotted leader filling the gap between the title and its page number, so the
+   eye tracks from one to the other. */
+.toc-leader {
+  flex: 1 1 auto;
+  align-self: flex-end;
+  min-width: 1.5em;
+  margin: 0 0.5em 0.32em;
+  border-bottom: 1px dotted var(--color-border);
+}
 /* Page number flushed right, fed by the linked heading's page via target-counter. */
 .toc-entry a::after {
   content: target-counter(attr(href), page);
-  margin-left: auto;
-  padding-left: 0.5em;
+  flex: 0 0 auto;
 }
 /* Nested tiers indent so the heading hierarchy reads on paper. */
 .toc-entry ul { padding-left: 1.5em; }`;

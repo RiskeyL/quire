@@ -332,7 +332,7 @@ function renderTocList(entries: Array<{ tier: number; id: string; text: string }
       stack[stack.length - 1] = entry.tier;
     }
 
-    out += `<li class="toc-entry toc-level-${entry.tier}"><a href="#${entry.id}">${escapeHtml(entry.text)}</a>`;
+    out += `<li class="toc-entry toc-level-${entry.tier}"><a href="#${entry.id}"><span class="toc-text">${escapeHtml(entry.text)}</span><span class="toc-leader" aria-hidden="true"></span></a>`;
   }
 
   // Close the final entry, then unwind every still-open nested list + its <li>.
