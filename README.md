@@ -24,11 +24,12 @@ Everything passes through HTML, so the two output engines are independent:
 Quire is not yet published to npm. Clone the repository and build it:
 
 ```bash
-git clone <repo-url> quire
+git clone https://github.com/RiskeyL/quire.git
 cd quire
-npm install        # installs dependencies and downloads Chromium
-npm run build      # compiles TypeScript to dist/
+npm install        # installs dependencies, downloads Chromium, and builds dist/
 ```
+
+`npm install` runs the build automatically (via the `prepare` script), so `dist/` is ready afterward. To rebuild manually, run `npm run build`.
 
 Then run it with `node dist/cli.js …`, or link it onto your `PATH` so `quire` works anywhere:
 
@@ -300,3 +301,7 @@ npm test           # run the test suite (Vitest)
 npm run build      # compile to dist/
 npm run dev -- …   # run from source with tsx (e.g. npm run dev -- convert intro.md)
 ```
+
+## License
+
+Quire is released under the [MIT License](LICENSE).

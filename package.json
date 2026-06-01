@@ -1,20 +1,46 @@
 {
   "name": "quire",
   "version": "0.1.0",
-  "description": "Convert Markdown/MDX docs to branded PDF and Word",
-  "scripts": {
-    "test": "vitest run",
-    "dev": "tsx src/cli.ts",
-    "build": "tsc",
-    "build:designer": "tsx scripts/build-designer.ts",
-    "test:watch": "vitest"
+  "description": "Convert Markdown and MDX documentation, including Mintlify components, into brand-consistent PDF and Word files from a single theme file.",
+  "keywords": [
+    "markdown",
+    "mdx",
+    "pdf",
+    "docx",
+    "word",
+    "documentation",
+    "pandoc",
+    "pagedjs",
+    "mintlify"
+  ],
+  "homepage": "https://github.com/RiskeyL/quire#readme",
+  "bugs": "https://github.com/RiskeyL/quire/issues",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/RiskeyL/quire.git"
   },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
+  "license": "MIT",
+  "author": "RiskeyL",
   "type": "module",
   "bin": {
     "quire": "dist/cli.js"
+  },
+  "files": [
+    "dist",
+    "examples",
+    "README.md",
+    "LICENSE"
+  ],
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "dev": "tsx src/cli.ts",
+    "build": "tsc",
+    "build:designer": "tsx scripts/build-designer.ts",
+    "prepare": "npm run build && npm run build:designer"
   },
   "dependencies": {
     "cheerio": "^1.2.0",
