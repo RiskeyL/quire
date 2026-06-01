@@ -319,6 +319,16 @@ html, body {
   box-shadow: 0 0 0 2px rgba(245,166,35,0.2);
 }
 
+/* ---- Compact font picker (▾ dropdown added beside each font field on detect) ---- */
+.qd-font-pick {
+  width: 34px;
+  min-width: 34px;
+  flex: 0 0 auto;
+  padding: 4px 4px;
+  text-align: center;
+  background-position: right 5px center;
+}
+
 /* ---- Color pill (swatch + hex unified into one control) ---- */
 .qd-color-pair {
   display: inline-flex;
@@ -387,16 +397,32 @@ html, body {
   box-shadow: 0 0 0 2px rgba(245,166,35,0.2);
 }
 
+/* ---- Stacked field (label on its own line, control fills the width below) ---- */
+/* Used for the six-cell heading scale/weight arrays, which do not fit beside a
+   label on one panel row. */
+.qd-field--stack {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 6px;
+}
+.qd-field--stack .qd-field-label { min-width: 0; }
+.qd-field--stack .qd-field-control { justify-content: flex-start; }
+
 /* ---- Number-array (h1-h6 inputs) ---- */
 .qd-num-array {
   display: flex;
-  gap: 3px;
+  gap: 4px;
   align-items: center;
   flex-wrap: nowrap;
+  width: 100%;
 }
 
+/* Cells share the row width evenly so all six fit without clipping or
+   overlapping the label, at any panel width. */
 .qd-num-array .qd-input-number {
-  width: 44px;
+  flex: 1 1 0;
+  width: auto;
+  min-width: 0;
   padding: 4px 3px;
   text-align: center;
 }

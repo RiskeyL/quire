@@ -12,6 +12,7 @@ import { DEFAULT_TOKENS, parseTheme } from "../theme/tokens.js";
 import { serializeTheme } from "../theme/serialize-theme.js";
 import { renderCover } from "../assemble/cover.js";
 import { CHROME_CSS } from "./chrome-css.js";
+import { replaceTocPageNumberWithVar, TOC_PAGE_VAR } from "./live-css.js";
 import { FORM_SPEC } from "./form-spec.js";
 import { createForm } from "./form.js";
 import { classifyTokenChange } from "./update-classifier.js";
@@ -238,6 +239,52 @@ function buildContent(tokens: BrandTokens, logoDataUri?: string): string {
   return cover + __QUIRE_SAMPLE_TOC__ + __QUIRE_SAMPLE_BODY__;
 }
 
+/**
+ * Fill each TOC entry's page number directly from the rendered pagination,
+ * instead of relying on pagedjs to resolve `target-counter()` in the browser
+ * (which is fragile and was leaving the numbers blank — see
+ * replaceTocPageNumberWithVar). Run once per relayout, after `preview()`
+ * resolves and the pages exist.
+ *
+ * The number is body-relative so it matches the running footer's
+ * `counter(page)`: with `restartAtBody` (the default), `.doc-body` resets the
+ * page counter to 1, so the first body page is "1". We mirror that by
+ * subtracting the offset of the first body page; with `restartAtBody` off the
+ * count runs from the first physical page, so the offset is zero. Because the
+ * preview and the PDF paginate the same content with the same CSS, a heading
+ * lands on the same page in both, so these numbers equal the PDF's.
+ */
+function fillTocPageNumbers(previewEl: HTMLElement, restartAtBody: boolean): void {
+  const pages = [...previewEl.querySelectorAll(".pagedjs_page")];
+  if (pages.length === 0) return;
+  const indexOfPage = new Map<Element, number>();
+  pages.forEach((p, i) => indexOfPage.set(p, i + 1)); // 1-based physical index
+
+  let offset = 0;
+  if (restartAtBody) {
+    const bodyPage = previewEl.querySelector(".doc-body")?.closest(".pagedjs_page") ?? null;
+    if (bodyPage && indexOfPage.has(bodyPage)) offset = (indexOfPage.get(bodyPage) as number) - 1;
+  }
+
+  for (const a of previewEl.querySelectorAll<HTMLElement>(".toc-entry a[href^='#']")) {
+    const id = (a.getAttribute("href") ?? "").slice(1);
+    // querySelector('#id') would choke on ids that need escaping; match by attribute.
+    const target = id ? previewEl.querySelector(`[id="${cssAttrEscape(id)}"]`) : null;
+    const page = target?.closest(".pagedjs_page") ?? null;
+    if (page && indexOfPage.has(page)) {
+      const n = (indexOfPage.get(page) as number) - offset;
+      a.style.setProperty(TOC_PAGE_VAR, `"${n}"`);
+    } else {
+      a.style.removeProperty(TOC_PAGE_VAR);
+    }
+  }
+}
+
+/** Escape a value for use inside a `[id="..."]` attribute selector (quotes + backslashes). */
+function cssAttrEscape(value: string): string {
+  return value.replace(/\\/g, "\\\\").replace(/"/g, '\\"');
+}
+
 // ---------------------------------------------------------------------------
 // Live preview controller
 // ---------------------------------------------------------------------------
@@ -271,7 +318,10 @@ function createLivePreviewController(
   async function runRelayout(): Promise<void> {
     relayoutRunning = true;
     try {
-      const css = compileCss(tokens);
+      // The preview displays the TOC page number from a CSS variable we fill in
+      // ourselves (fillTocPageNumbers), not from pagedjs's browser-side
+      // target-counter resolution, which was unreliable. See replaceTocPageNumberWithVar.
+      const css = replaceTocPageNumberWithVar(compileCss(tokens));
       const content = buildContent(tokens, getLogoDataUri());
 
       // Preserve the reader's place across the rebuild: remember the scroll
@@ -293,8 +343,13 @@ function createLivePreviewController(
         previewEl,
       );
 
-      // Update the controlled live theme sheet and keep it last in head so
-      // it wins source-order ties over the freshly injected pagedjs sheets.
+      // Fill the TOC page numbers from the rendered pagination (browser-independent).
+      fillTocPageNumbers(previewEl, tokens.pageNumbers.restartAtBody);
+
+      // Update the controlled live theme sheet and keep it last in head so it
+      // wins source-order ties over the freshly injected pagedjs sheets. It uses
+      // the same var-based TOC page number (no target-counter), so it never
+      // shadows the value we set per entry.
       themeLiveEl.textContent = css;
       pinThemeLiveLast(themeLiveEl);
 
@@ -356,7 +411,9 @@ function createLivePreviewController(
       const kind = classifyTokenChange(path);
       if (kind === "restyle") {
         // Geometry-neutral: swap CSS in the controlled element only, no repagination.
-        themeLiveEl.textContent = compileCss(tokens);
+        // The TOC page numbers (set as per-entry vars on the last relayout) are
+        // unaffected: the swapped CSS reads the same var, it does not repaginate.
+        themeLiveEl.textContent = replaceTocPageNumberWithVar(compileCss(tokens));
       } else {
         // Geometry-affecting: debounced full repagination.
         void scheduleRelayout(250);
@@ -654,11 +711,15 @@ function createLivePreviewController(
     }
   }
 
-  // Optional installed-font detection (Chromium only, permission-gated): list
-  // the machine's fonts as autocomplete suggestions on the font-stack fields.
-  // The chosen family must also be installed wherever the PDF/Word is generated,
-  // so this is a convenience, not a guarantee. Absent on other browsers, in which
-  // case no button is shown.
+  // Optional installed-font detection (Chromium only, permission-gated). After
+  // detection, each font field gets its own dropdown (▾) listing the machine's
+  // families; picking one drops it into that field. A plain datalist was tried
+  // first but is useless here: Chromium filters its suggestions by the input's
+  // current text, and the fields are pre-filled with full stacks
+  // ("Georgia, 'Times New Roman', serif"), which match nothing — so no list ever
+  // appeared. The chosen family must also be installed wherever the PDF/Word is
+  // generated, so this is a convenience, not a guarantee. Absent on other
+  // browsers, in which case no button is shown.
   const queryLocalFonts = (window as unknown as {
     queryLocalFonts?: () => Promise<Array<{ family: string }>>;
   }).queryLocalFonts;
@@ -670,18 +731,19 @@ function createLivePreviewController(
   })();
   if (typoGroup && typeof queryLocalFonts === "function") {
     const fields = typoGroup.querySelector(".qd-group-fields");
-    const fontInputs = [...typoGroup.querySelectorAll(".qd-field")]
-      .filter((f) => {
-        const lbl = f.querySelector(".qd-field-label")?.textContent ?? "";
-        return lbl === "body font" || lbl === "heading font" || lbl === "mono font";
-      })
-      .map((f) => f.querySelector("input.qd-input-text"))
-      .filter((el): el is HTMLInputElement => el instanceof HTMLInputElement);
+    // Each font-stack field paired with its control wrapper, so a picker can be
+    // appended right beside the input.
+    const fontFields = [...typoGroup.querySelectorAll(".qd-field")]
+      .map((f) => ({
+        lbl: f.querySelector(".qd-field-label")?.textContent ?? "",
+        input: f.querySelector("input.qd-input-text"),
+        wrap: f.querySelector(".qd-field-control"),
+      }))
+      .filter((x): x is { lbl: string; input: HTMLInputElement; wrap: HTMLElement } =>
+        (x.lbl === "body font" || x.lbl === "heading font" || x.lbl === "mono font") &&
+        x.input instanceof HTMLInputElement && x.wrap instanceof HTMLElement);
 
-    if (fields && fontInputs.length > 0) {
-      const datalist = document.createElement("datalist");
-      datalist.id = "qd-font-list";
-
+    if (fields && fontFields.length > 0) {
       const row = document.createElement("div");
       row.className = "qd-field";
       const lbl = document.createElement("span");
@@ -700,25 +762,52 @@ function createLivePreviewController(
       const help = document.createElement("div");
       help.className = "qd-field-help";
       help.textContent =
-        "Lists fonts installed on this machine as suggestions for the fields above. The chosen font must also be installed where the PDF or Word file is generated.";
+        "Detects fonts installed on this machine and adds a picker (▾) beside each font field above; choosing one sets that field. The chosen font must also be installed where the PDF or Word file is generated.";
 
-      fields.appendChild(datalist);
       fields.appendChild(row);
       fields.appendChild(help);
+
+      // A family with spaces must be quoted to be a valid single CSS family value.
+      const asCssFamily = (fam: string): string =>
+        /\s/.test(fam) ? `'${fam.replace(/'/g, "")}'` : fam;
+
+      // Per-field picker selects, created on the first detect and refreshed after.
+      const pickers: HTMLSelectElement[] = [];
 
       btn.addEventListener("click", () => {
         queryLocalFonts()
           .then((fonts) => {
             const families = [...new Set(fonts.map((f) => f.family))].sort((a, b) => a.localeCompare(b));
-            datalist.textContent = "";
-            for (const fam of families) {
-              const o = document.createElement("option");
-              o.value = fam;
-              datalist.appendChild(o);
+            if (pickers.length === 0) {
+              for (const { input, wrap } of fontFields) {
+                const pick = document.createElement("select");
+                pick.className = "qd-select qd-font-pick";
+                pick.title = "Insert an installed font into this field";
+                pick.addEventListener("change", () => {
+                  if (!pick.value) return;
+                  input.value = asCssFamily(pick.value);
+                  input.dispatchEvent(new Event("input", { bubbles: true }));
+                  pick.selectedIndex = 0; // reset to the ▾ placeholder
+                });
+                wrap.appendChild(pick);
+                pickers.push(pick);
+              }
             }
-            for (const inp of fontInputs) inp.setAttribute("list", "qd-font-list");
+            for (const pick of pickers) {
+              pick.textContent = "";
+              const ph = document.createElement("option");
+              ph.value = "";
+              ph.textContent = "▾";
+              pick.appendChild(ph);
+              for (const fam of families) {
+                const o = document.createElement("option");
+                o.value = fam;
+                o.textContent = fam;
+                pick.appendChild(o);
+              }
+            }
             btn.textContent = `${families.length} fonts`;
-            showStatus(`Detected ${families.length} installed fonts`, false);
+            showStatus(`Detected ${families.length} fonts — pick from the ▾ on each font field`, false);
           })
           .catch(() => showStatus("Could not access installed fonts", true));
       });

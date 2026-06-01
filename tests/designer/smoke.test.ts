@@ -8,6 +8,7 @@ import type { Browser, Page } from "puppeteer";
 import { buildDesignerHtml } from "../../scripts/build-designer.js";
 import { compileCss } from "../../src/theme/compile-css.js";
 import { DEFAULT_TOKENS } from "../../src/theme/tokens.js";
+import { replaceTocPageNumberWithVar } from "../../src/designer/live-css.js";
 
 /**
  * End-to-end smoke test for the bundled theme designer, exercised in a real
@@ -70,10 +71,30 @@ describe.skipIf(!RUN)("designer headless smoke", () => {
     expect(pages).toBeGreaterThan(0);
 
     // Runtime integrity: the live theme CSS the designer applied on load must be
-    // byte-identical to the converter's compileCss(DEFAULT_TOKENS).
+    // the converter's compileCss(DEFAULT_TOKENS) with the TOC page number rewired
+    // to a CSS variable the designer fills itself (no browser target-counter).
     const liveCss = await page.$eval("#qd-theme-live", (el) => el.textContent ?? "");
-    expect(liveCss).toBe(compileCss(DEFAULT_TOKENS));
+    expect(liveCss).toBe(replaceTocPageNumberWithVar(compileCss(DEFAULT_TOKENS)));
+    // The fragile target-counter() must NOT survive into the preview CSS.
+    expect(liveCss).not.toContain("target-counter(");
 
+    expect(pageErrors()).toEqual([]);
+  });
+
+  it("fills every TOC entry with a body-relative page number", async () => {
+    const result = await page.evaluate(() => {
+      const entries = [...document.querySelectorAll<HTMLElement>(".toc-entry a[href^='#']")];
+      const nums = entries.map((a) => a.style.getPropertyValue("--quire-toc-page"));
+      return { count: entries.length, nums };
+    });
+    // The kitchen-sink sample's TOC must have entries, each carrying a quoted
+    // page number var. Numbers are body-relative (first body page is "1").
+    expect(result.count).toBeGreaterThan(0);
+    expect(result.nums.every((n) => /^"\d+"$/.test(n))).toBe(true);
+    expect(result.nums[0]).toBe('"1"');
+    // Non-decreasing down the list (entries are in document order).
+    const asInt = result.nums.map((n) => parseInt(n.replace(/"/g, ""), 10));
+    for (let i = 1; i < asInt.length; i++) expect(asInt[i]).toBeGreaterThanOrEqual(asInt[i - 1]);
     expect(pageErrors()).toEqual([]);
   });
 

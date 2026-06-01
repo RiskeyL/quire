@@ -300,6 +300,10 @@ function buildField(
 ): { row: HTMLElement; helpEl: HTMLElement | null; binding: FieldBinding } {
   const row = document.createElement("div");
   row.className = "qd-field";
+  // A six-cell number array (heading scale/weight) does not fit beside a label
+  // on one 384px-panel row, so it stacks: label on its own line, inputs filling
+  // the width below. Without this the inputs overflow and overlap the label.
+  if (spec.control === "number-array") row.classList.add("qd-field--stack");
 
   const labelEl = document.createElement("span");
   labelEl.className = "qd-field-label";
