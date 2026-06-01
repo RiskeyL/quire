@@ -3,12 +3,13 @@
  * Declarative spec for the designer token-editing form.
  * Pure data — no DOM, no Node builtins. Browser-pure.
  *
- * Groups are organized for editing ergonomics, not to mirror the YAML output
- * order. Token areas that carry a single control (shape, links, density, page
- * numbers, meta, tables, badges, components) are folded into broader sections
- * (STYLE, CONTENT, FURNITURE) so the panel reads as a dozen meaningful groups
- * rather than two dozen one-line accordions. The YAML preview is still the full
- * serialize-theme output; it does not depend on this grouping.
+ * Groups are ordered to follow the reader's path through the document: page
+ * setup, then the cover and table of contents (the front matter), then the
+ * body's type and color, then the running header/footer chrome. Single-control
+ * token areas are folded into broader sections (STYLE, CONTENT, FURNITURE) so
+ * the panel reads as a dozen meaningful groups rather than two dozen one-line
+ * accordions. The YAML preview is the full serialize-theme output and does not
+ * depend on this grouping.
  *
  * brand.logo is excluded (set via the logo file-picker, not a token field).
  */
@@ -65,6 +66,72 @@ export const FORM_SPEC: GroupSpec[] = [
         label: "margin",
         control: "text",
         help: "Uniform page margin, e.g. 2cm or 1in",
+      },
+    ],
+  },
+  {
+    id: "cover",
+    title: "COVER",
+    fields: [
+      {
+        path: "cover.layout",
+        label: "layout",
+        control: "select",
+        options: ["spine", "plain"],
+        help: '"spine" adds a brand-color bar down the left edge (PDF only)',
+      },
+      {
+        path: "cover.titleAnchor",
+        label: "title anchor",
+        control: "select",
+        options: ["top", "center", "bottom"],
+        help: "Vertical position of the title block; the logo stays at the top (PDF only)",
+      },
+      {
+        path: "cover.align",
+        label: "align",
+        control: "select",
+        options: ["left", "center"],
+        help: "Horizontal alignment of the cover content (PDF only)",
+      },
+      {
+        path: "cover.spineWidth",
+        label: "spine width",
+        control: "text",
+        help: "Width of the cover spine bar, e.g. 16mm (PDF only)",
+      },
+      {
+        path: "cover.logoWidth",
+        label: "logo width",
+        control: "text",
+        help: "Cover logo width, e.g. 44mm",
+      },
+      {
+        path: "brand.productName",
+        label: "product name",
+        control: "text",
+        help: "Product name shown above the title on the cover (both PDF and Word). Omit to hide.",
+      },
+    ],
+  },
+  {
+    id: "toc",
+    title: "TOC",
+    fields: [
+      {
+        path: "toc.title",
+        label: "title",
+        control: "text",
+        help: "Heading text above the table of contents",
+      },
+      {
+        path: "toc.depth",
+        label: "depth",
+        control: "number",
+        min: 1,
+        max: 6,
+        step: 1,
+        help: "Number of heading levels shown in the TOC (1-6)",
       },
     ],
   },
@@ -171,23 +238,27 @@ export const FORM_SPEC: GroupSpec[] = [
     ],
   },
   {
-    id: "toc",
-    title: "TOC",
+    id: "content",
+    title: "CONTENT",
     fields: [
       {
-        path: "toc.title",
-        label: "title",
-        control: "text",
-        help: "Heading text above the table of contents",
+        path: "links.underline",
+        label: "link underline",
+        control: "toggle",
+        help: "Underline hyperlinks in PDF and Word",
       },
       {
-        path: "toc.depth",
-        label: "depth",
-        control: "number",
-        min: 1,
-        max: 6,
-        step: 1,
-        help: "Number of heading levels shown in the TOC (1-6)",
+        path: "tables.layout",
+        label: "table layout",
+        control: "select",
+        options: ["fixed", "auto"],
+        help: '"fixed" gives equal-width columns; "auto" sizes columns to content',
+      },
+      {
+        path: "meta.showDescription",
+        label: "show description",
+        control: "toggle",
+        help: "Render each page's frontmatter description as a lede beneath the title",
       },
     ],
   },
@@ -220,76 +291,6 @@ export const FORM_SPEC: GroupSpec[] = [
         label: "restart numbering",
         control: "toggle",
         help: "Restart page numbering at the first body page; cover and TOC are unnumbered",
-      },
-    ],
-  },
-  {
-    id: "content",
-    title: "CONTENT",
-    fields: [
-      {
-        path: "links.underline",
-        label: "link underline",
-        control: "toggle",
-        help: "Underline hyperlinks in PDF and Word",
-      },
-      {
-        path: "tables.layout",
-        label: "table layout",
-        control: "select",
-        options: ["fixed", "auto"],
-        help: '"fixed" gives equal-width columns; "auto" sizes columns to content',
-      },
-      {
-        path: "meta.showDescription",
-        label: "show description",
-        control: "toggle",
-        help: "Render each page's frontmatter description as a lede beneath the title",
-      },
-    ],
-  },
-  {
-    id: "cover",
-    title: "COVER",
-    fields: [
-      {
-        path: "cover.layout",
-        label: "layout",
-        control: "select",
-        options: ["spine", "plain"],
-        help: '"spine" adds a brand-color bar down the left edge (PDF only)',
-      },
-      {
-        path: "cover.titleAnchor",
-        label: "title anchor",
-        control: "select",
-        options: ["top", "center", "bottom"],
-        help: "Vertical position of the title block; the logo stays at the top (PDF only)",
-      },
-      {
-        path: "cover.align",
-        label: "align",
-        control: "select",
-        options: ["left", "center"],
-        help: "Horizontal alignment of the cover content (PDF only)",
-      },
-      {
-        path: "cover.spineWidth",
-        label: "spine width",
-        control: "text",
-        help: "Width of the cover spine bar, e.g. 16mm (PDF only)",
-      },
-      {
-        path: "cover.logoWidth",
-        label: "logo width",
-        control: "text",
-        help: "Cover logo width, e.g. 44mm",
-      },
-      {
-        path: "brand.productName",
-        label: "product name",
-        control: "text",
-        help: "Product name shown above the title on the cover (both PDF and Word). Omit to hide.",
       },
     ],
   },
