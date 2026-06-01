@@ -114,9 +114,12 @@ describe("renderMdx", () => {
   });
 
   it("renders a real Dify MDX page without leaking frontmatter and with heading ids", () => {
-    const realPath =
-      "/Users/a47/Documents/Work/Dify Docs/Repo/dify-docs/en/self-host/troubleshooting/docker-issues.mdx";
-    const source = readFileSync(realPath, "utf8");
+    // A snapshot of a real Dify docs page, vendored into fixtures/ so the test
+    // is self-contained and portable (no dependency on a local docs checkout).
+    const source = readFileSync(
+      new URL("../../../fixtures/dify-docker-issues.mdx", import.meta.url),
+      "utf8",
+    );
     const warnings: string[] = [];
     const { html, frontmatter } = renderMdx(source, { onWarn: (m) => warnings.push(m) });
     // Frontmatter was parsed.

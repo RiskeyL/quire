@@ -62,7 +62,7 @@ describe("resolveTitle", () => {
     const { title } = resolveTitle({
       frontmatter: {},
       html: "<p>x</p>",
-      file: "/Users/a47/docs/docker-issues.mdx",
+      file: "/docs/docker-issues.mdx",
     });
     expect(title).toBe("docker-issues");
   });
