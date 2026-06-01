@@ -5,8 +5,15 @@
  * Browser-pure: no Node builtins, no imports.
  *
  * Design language: dark precision instrument — the chrome recedes so the
- * PDF preview is the visual hero. Mono typeface throughout for labels
- * and values; one warm-amber accent.
+ * PDF preview is the visual hero. Mono typeface throughout; one warm-amber
+ * accent reserved for the primary action and focus.
+ *
+ * Text uses a deliberate three-tier hierarchy so the panel scans cleanly:
+ *   --title  group headers (brightest structural text)
+ *   --text   editable values inside inputs
+ *   --label  field labels (one step down)
+ *   --help   inline guidance (dimmer, but AA-readable, never opacity-faded)
+ *   --muted  genuinely secondary marks (chevrons, separators, page count)
  */
 export const CHROME_CSS = `
 /* ---- Reset ---- */
@@ -14,14 +21,17 @@ export const CHROME_CSS = `
 
 /* ---- Root variables ---- */
 :root {
-  --panel-bg:      #17171a;
-  --topbar-bg:     #0f0f11;
-  --hairline:      #2a2a2e;
-  --text:          #e8e8ea;
-  --muted:         #8a8a90;
+  --panel-bg:      #161619;
+  --topbar-bg:     #0e0e10;
+  --hairline:      #28282e;
+  --title:         #e6e6ea;
+  --text:          #ededf0;
+  --label:         #b9bac1;
+  --help:          #a0a1a9;
+  --muted:         #82838b;
   --accent:        #f5a623;
-  --field-bg:      #202024;
-  --field-border:  #2a2a2e;
+  --field-bg:      #222227;
+  --field-border:  #34343b;
   --preview-bg:    #525659;
   --page-shadow:   0 2px 12px rgba(0,0,0,0.55);
   --mono:          ui-monospace, 'SF Mono', SFMono-Regular, Menlo, Consolas, monospace;
@@ -75,7 +85,7 @@ html, body {
   font-size: 15px;
   font-weight: 600;
   letter-spacing: 0.04em;
-  color: var(--text);
+  color: var(--title);
 }
 
 #qd-wordmark-label {
@@ -99,9 +109,9 @@ html, body {
   font-size: var(--font-xs);
   font-weight: 500;
   letter-spacing: 0.04em;
-  border: 1px solid var(--hairline);
+  border: 1px solid var(--field-border);
   background: transparent;
-  color: var(--muted);
+  color: var(--label);
   cursor: pointer;
   padding: 5px 12px;
   border-radius: 3px;
@@ -116,20 +126,20 @@ html, body {
 .qd-btn-primary {
   background: var(--accent);
   border-color: var(--accent);
-  color: #0f0f11;
+  color: #14110a;
   font-weight: 600;
 }
 
 .qd-btn-primary:hover {
   background: #f7b84a;
   border-color: #f7b84a;
-  color: #0f0f11;
+  color: #14110a;
 }
 
 .qd-btn-flash {
-  background: #2a3a1e;
-  border-color: #4a7a2a;
-  color: #8dc45a;
+  background: #243a1c;
+  border-color: #5a9a36;
+  color: #a3da6c;
 }
 
 /* ---- Main layout ---- */
@@ -141,8 +151,8 @@ html, body {
 
 /* ---- Left control panel ---- */
 #qd-panel {
-  width: 380px;
-  min-width: 380px;
+  width: 384px;
+  min-width: 384px;
   background: var(--panel-bg);
   border-right: 1px solid var(--hairline);
   overflow-y: auto;
@@ -152,9 +162,10 @@ html, body {
 }
 
 /* Subtle scrollbar */
-#qd-panel::-webkit-scrollbar { width: 4px; }
+#qd-panel::-webkit-scrollbar { width: 5px; }
 #qd-panel::-webkit-scrollbar-track { background: transparent; }
-#qd-panel::-webkit-scrollbar-thumb { background: var(--hairline); border-radius: 2px; }
+#qd-panel::-webkit-scrollbar-thumb { background: var(--field-border); border-radius: 3px; }
+#qd-panel::-webkit-scrollbar-thumb:hover { background: var(--muted); }
 
 /* ---- Token groups ---- */
 .qd-group {
@@ -165,22 +176,28 @@ html, body {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 10px 16px;
+  padding: 11px 16px;
   cursor: pointer;
   user-select: none;
   transition: background 0.1s ease;
 }
 
 .qd-group-header:hover {
-  background: rgba(255,255,255,0.03);
+  background: rgba(255,255,255,0.035);
+}
+
+/* Open group: faint seat + an amber left rail marking the active section. */
+.qd-group[data-open="true"] > .qd-group-header {
+  background: rgba(255,255,255,0.022);
+  box-shadow: inset 2px 0 0 var(--accent);
 }
 
 .qd-group-title {
   font-family: var(--mono);
-  font-size: var(--font-xs);
+  font-size: var(--font-sm);
   font-weight: 600;
-  letter-spacing: 0.1em;
-  color: var(--muted);
+  letter-spacing: 0.11em;
+  color: var(--title);
   text-transform: uppercase;
 }
 
@@ -193,6 +210,7 @@ html, body {
 
 .qd-group[data-open="true"] .qd-group-chevron {
   transform: rotate(90deg);
+  color: var(--label);
 }
 
 .qd-group-body {
@@ -206,7 +224,7 @@ html, body {
 }
 
 .qd-group-fields {
-  padding: 4px 0 8px 0;
+  padding: 8px 0 12px 0;
 }
 
 /* ---- Field rows ---- */
@@ -214,22 +232,18 @@ html, body {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 4px 16px;
+  padding: 5px 16px 4px 16px;
   min-height: 28px;
   gap: 8px;
-}
-
-.qd-field:hover {
-  background: rgba(255,255,255,0.02);
 }
 
 .qd-field-label {
   font-family: var(--mono);
   font-size: var(--font-xs);
-  color: var(--muted);
+  color: var(--label);
   white-space: nowrap;
   flex-shrink: 0;
-  min-width: 90px;
+  min-width: 96px;
 }
 
 .qd-field-control {
@@ -243,12 +257,11 @@ html, body {
 
 /* ---- Field help text ---- */
 .qd-field-help {
-  padding: 0 16px 6px 16px;
+  padding: 0 16px 10px 16px;
   font-family: var(--sans);
-  font-size: 10px;
-  color: var(--muted);
-  line-height: 1.5;
-  opacity: 0.75;
+  font-size: var(--font-xs);
+  color: var(--help);
+  line-height: 1.45;
 }
 
 /* ---- Text inputs ---- */
@@ -258,9 +271,9 @@ html, body {
   background: var(--field-bg);
   border: 1px solid var(--field-border);
   color: var(--text);
-  padding: 3px 7px;
+  padding: 4px 7px;
   border-radius: 3px;
-  width: 160px;
+  width: 162px;
   min-width: 0;
   transition: border-color 0.12s ease, box-shadow 0.12s ease;
 }
@@ -278,16 +291,16 @@ html, body {
   background: var(--field-bg);
   border: 1px solid var(--field-border);
   color: var(--text);
-  padding: 3px 24px 3px 7px;
+  padding: 4px 24px 4px 7px;
   border-radius: 3px;
-  width: 130px;
+  width: 132px;
   appearance: none;
   -webkit-appearance: none;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%238a8a90' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%2382838b' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");
   background-repeat: no-repeat;
   background-position: right 7px center;
   cursor: pointer;
-  transition: border-color 0.12s ease;
+  transition: border-color 0.12s ease, box-shadow 0.12s ease;
 }
 
 .qd-select:focus {
@@ -296,53 +309,53 @@ html, body {
   box-shadow: 0 0 0 2px rgba(245,166,35,0.2);
 }
 
-/* ---- Color pair (swatch + hex text) ---- */
+/* ---- Color pill (swatch + hex unified into one control) ---- */
 .qd-color-pair {
-  display: flex;
+  display: inline-flex;
   align-items: center;
-  gap: 5px;
+  background: var(--field-bg);
+  border: 1px solid var(--field-border);
+  border-radius: 4px;
+  overflow: hidden;
+  transition: border-color 0.12s ease, box-shadow 0.12s ease;
+}
+
+.qd-color-pair:focus-within {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px rgba(245,166,35,0.2);
 }
 
 .qd-color-swatch {
-  width: 22px;
-  height: 22px;
+  width: 18px;
+  height: 18px;
+  margin: 3px 1px 3px 3px;
   border-radius: 3px;
-  border: 1px solid var(--hairline);
+  border: none;
   padding: 0;
   cursor: pointer;
   background: none;
   overflow: hidden;
   flex-shrink: 0;
-  transition: border-color 0.12s ease;
-}
-
-.qd-color-swatch:focus {
-  outline: none;
-  border-color: var(--accent);
-  box-shadow: 0 0 0 2px rgba(245,166,35,0.2);
+  /* Inner hairline so a near-black chip stays visible against the dark pill. */
+  box-shadow: inset 0 0 0 1px rgba(255,255,255,0.18);
 }
 
 /* Override native color input chrome */
 .qd-color-swatch::-webkit-color-swatch-wrapper { padding: 0; }
-.qd-color-swatch::-webkit-color-swatch { border: none; border-radius: 2px; }
+.qd-color-swatch::-webkit-color-swatch { border: none; border-radius: 3px; }
+.qd-color-swatch:focus { outline: none; }
 
 .qd-color-hex {
   font-family: var(--mono);
   font-size: var(--font-xs);
-  background: var(--field-bg);
-  border: 1px solid var(--field-border);
+  background: transparent;
+  border: none;
   color: var(--text);
-  padding: 3px 6px;
-  border-radius: 3px;
-  width: 76px;
-  transition: border-color 0.12s ease;
+  padding: 4px 8px 4px 5px;
+  width: 74px;
 }
 
-.qd-color-hex:focus {
-  outline: none;
-  border-color: var(--accent);
-  box-shadow: 0 0 0 2px rgba(245,166,35,0.2);
-}
+.qd-color-hex:focus { outline: none; }
 
 /* ---- Number input ---- */
 .qd-input-number {
@@ -351,11 +364,11 @@ html, body {
   background: var(--field-bg);
   border: 1px solid var(--field-border);
   color: var(--text);
-  padding: 3px 6px;
+  padding: 4px 6px;
   border-radius: 3px;
   width: 72px;
   text-align: right;
-  transition: border-color 0.12s ease;
+  transition: border-color 0.12s ease, box-shadow 0.12s ease;
 }
 
 .qd-input-number:focus {
@@ -374,7 +387,7 @@ html, body {
 
 .qd-num-array .qd-input-number {
   width: 44px;
-  padding: 3px 3px;
+  padding: 4px 3px;
   text-align: center;
 }
 
@@ -437,10 +450,10 @@ html, body {
   background: var(--field-bg);
   border: 1px solid var(--field-border);
   color: var(--text);
-  padding: 3px 7px;
+  padding: 4px 7px;
   border-radius: 3px;
-  width: 138px;
-  transition: border-color 0.12s ease;
+  width: 140px;
+  transition: border-color 0.12s ease, box-shadow 0.12s ease;
 }
 
 .qd-slot-input:focus {
@@ -458,8 +471,8 @@ html, body {
 
 #qd-yaml-pre {
   font-family: var(--mono);
-  font-size: 10px;
-  color: var(--muted);
+  font-size: 11px;
+  color: var(--label);
   background: transparent;
   padding: 10px 16px 16px 16px;
   white-space: pre;
@@ -469,8 +482,8 @@ html, body {
   overflow-y: auto;
 }
 
-#qd-yaml-pre::-webkit-scrollbar { width: 3px; height: 3px; }
-#qd-yaml-pre::-webkit-scrollbar-thumb { background: var(--hairline); border-radius: 2px; }
+#qd-yaml-pre::-webkit-scrollbar { width: 4px; height: 4px; }
+#qd-yaml-pre::-webkit-scrollbar-thumb { background: var(--field-border); border-radius: 2px; }
 
 /* ---- Preview pane ---- */
 #qd-preview-pane {
@@ -538,7 +551,7 @@ html, body {
 }
 
 #qd-status.qd-status-error {
-  color: #c0574a;
+  color: #ff7a6b;
   opacity: 1;
 }
 
