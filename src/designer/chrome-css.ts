@@ -453,8 +453,15 @@ html, body {
   box-shadow: 0 0 0 2px rgba(245,166,35,0.35);
 }
 
-/* ---- Slot (text + datalist keywords) ---- */
-.qd-slot-input {
+/* ---- Slot (keyword select + custom-text escape hatch) ---- */
+.qd-slot {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 4px;
+}
+
+.qd-slot-custom {
   font-family: var(--mono);
   font-size: var(--font-xs);
   background: var(--field-bg);
@@ -462,11 +469,11 @@ html, body {
   color: var(--text);
   padding: 4px 7px;
   border-radius: 3px;
-  width: 140px;
+  width: 160px;
   transition: border-color 0.12s ease, box-shadow 0.12s ease;
 }
 
-.qd-slot-input:focus {
+.qd-slot-custom:focus {
   outline: none;
   border-color: var(--accent);
   box-shadow: 0 0 0 2px rgba(245,166,35,0.2);

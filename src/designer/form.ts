@@ -47,10 +47,21 @@ export function setByPath(obj: Record<string, unknown>, path: string, value: unk
 }
 
 // ---------------------------------------------------------------------------
-// Slot keywords (for datalist suggestions)
+// Slot keywords
+//
+// A header/footer slot is either one of these dynamic keywords or an arbitrary
+// literal string. The control surfaces the keywords as named choices and offers
+// a "Custom text…" escape hatch for the literal case, so the keywords are
+// discoverable instead of hidden behind a free-text field.
 // ---------------------------------------------------------------------------
 
-const SLOT_KEYWORDS = ["docTitle", "chapter", "pageNumber", "none"];
+const SLOT_KEYWORDS: { value: string; label: string }[] = [
+  { value: "none", label: "None" },
+  { value: "pageNumber", label: "Page number" },
+  { value: "docTitle", label: "Document title" },
+  { value: "chapter", label: "Chapter" },
+];
+const SLOT_CUSTOM = "__custom__";
 
 // ---------------------------------------------------------------------------
 // Control renderers
@@ -210,34 +221,63 @@ function makeNumberArrayControl(initial: number[], spec: FieldSpec): ControlResu
   };
 }
 
-let _slotDatalistId = 0;
 function makeSlotControl(initial: string): ControlResult {
-  const listId = `qd-slot-dl-${_slotDatalistId++}`;
   const wrap = document.createElement("div");
-  wrap.style.display = "contents";
+  wrap.className = "qd-slot";
 
-  const input = document.createElement("input");
-  input.type = "text";
-  input.className = "qd-slot-input";
-  input.value = initial;
-  input.setAttribute("list", listId);
-  input.spellcheck = false;
-
-  const datalist = document.createElement("datalist");
-  datalist.id = listId;
+  const sel = document.createElement("select");
+  sel.className = "qd-select";
   for (const kw of SLOT_KEYWORDS) {
-    const opt = document.createElement("option");
-    opt.value = kw;
-    datalist.appendChild(opt);
+    const o = document.createElement("option");
+    o.value = kw.value;
+    o.textContent = kw.label;
+    sel.appendChild(o);
   }
+  const customOpt = document.createElement("option");
+  customOpt.value = SLOT_CUSTOM;
+  customOpt.textContent = "Custom text…";
+  sel.appendChild(customOpt);
 
-  wrap.appendChild(input);
-  wrap.appendChild(datalist);
+  const text = document.createElement("input");
+  text.type = "text";
+  text.className = "qd-slot-custom";
+  text.placeholder = "Header/footer text";
+  text.spellcheck = false;
+
+  const isKeyword = (v: string): boolean => SLOT_KEYWORDS.some((k) => k.value === v);
+
+  function applyValue(v: string): void {
+    if (isKeyword(v)) {
+      sel.value = v;
+      text.value = "";
+      text.style.display = "none";
+    } else {
+      sel.value = SLOT_CUSTOM;
+      text.value = v;
+      text.style.display = "";
+    }
+  }
+  applyValue(initial);
+
+  // Reveal the literal-text field only when "Custom text…" is chosen. Both the
+  // select and the text input fire bubbling "input" events, so createForm wires
+  // a single "input" listener on the wrapper (see buildField's slot branch).
+  sel.addEventListener("change", () => {
+    if (sel.value === SLOT_CUSTOM) {
+      text.style.display = "";
+      text.focus();
+    } else {
+      text.style.display = "none";
+    }
+  });
+
+  wrap.appendChild(sel);
+  wrap.appendChild(text);
 
   return {
     element: wrap,
-    getValue: () => input.value,
-    setValue: (v) => { input.value = String(v ?? ""); },
+    getValue: () => (sel.value === SLOT_CUSTOM ? text.value : sel.value),
+    setValue: (v) => applyValue(String(v ?? "none")),
   };
 }
 
@@ -307,8 +347,9 @@ function buildField(
     }
     case "slot": {
       ctrl = makeSlotControl(String(initialValue ?? ""));
-      // event fires on the <input> inside the wrap
-      eventSource = ctrl.element.querySelector("input") ?? ctrl.element;
+      // Both the select and the custom-text input fire bubbling "input" events,
+      // so listen on the wrapper to catch either.
+      eventSource = ctrl.element;
       break;
     }
   }
