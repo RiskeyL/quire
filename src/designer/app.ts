@@ -31,6 +31,18 @@ function deepClone<T>(v: T): T {
   return JSON.parse(JSON.stringify(v)) as T;
 }
 
+// A neutral stand-in logo loaded into the preview by default, so the cover
+// shows a logo's placement and size before the user supplies their own. It is
+// preview-only (never serialized) and clearly reads as a placeholder. Width is
+// governed by cover.logoWidth, like a real logo.
+const PLACEHOLDER_LOGO_SVG =
+  "<svg xmlns='http://www.w3.org/2000/svg' width='200' height='56' viewBox='0 0 200 56'>" +
+  "<rect x='1.5' y='1.5' width='197' height='53' rx='9' fill='none' stroke='#b6bac1' stroke-width='2' stroke-dasharray='6 5'/>" +
+  "<circle cx='35' cy='28' r='13' fill='#c7cbd1'/>" +
+  "<text x='62' y='35' font-family='Helvetica,Arial,sans-serif' font-size='18' font-weight='600' letter-spacing='3' fill='#9aa0a6'>LOGO</text>" +
+  "</svg>";
+const PLACEHOLDER_LOGO = "data:image/svg+xml," + encodeURIComponent(PLACEHOLDER_LOGO_SVG);
+
 // ---------------------------------------------------------------------------
 // Shell DOM builder
 // ---------------------------------------------------------------------------
@@ -378,8 +390,9 @@ function createLivePreviewController(
   // 2. Working token state (deep clone so DEFAULT_TOKENS is never mutated)
   const tokens: BrandTokens = deepClone(DEFAULT_TOKENS);
 
-  // Preview-only logo data URI — stored outside tokens so it never reaches serializeTheme.
-  let previewLogoDataUri: string | undefined;
+  // Preview-only logo data URI — stored outside tokens so it never reaches
+  // serializeTheme. Seeded with a placeholder so the cover shows a logo on load.
+  let previewLogoDataUri: string | undefined = PLACEHOLDER_LOGO;
 
   // 3. Resolve the preview element (created inside buildShell)
   const previewEl = document.getElementById("quire-preview");
@@ -592,7 +605,8 @@ function createLivePreviewController(
       btnClearLogo.className = "qd-btn";
       btnClearLogo.type = "button";
       btnClearLogo.textContent = "Clear";
-      btnClearLogo.style.display = "none";
+      // A placeholder logo is loaded by default, so Clear starts visible.
+      btnClearLogo.style.display = previewLogoDataUri ? "" : "none";
       btnClearLogo.addEventListener("click", () => {
         previewLogoDataUri = undefined;
         btnClearLogo.style.display = "none";
@@ -609,7 +623,7 @@ function createLivePreviewController(
       // Help text
       const logoHelp = document.createElement("div");
       logoHelp.className = "qd-field-help";
-      logoHelp.textContent = "Preview only. Set brand.logo to a file path in your theme to use it at conversion time.";
+      logoHelp.textContent = "A placeholder logo is loaded so you can gauge placement and size; choose your own or clear it. Preview only — set brand.logo to a file path in your theme to embed a real logo at conversion time.";
 
       coverBody.appendChild(fileInputLogo);
       coverBody.querySelector(".qd-group-fields")?.appendChild(logoRow);

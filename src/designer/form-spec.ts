@@ -41,6 +41,8 @@ export interface FieldSpec {
   step?: number;
   /** number-array: how many inputs to render (one per array element). */
   count?: number;
+  /** text/slot: placeholder shown when the field is empty. */
+  placeholder?: string;
 }
 
 export interface GroupSpec {
@@ -110,6 +112,7 @@ export const FORM_SPEC: GroupSpec[] = [
         path: "brand.productName",
         label: "product name",
         control: "text",
+        placeholder: "Documentation",
         help: "Product name shown above the title on the cover (both PDF and Word). Omit to hide.",
       },
     ],

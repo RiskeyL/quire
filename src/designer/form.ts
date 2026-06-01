@@ -113,11 +113,12 @@ function makeColorControl(initial: string): ControlResult {
   };
 }
 
-function makeTextControl(initial: string): ControlResult {
+function makeTextControl(initial: string, placeholder?: string): ControlResult {
   const input = document.createElement("input");
   input.type = "text";
   input.className = "qd-input-text";
   input.value = initial;
+  if (placeholder) input.placeholder = placeholder;
   input.spellcheck = false;
 
   return {
@@ -319,7 +320,7 @@ function buildField(
       break;
     }
     case "text": {
-      ctrl = makeTextControl(String(initialValue ?? ""));
+      ctrl = makeTextControl(String(initialValue ?? ""), spec.placeholder);
       eventSource = ctrl.element;
       break;
     }
