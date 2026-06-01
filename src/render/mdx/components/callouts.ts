@@ -48,11 +48,17 @@ const DEFAULT_TYPE: CalloutType = "note";
 function renderCallout(
   state: State,
   node: JsxComponentNode,
-  type: string
+  type: string,
+  labelOverride?: string
 ): ElementContent {
   // `type` may be an unknown string (the generic Callout passes through whatever
   // the author wrote), so the lookup can miss; fall back to the default label.
-  const label = TYPE_LABELS[type as CalloutType] ?? TYPE_LABELS[DEFAULT_TYPE];
+  // A non-empty `labelOverride` wins, used to preserve GitHub alert wording
+  // ("Important", "Caution") that differs from the callout type's default label.
+  const label =
+    labelOverride !== undefined && labelOverride !== ""
+      ? labelOverride
+      : TYPE_LABELS[type as CalloutType] ?? TYPE_LABELS[DEFAULT_TYPE];
   // The label is a bold run so it stands out in Word too: Pandoc ignores the
   // CSS `.callout-label { font-weight }`, but it carries an inline <strong>
   // through to a bold run. The PDF still bolds it via the class (double-bold is
@@ -84,7 +90,7 @@ function namedCallout(type: string): ComponentHandler {
 const genericCallout: ComponentHandler = (state, node) => {
   const requested = getStringAttr(node, "type");
   const type = requested && requested in TYPE_LABELS ? requested : DEFAULT_TYPE;
-  return renderCallout(state, node, type);
+  return renderCallout(state, node, type, getStringAttr(node, "label"));
 };
 
 /** Registration object spread into the render core's component map. */

@@ -17,6 +17,7 @@ import type {
 import type { Handler, Handlers, State } from "mdast-util-to-hast";
 import type { Plugin } from "unified";
 import { element, type ComponentHandler } from "./hast-helpers.js";
+import { remarkGithubAlerts } from "./github-alerts.js";
 import { calloutHandlers } from "./components/callouts.js";
 import { boxedHandlers } from "./components/boxed.js";
 import { frameHandlers } from "./components/frame.js";
@@ -101,6 +102,7 @@ function buildProcessor() {
     .use(remarkFrontmatter, ["yaml"])
     .use(remarkGfm)
     .use(remarkMdx)
+    .use(remarkGithubAlerts)
     .use(remarkExtractFrontmatter)
     .use(remarkRehype, {
       allowDangerousHtml: true,
