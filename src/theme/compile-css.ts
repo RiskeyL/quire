@@ -917,6 +917,23 @@ function buildStructural(tokens: BrandTokens): string {
   // top-to-bottom. Defaults to A4; Letter is the only other supported size.
   const sheetHeight =
     tokens.page.size.trim().toLowerCase() === "letter" ? "11in" : "297mm";
+  // Title-block vertical placement. The logo always anchors the top of the
+  // column; this positions the hero (kicker, title, rule, meta, footer) in the
+  // space below it. "bottom" (default) keeps the classic book-cover split.
+  const heroRule =
+    tokens.cover.titleAnchor === "top"
+      ? ".cover-hero { margin-top: 10mm; }"
+      : tokens.cover.titleAnchor === "center"
+        ? ".cover-hero { margin-top: auto; margin-bottom: auto; }"
+        : ".cover-hero { margin-top: auto; }";
+  // Horizontal alignment. "center" centers the logo, the text, and the rule.
+  const coverAlign =
+    tokens.cover.align === "center"
+      ? `
+.cover-main { align-items: center; text-align: center; }
+.cover-logo { align-self: center; }
+.cover-rule { margin-left: auto; margin-right: auto; }`
+      : "";
   return `/* Cover and TOC each occupy their own page(s). */
 .cover { break-after: page; }
 .toc { break-after: page; }
@@ -941,7 +958,7 @@ function buildStructural(tokens: BrandTokens): string {
    capped the height, distorting the logo.) align-self:flex-start is belt-and-braces
    against the stretch. */
 .cover-logo { display: block; align-self: flex-start; width: ${tokens.cover.logoWidth}; height: auto; margin: 0; }
-.cover-hero { margin-top: auto; }
+${heroRule}
 .cover-product {
   font-family: var(--font-body);
   font-size: 0.95em;
@@ -963,7 +980,7 @@ function buildStructural(tokens: BrandTokens): string {
 .cover-meta { font-family: var(--font-body); font-size: 1.05em; color: var(--color-muted); margin: 0; }
 .cover-meta .cover-version { font-family: var(--font-heading); color: var(--color-heading); }
 .cover-meta .cover-sep { margin: 0 0.5em; }
-.cover-footer { font-family: var(--font-body); font-size: 0.85em; color: var(--color-muted); margin: 3.2em 0 0; }
+.cover-footer { font-family: var(--font-body); font-size: 0.85em; color: var(--color-muted); margin: 3.2em 0 0; }${coverAlign}
 
 /* Each top-level (depth-0) chapter starts on a fresh page. Only depth-0
    structural headings carry .chapter-start (set in walkTree); nested

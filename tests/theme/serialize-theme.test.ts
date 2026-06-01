@@ -25,7 +25,7 @@ describe("serializeTheme", () => {
       pageNumbers: { restartAtBody: false },
       meta: { showDescription: false },
       tables: { layout: "auto" },
-      cover: { layout: "plain", spineWidth: "20mm", logoWidth: "30mm" },
+      cover: { layout: "plain", spineWidth: "20mm", logoWidth: "30mm", titleAnchor: "center", align: "center" },
       badges: { color: "#ff0000" },
       components: { gap: 1.5 },
       brand: { logo: "./logo.png", productName: "Dify" },

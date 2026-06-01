@@ -42,11 +42,11 @@ const CUSTOM_TOKENS: BrandTokens = {
   furniture: { fontSize: "9pt", color: "#6b7280" },
   pageNumbers: { restartAtBody: true },
   meta: { showDescription: true },
-  semantic: { success: "#ABCDEF", caution: "#FEDCBA", danger: "#BADA55" },
+  semantic: { info: "#0099FF", success: "#ABCDEF", caution: "#FEDCBA", danger: "#BADA55" },
   shape: { radius: "9px" },
   tables: { layout: "fixed" },
   brand: {},
-  cover: { layout: "spine", spineWidth: "16mm", logoWidth: "44mm" },
+  cover: { layout: "spine", spineWidth: "16mm", logoWidth: "44mm", titleAnchor: "bottom", align: "left" },
   badges: { color: "muted" },
   components: { gap: 1 },
 };

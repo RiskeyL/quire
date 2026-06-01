@@ -260,6 +260,20 @@ export const FORM_SPEC: GroupSpec[] = [
         help: '"spine" adds a brand-color bar down the left edge (PDF only)',
       },
       {
+        path: "cover.titleAnchor",
+        label: "title anchor",
+        control: "select",
+        options: ["top", "center", "bottom"],
+        help: "Vertical position of the title block; the logo stays at the top (PDF only)",
+      },
+      {
+        path: "cover.align",
+        label: "align",
+        control: "select",
+        options: ["left", "center"],
+        help: "Horizontal alignment of the cover content (PDF only)",
+      },
+      {
         path: "cover.spineWidth",
         label: "spine width",
         control: "text",

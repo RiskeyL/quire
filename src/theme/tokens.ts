@@ -42,7 +42,13 @@ export interface BrandTokens {
    * (resolved and embedded at convert time); `productName` is plain text.
    */
   brand: { logo?: string; productName?: string };
-  cover: { layout: "spine" | "plain"; spineWidth: string; logoWidth: string };
+  cover: {
+    layout: "spine" | "plain";
+    spineWidth: string;
+    logoWidth: string;
+    titleAnchor: "top" | "center" | "bottom";
+    align: "left" | "center";
+  };
   badges: { color: string };
   components: { gap: number };
 }
@@ -93,7 +99,7 @@ export const DEFAULT_TOKENS: BrandTokens = {
   // No logo or product name by default; the cover then shows just the title
   // (plus any per-run version/date).
   brand: {},
-  cover: { layout: "spine", spineWidth: "16mm", logoWidth: "44mm" },
+  cover: { layout: "spine", spineWidth: "16mm", logoWidth: "44mm", titleAnchor: "bottom", align: "left" },
   badges: { color: "muted" },
   components: { gap: 1 },
 };
@@ -179,7 +185,13 @@ const partialBrandSchema = z
   .partial();
 
 const partialCoverSchema = z
-  .object({ layout: z.enum(["spine", "plain"]), spineWidth: z.string(), logoWidth: z.string() })
+  .object({
+    layout: z.enum(["spine", "plain"]),
+    spineWidth: z.string(),
+    logoWidth: z.string(),
+    titleAnchor: z.enum(["top", "center", "bottom"]),
+    align: z.enum(["left", "center"]),
+  })
   .strict()
   .partial();
 

@@ -495,20 +495,67 @@ function createLivePreviewController(
     loadThemeFromText(text);
   });
 
-  // ---- Preview-only logo file-picker ----
-  // Find the Brand group element (last group appended by createForm that has title "BRAND").
-  const brandGroup = ((): HTMLElement | null => {
+  // ---- Cover group extras: layout presets + preview-only logo picker ----
+  // Both attach to the COVER group (which now also holds brand.productName).
+  const coverGroup = ((): HTMLElement | null => {
     const groups = panel.querySelectorAll(".qd-group");
     for (let i = groups.length - 1; i >= 0; i--) {
       const titleEl = groups[i].querySelector(".qd-group-title");
-      if (titleEl?.textContent === "BRAND") return groups[i] as HTMLElement;
+      if (titleEl?.textContent === "COVER") return groups[i] as HTMLElement;
     }
     return null;
   })();
 
-  if (brandGroup) {
-    const brandBody = brandGroup.querySelector(".qd-group-body") as HTMLElement | null;
-    if (brandBody) {
+  if (coverGroup) {
+    const coverBody = coverGroup.querySelector(".qd-group-body") as HTMLElement | null;
+    const coverFields = coverBody?.querySelector(".qd-group-fields") as HTMLElement | null;
+
+    // Quick-apply arrangements. Each preset just sets the two position tokens,
+    // which the form then reflects; nothing preset-specific is persisted.
+    const COVER_PRESETS = [
+      { label: "Classic", titleAnchor: "bottom" as const, align: "left" as const },
+      { label: "Centered", titleAnchor: "center" as const, align: "center" as const },
+      { label: "Top", titleAnchor: "top" as const, align: "left" as const },
+    ];
+
+    function applyCoverPreset(p: (typeof COVER_PRESETS)[number]): void {
+      tokens.cover.titleAnchor = p.titleAnchor;
+      tokens.cover.align = p.align;
+      formHandle.setValues(tokens);
+      refreshYaml();
+      livePreview.onTokenChange("cover.titleAnchor");
+    }
+
+    if (coverFields) {
+      const presetRow = document.createElement("div");
+      presetRow.className = "qd-field";
+      const presetLabel = document.createElement("span");
+      presetLabel.className = "qd-field-label";
+      presetLabel.textContent = "preset";
+      const presetControl = document.createElement("div");
+      presetControl.className = "qd-field-control qd-preset-row";
+      for (const p of COVER_PRESETS) {
+        const b = document.createElement("button");
+        b.className = "qd-btn qd-preset-btn";
+        b.type = "button";
+        b.textContent = p.label;
+        b.addEventListener("click", () => applyCoverPreset(p));
+        presetControl.appendChild(b);
+      }
+      presetRow.appendChild(presetLabel);
+      presetRow.appendChild(presetControl);
+
+      const presetHelp = document.createElement("div");
+      presetHelp.className = "qd-field-help";
+      presetHelp.textContent =
+        "Quick-apply a cover arrangement. Sets title anchor and alignment, which you can fine-tune below.";
+
+      const first = coverFields.firstChild;
+      coverFields.insertBefore(presetRow, first);
+      coverFields.insertBefore(presetHelp, first);
+    }
+
+    if (coverBody) {
       // Hidden file input for logo
       const fileInputLogo = document.createElement("input");
       fileInputLogo.type = "file";
@@ -556,9 +603,9 @@ function createLivePreviewController(
       logoHelp.className = "qd-field-help";
       logoHelp.textContent = "Preview only. Set brand.logo to a file path in your theme to use it at conversion time.";
 
-      brandBody.appendChild(fileInputLogo);
-      brandBody.querySelector(".qd-group-fields")?.appendChild(logoRow);
-      brandBody.querySelector(".qd-group-fields")?.appendChild(logoHelp);
+      coverBody.appendChild(fileInputLogo);
+      coverBody.querySelector(".qd-group-fields")?.appendChild(logoRow);
+      coverBody.querySelector(".qd-group-fields")?.appendChild(logoHelp);
 
       fileInputLogo.addEventListener("change", () => {
         const file = fileInputLogo.files?.[0];

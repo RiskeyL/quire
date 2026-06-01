@@ -142,6 +142,16 @@ html, body {
   color: #a3da6c;
 }
 
+/* ---- Cover preset buttons (quick-apply arrangements) ---- */
+.qd-preset-row {
+  gap: 5px;
+  flex-wrap: wrap;
+}
+
+.qd-preset-btn {
+  padding: 4px 9px;
+}
+
 /* ---- Main layout ---- */
 #qd-main {
   display: flex;

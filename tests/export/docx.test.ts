@@ -49,7 +49,7 @@ describe("htmlToDocx", () => {
         surface: "#f2f2f2",
         border: "#d9d9d9",
       },
-      semantic: { success: "#15803d", caution: "#b45309", danger: "#b91c1c" },
+      semantic: { info: "#2563eb", success: "#15803d", caution: "#b45309", danger: "#b91c1c" },
       shape: { radius: "4px" },
       typography: {
         bodyFont: "Arial, sans-serif",
@@ -69,7 +69,7 @@ describe("htmlToDocx", () => {
       meta: { showDescription: true },
       tables: { layout: "fixed" },
       brand: {},
-      cover: { layout: "spine", spineWidth: "16mm", logoWidth: "44mm" },
+      cover: { layout: "spine", spineWidth: "16mm", logoWidth: "44mm", titleAnchor: "bottom", align: "left" },
       badges: { color: "muted" },
       components: { gap: 1 },
     };

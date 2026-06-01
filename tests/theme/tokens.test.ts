@@ -151,7 +151,7 @@ describe("parseTheme", () => {
   });
 
   it("T3 cover defaults", () => {
-    expect(parseTheme("").cover).toEqual({ layout: "spine", spineWidth: "16mm", logoWidth: "44mm" });
+    expect(parseTheme("").cover).toEqual({ layout: "spine", spineWidth: "16mm", logoWidth: "44mm", titleAnchor: "bottom", align: "left" });
   });
 
   it("cover.layout accepts plain and rejects others", () => {

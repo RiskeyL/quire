@@ -148,6 +148,8 @@ export function serializeTheme(tokens: BrandTokens, notes?: string): string {
   lines.push(`  layout: ${str(tokens.cover.layout)}       # Cover layout: "spine" or "plain"`);
   lines.push(`  spineWidth: ${str(tokens.cover.spineWidth)}  # Width of the cover spine bar (PDF only)`);
   lines.push(`  logoWidth: ${str(tokens.cover.logoWidth)}   # Cover logo width`);
+  lines.push(`  titleAnchor: ${str(tokens.cover.titleAnchor)}  # Title block position: "top", "center", or "bottom" (PDF only)`);
+  lines.push(`  align: ${str(tokens.cover.align)}       # Cover alignment: "left" or "center" (PDF only)`);
   lines.push("");
 
   // -- badges ----------------------------------------------------------------

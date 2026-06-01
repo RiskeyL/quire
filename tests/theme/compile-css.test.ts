@@ -1163,10 +1163,44 @@ describe("compileCss", () => {
       const css = compileCss(DEFAULT_TOKENS);
       expect(css).toContain(".cover-spine { flex: 0 0 16mm;");
       expect(css).toMatch(/\.cover-logo \{[^}]*width: 44mm;/);
-      const custom: BrandTokens = { ...DEFAULT_TOKENS, cover: { layout: "spine", spineWidth: "20mm", logoWidth: "30mm" } };
+      const custom: BrandTokens = { ...DEFAULT_TOKENS, cover: { layout: "spine", spineWidth: "20mm", logoWidth: "30mm", titleAnchor: "bottom", align: "left" } };
       const c2 = compileCss(custom);
       expect(c2).toContain(".cover-spine { flex: 0 0 20mm;");
       expect(c2).toMatch(/\.cover-logo \{[^}]*width: 30mm;/);
+    });
+  });
+
+  describe("cover.titleAnchor and cover.align", () => {
+    function withCover(partial: Partial<BrandTokens["cover"]>): string {
+      return compileCss({ ...DEFAULT_TOKENS, cover: { ...DEFAULT_TOKENS.cover, ...partial } });
+    }
+
+    it("bottom anchor (default) pushes the hero down with margin-top:auto and no centering", () => {
+      const css = compileCss(DEFAULT_TOKENS);
+      expect(css).toContain(".cover-hero { margin-top: auto; }");
+      expect(css).not.toContain("margin-top: auto; margin-bottom: auto;");
+      expect(css).not.toMatch(/\.cover-main \{[^}]*align-items: center/);
+    });
+
+    it("center anchor centers the hero vertically in the space below the logo", () => {
+      expect(withCover({ titleAnchor: "center" })).toContain(".cover-hero { margin-top: auto; margin-bottom: auto; }");
+    });
+
+    it("top anchor seats the hero just below the logo", () => {
+      expect(withCover({ titleAnchor: "top" })).toContain(".cover-hero { margin-top: 10mm; }");
+    });
+
+    it("center align centers the column, logo, and rule", () => {
+      const css = withCover({ align: "center" });
+      expect(css).toMatch(/\.cover-main \{[^}]*align-items: center;[^}]*text-align: center;/);
+      expect(css).toContain(".cover-logo { align-self: center; }");
+      expect(css).toContain(".cover-rule { margin-left: auto; margin-right: auto; }");
+    });
+
+    it("left align (default) adds no centering overrides", () => {
+      const css = compileCss(DEFAULT_TOKENS);
+      expect(css).not.toContain(".cover-logo { align-self: center; }");
+      expect(css).not.toContain(".cover-rule { margin-left: auto; margin-right: auto; }");
     });
   });
 
