@@ -262,6 +262,12 @@ function createLivePreviewController(
       const css = compileCss(tokens);
       const content = buildContent(tokens, getLogoDataUri());
 
+      // Preserve the reader's place across the rebuild: remember the scroll
+      // offset and restore it after repagination, so an edit does not snap the
+      // preview back to the cover. Cover and TOC are fixed-height pages, so for
+      // body-affecting edits the body stays at the same pixel position.
+      const paneScroll = previewPane.scrollTop;
+
       // Clear previous pagedjs output and its injected style nodes.
       previewEl.innerHTML = "";
       removePagedjsStyles();
@@ -284,6 +290,8 @@ function createLivePreviewController(
       const pages = previewEl.querySelectorAll(".pagedjs_page");
       if (pages.length > 0) {
         pageCount.textContent = `${pages.length} page${pages.length === 1 ? "" : "s"}`;
+        // Restore the prior scroll offset (assigning past the max auto-clamps).
+        previewPane.scrollTop = paneScroll;
       }
 
       // Brief highlight pulse on the preview pane to signal the repagination.
@@ -624,6 +632,28 @@ function createLivePreviewController(
       });
     }
   }
+
+  // Scroll the preview to the section a field controls when it gains focus, so
+  // editing cover, TOC, or running-furniture settings shows the relevant page.
+  // Body-styling groups (colors, type, etc.) apply throughout, so they do not
+  // scroll: that would fight the scroll-preservation above.
+  const GROUP_SECTION: Record<string, string> = {
+    COVER: ".cover",
+    TOC: ".toc",
+    HEADER: ".doc-body",
+    FOOTER: ".doc-body",
+    FURNITURE: ".doc-body",
+  };
+  panel.addEventListener("focusin", (e) => {
+    const groupEl = (e.target as HTMLElement).closest?.(".qd-group");
+    if (!groupEl) return;
+    const title = groupEl.querySelector(".qd-group-title")?.textContent ?? "";
+    const selector = GROUP_SECTION[title];
+    if (!selector) return;
+    const sectionEl = previewEl.querySelector(selector);
+    const page = sectionEl?.closest(".pagedjs_page") as HTMLElement | null;
+    if (page) previewPane.scrollTop = Math.max(0, page.offsetTop - 32);
+  });
 
   // 7. Copy YAML
   btnCopy.addEventListener("click", () => {
