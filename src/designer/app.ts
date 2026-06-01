@@ -574,6 +574,13 @@ function createLivePreviewController(
       const first = coverFields.firstChild;
       coverFields.insertBefore(presetRow, first);
       coverFields.insertBefore(presetHelp, first);
+
+      // Clarify that the cover's run-level metadata is not a theme setting.
+      const sampleNote = document.createElement("div");
+      sampleNote.className = "qd-field-help";
+      sampleNote.textContent =
+        "The footer URL, version, and date shown on the cover are sample values, set per document at conversion time (CLI or manifest), not in the theme.";
+      coverFields.appendChild(sampleNote);
     }
 
     if (coverBody) {
@@ -643,6 +650,77 @@ function createLivePreviewController(
         };
         reader.onerror = () => showStatus("Could not read image file", true);
         reader.readAsDataURL(file);
+      });
+    }
+  }
+
+  // Optional installed-font detection (Chromium only, permission-gated): list
+  // the machine's fonts as autocomplete suggestions on the font-stack fields.
+  // The chosen family must also be installed wherever the PDF/Word is generated,
+  // so this is a convenience, not a guarantee. Absent on other browsers, in which
+  // case no button is shown.
+  const queryLocalFonts = (window as unknown as {
+    queryLocalFonts?: () => Promise<Array<{ family: string }>>;
+  }).queryLocalFonts;
+  const typoGroup = ((): HTMLElement | null => {
+    for (const g of panel.querySelectorAll(".qd-group")) {
+      if (g.querySelector(".qd-group-title")?.textContent === "TYPOGRAPHY") return g as HTMLElement;
+    }
+    return null;
+  })();
+  if (typoGroup && typeof queryLocalFonts === "function") {
+    const fields = typoGroup.querySelector(".qd-group-fields");
+    const fontInputs = [...typoGroup.querySelectorAll(".qd-field")]
+      .filter((f) => {
+        const lbl = f.querySelector(".qd-field-label")?.textContent ?? "";
+        return lbl === "body font" || lbl === "heading font" || lbl === "mono font";
+      })
+      .map((f) => f.querySelector("input.qd-input-text"))
+      .filter((el): el is HTMLInputElement => el instanceof HTMLInputElement);
+
+    if (fields && fontInputs.length > 0) {
+      const datalist = document.createElement("datalist");
+      datalist.id = "qd-font-list";
+
+      const row = document.createElement("div");
+      row.className = "qd-field";
+      const lbl = document.createElement("span");
+      lbl.className = "qd-field-label";
+      lbl.textContent = "fonts";
+      const ctrlWrap = document.createElement("div");
+      ctrlWrap.className = "qd-field-control";
+      const btn = document.createElement("button");
+      btn.className = "qd-btn";
+      btn.type = "button";
+      btn.textContent = "Detect installed";
+      ctrlWrap.appendChild(btn);
+      row.appendChild(lbl);
+      row.appendChild(ctrlWrap);
+
+      const help = document.createElement("div");
+      help.className = "qd-field-help";
+      help.textContent =
+        "Lists fonts installed on this machine as suggestions for the fields above. The chosen font must also be installed where the PDF or Word file is generated.";
+
+      fields.appendChild(datalist);
+      fields.appendChild(row);
+      fields.appendChild(help);
+
+      btn.addEventListener("click", () => {
+        queryLocalFonts()
+          .then((fonts) => {
+            const families = [...new Set(fonts.map((f) => f.family))].sort((a, b) => a.localeCompare(b));
+            datalist.textContent = "";
+            for (const fam of families) {
+              const o = document.createElement("option");
+              o.value = fam;
+              datalist.appendChild(o);
+            }
+            for (const inp of fontInputs) inp.setAttribute("list", "qd-font-list");
+            btn.textContent = `${families.length} fonts`;
+            showStatus(`Detected ${families.length} installed fonts`, false);
+          })
+          .catch(() => showStatus("Could not access installed fonts", true));
       });
     }
   }
