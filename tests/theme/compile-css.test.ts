@@ -173,9 +173,9 @@ describe("compileCss", () => {
       expect(tocBlock).toMatch(/@bottom-center\s*\{[^}]*content:\s*none/);
     });
 
-    it("restarts page numbering at the body via .doc-body { counter-reset: page 1 }", () => {
+    it("restarts page numbering at the body via .doc-body counter-reset including page 1", () => {
       expect(compileCss(DEFAULT_TOKENS)).toMatch(
-        /\.doc-body\s*\{[^}]*counter-reset:\s*page\s+1/
+        /\.doc-body\s*\{[^}]*counter-reset:[^}]*\bpage\s+1/
       );
     });
   });
@@ -233,6 +233,12 @@ describe("compileCss", () => {
       expect(compileCss(DEFAULT_TOKENS)).toMatch(
         /\.page-start\b[^{]*\{[^}]*break-before:\s*page/
       );
+    });
+
+    it("emits the chapter-landing kicker via a CSS counter (kept out of the running header)", () => {
+      const css = compileCss(DEFAULT_TOKENS);
+      expect(css).toMatch(/\.chapter-landing-title\b[^{]*\{[^}]*counter-increment:\s*chapter/);
+      expect(css).toContain("counter(chapter, decimal-leading-zero)");
     });
 
     it("emits target-counter rule exactly", () => {
@@ -474,8 +480,9 @@ describe("compileCss", () => {
   });
 
   describe("content: images", () => {
-    it("img has max-width: 100%", () => {
-      expect(compileCss(DEFAULT_TOKENS)).toMatch(/\bimg\b[^{]*\{[^}]*max-width:\s*100%/);
+    it("img max-width is driven by the image token (defaults to the full column)", () => {
+      expect(compileCss(DEFAULT_TOKENS)).toMatch(/\bimg\b[^{]*\{[^}]*max-width:\s*var\(--image-max-width\)/);
+      expect(compileCss(DEFAULT_TOKENS)).toContain(`--image-max-width: ${DEFAULT_TOKENS.image.maxWidth};`);
     });
 
     it("img has height: auto", () => {
@@ -1238,10 +1245,12 @@ describe("compileCss", () => {
   });
 
   describe("T2.7 tokens: pageNumbers.restartAtBody", () => {
-    it("pageNumbers.restartAtBody gates the body counter reset", () => {
-      expect(compileCss(DEFAULT_TOKENS)).toContain(".doc-body { counter-reset: page 1; }");
+    it("pageNumbers.restartAtBody gates the body page-counter reset", () => {
+      // The chapter counter always resets; the page counter resets only when restartAtBody.
+      expect(compileCss(DEFAULT_TOKENS)).toContain(".doc-body { counter-reset: chapter 0 page 1; }");
       const continuous: BrandTokens = { ...DEFAULT_TOKENS, pageNumbers: { restartAtBody: false } };
-      expect(compileCss(continuous)).not.toContain("counter-reset: page");
+      expect(compileCss(continuous)).toContain(".doc-body { counter-reset: chapter 0; }");
+      expect(compileCss(continuous)).not.toContain("counter-reset: chapter 0 page");
     });
   });
 

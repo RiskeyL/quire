@@ -150,7 +150,7 @@ A manifest is a YAML list that defines what goes into the document and in what o
     - file: "en/guides/publishing.mdx"
 ```
 
-Page paths are resolved relative to the manifest's own directory. Each top-level section becomes a chapter: it gets a landing page listing its direct contents, and the chapter plus each of its direct children start on a new page (deeper nesting flows continuously, so closely related sub-pages stay together). Sections can nest to any depth. The PDF table of contents is a structural index of every section and page (page titles only, never a page's in-page headings), following the structure to full depth.
+Page paths are resolved relative to the manifest's own directory. Each top-level section becomes a chapter: it gets a landing page (a blue "Chapter NN" kicker, the title, and a linked index of the chapter's contents two levels deep), and the chapter plus each of its direct children start on a new page (deeper nesting flows continuously, so closely related sub-pages stay together). Sections can nest to any depth. The PDF table of contents is a structural index of every section and page (page titles only, never a page's in-page headings), following the structure to full depth.
 
 To assemble an API reference from several OpenAPI specs, list them as `openapi` entries, each its own chapter:
 
@@ -215,6 +215,7 @@ density: "normal"       # vertical rhythm preset: "compact", "normal", or "relax
 
 image:
   maxHeight: "80vh"     # cap image/diagram height so a tall image fits one page instead of overflowing (e.g. 80vh or 220mm)
+  maxWidth: "100%"      # cap how wide a large image renders in the column; lower (e.g. "85%") to shrink wide screenshots
 
 header:                 # running-header slots (PDF and Word)
   left: "docTitle"      # keywords: docTitle, chapter, pageNumber, none; or any literal text

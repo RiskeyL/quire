@@ -37,11 +37,13 @@ export interface BrandTokens {
   meta: { showDescription: boolean };
   tables: { layout: "fixed" | "auto" };
   /**
-   * Maximum rendered height for images and diagrams, as any CSS length (e.g.
-   * "80vh"). Caps a tall image so it fits on one page instead of overflowing the
-   * page box and being clipped (Paged.js cannot split an image across pages).
+   * Sizing caps for images and diagrams. `maxHeight` (any CSS length, e.g. "80vh")
+   * keeps a tall image on one page instead of overflowing the page box and being
+   * clipped (Paged.js cannot split an image). `maxWidth` (e.g. "100%" or "85%")
+   * caps how wide a large image may render in the text column; set below 100% to
+   * stop screenshots from filling the full column width.
    */
-  image: { maxHeight: string };
+  image: { maxHeight: string; maxWidth: string };
   /**
    * Brand identity shown on the cover. Both fields are optional: a brand may
    * have no logo, and the product name is omitted when absent. `logo` is a path
@@ -105,8 +107,9 @@ export const DEFAULT_TOKENS: BrandTokens = {
   // page and clip the last column. "auto" reverts to content-driven sizing.
   tables: { layout: "fixed" },
   // Cap image height to 80% of the page so a tall image scales down to fit one
-  // page rather than overflowing and getting clipped.
-  image: { maxHeight: "80vh" },
+  // page rather than overflowing. maxWidth defaults to the full column; a theme
+  // can lower it (e.g. "85%") so large screenshots don't fill the whole width.
+  image: { maxHeight: "80vh", maxWidth: "100%" },
   // No logo or product name by default; the cover then shows just the title
   // (plus any per-run version/date).
   brand: {},
@@ -187,7 +190,7 @@ const partialTablesSchema = z
   .strict()
   .partial();
 
-const partialImageSchema = z.object({ maxHeight: z.string() }).strict().partial();
+const partialImageSchema = z.object({ maxHeight: z.string(), maxWidth: z.string() }).strict().partial();
 
 const partialBrandSchema = z
   .object({

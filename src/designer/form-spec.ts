@@ -270,6 +270,12 @@ export const FORM_SPEC: GroupSpec[] = [
         help: "Cap image/diagram height so a tall image fits one page, e.g. 80vh or 220mm",
       },
       {
+        path: "image.maxWidth",
+        label: "image max width",
+        control: "text",
+        help: "Cap how wide a large image renders in the column, e.g. 100% or 85%",
+      },
+      {
         path: "meta.showDescription",
         label: "show description",
         control: "toggle",

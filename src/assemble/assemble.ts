@@ -410,31 +410,43 @@ function tocEntry(id: string, text: string, tier: number): string {
 }
 
 /**
- * The chapter landing list: an index of a top-level chapter's DIRECT children
- * (its sub-groups and top-level pages), each linking to that child's heading. The
- * children themselves break to their own pages (depth-1 `.page-start`), so this
- * list is all that shares the landing page with the chapter title.
+ * The chapter landing list: an index of a top-level chapter's contents, two
+ * levels deep — its direct children (sub-groups and pages), and one level below
+ * that (a sub-group's own children). Deeper nesting is not expanded here. Each
+ * entry links to its section/page heading. The children break to their own pages
+ * (depth-1 `.page-start`), so this list shares the landing page only with the
+ * chapter title.
  */
 function renderChapterContents(
   children: TreeNode[],
   anchors: Map<string, string>,
-  sectionIds: Map<TreeNode, string>
+  sectionIds: Map<TreeNode, string>,
+  levels = 2
 ): string {
-  let items = "";
-  for (const child of children) {
-    if (child.type === "section") {
-      const id = sectionIds.get(child);
-      if (id !== undefined) items += chapterContentsEntry(id, child.title);
-    } else {
-      const id = anchors.get(child.file);
-      if (id !== undefined) items += chapterContentsEntry(id, pageTitle(child));
+  const render = (nodes: TreeNode[], level: number): string => {
+    if (level > levels) return "";
+    let items = "";
+    for (const node of nodes) {
+      if (node.type === "section") {
+        const id = sectionIds.get(node);
+        if (id === undefined) continue;
+        // The nested sub-list goes inside this entry's <li>, closed below.
+        items += chapterContentsEntry(id, node.title, level) + render(node.children, level + 1) + "</li>";
+      } else {
+        const id = anchors.get(node.file);
+        if (id === undefined) continue;
+        items += chapterContentsEntry(id, pageTitle(node), level) + "</li>";
+      }
     }
-  }
-  return items === "" ? "" : `<nav class="chapter-contents"><ul>${items}</ul></nav>`;
+    return items === "" ? "" : `<ul>${items}</ul>`;
+  };
+  const list = render(children, 1);
+  return list === "" ? "" : `<nav class="chapter-contents">${list}</nav>`;
 }
 
-function chapterContentsEntry(id: string, text: string): string {
-  return `<li><a href="#${id}"><span class="toc-text">${escapeHtml(text)}</span><span class="toc-leader" aria-hidden="true"></span></a></li>`;
+/** An open chapter-contents `<li>` with the link and dotted leader (caller closes `</li>`). */
+function chapterContentsEntry(id: string, text: string, level: number): string {
+  return `<li class="cc-level-${level}"><a href="#${id}"><span class="toc-text">${escapeHtml(text)}</span><span class="toc-leader" aria-hidden="true"></span></a>`;
 }
 
 /**
@@ -593,10 +605,14 @@ function walkTree(
       if (sectionId === undefined) {
         throw new Error(`No id assigned for section "${node.title}".`);
       }
-      out += `<h${L} class="${structuralClass(depth)}" id="${sectionId}">${escapeHtml(node.title)}</h${L}>`;
-      // A top-level chapter gets a landing page: its title plus a linked index of
-      // its direct contents. Those children break to their own pages (depth-1
-      // page-start), so the landing page holds only the title and this list.
+      // A top-level chapter (depth 0) gets a landing page: the title carries
+      // chapter-landing-title (the blue "Chapter NN" kicker + accent rule),
+      // followed by a linked index of its contents. Those children break to their
+      // own pages (depth-1 page-start), so the landing page holds only the title
+      // and this list.
+      const headingClass =
+        depth === 0 ? `${structuralClass(depth)} chapter-landing-title` : structuralClass(depth);
+      out += `<h${L} class="${headingClass}" id="${sectionId}">${escapeHtml(node.title)}</h${L}>`;
       if (depth === 0) out += renderChapterContents(node.children, anchors, sectionIds);
       out += walkTree(node.children, rendered, anchors, targets, depth + 1, sectionIds, showDescription, baseUrl);
     } else {

@@ -70,6 +70,7 @@ function buildRoot(tokens: BrandTokens): string {
   --badge-color: ${badges.color === "accent" ? "var(--color-accent)" : badges.color === "muted" ? "var(--color-muted)" : badges.color};
   --component-gap: ${components.gap};
   --image-max-height: ${image.maxHeight};
+  --image-max-width: ${image.maxWidth};
 }`;
 }
 
@@ -166,12 +167,13 @@ ${marginBoxes}
   @bottom-left { content: none; } @bottom-center { content: none; } @bottom-right { content: none; }
 }
 
-/* The body page counter: when restartAtBody is true (default), the counter is
-   reset to 1 so the first body page shows "1" and TOC target-counter entries
-   resolve to body-relative numbers. When false, the reset is omitted and
-   numbering runs continuously through the front matter instead (the first body
-   page shows its absolute physical number). */
-${pageNumbers.restartAtBody ? ".doc-body { counter-reset: page 1; }" : ""}`;
+/* The body resets the chapter counter (used by chapter-landing kickers). When
+   restartAtBody is true (default) it also resets the page counter to 1 so the
+   first body page shows "1" and TOC target-counter entries resolve to
+   body-relative numbers. When false, the page reset is omitted and numbering
+   runs continuously through the front matter (first body page shows its absolute
+   physical number). */
+.doc-body { counter-reset: chapter 0${pageNumbers.restartAtBody ? " page 1" : ""}; }`;
 }
 
 function buildElements(linkUnderline: boolean): string {
@@ -294,8 +296,9 @@ hr {
 
 /* ---- Images ---- */
 /* max-height caps a tall image so it scales down to fit one page instead of
-   overflowing the page box and being clipped (Paged.js cannot split an image). */
-img { max-width: 100%; max-height: var(--image-max-height); height: auto; display: block; }`;
+   overflowing the page box and being clipped (Paged.js cannot split an image);
+   max-width caps how wide a large image renders in the column. */
+img { max-width: var(--image-max-width); max-height: var(--image-max-height); height: auto; display: block; }`;
 }
 
 /**
@@ -1027,14 +1030,49 @@ ${heroRule}
 /* Nested tiers indent so the heading hierarchy reads on paper. */
 .toc-entry ul { padding-left: 1.5em; }
 
-/* Chapter landing page: a linked index of the chapter's direct contents. Reuses
-   the .toc-text / .toc-leader spans for the dotted leader; the page number after
-   each entry is the target page of the linked section/page heading. */
-.chapter-contents { margin: 1.6em 0; }
+/* Chapter landing page. The chapter title carries a blue "CHAPTER NN" kicker via
+   a CSS counter — generated content is not part of the heading's string-set, so
+   it never reaches the running header (which keeps showing just the chapter
+   name). A brand-accent rule sits below the title, then a two-level linked index
+   of the chapter's contents (its direct children, and their children one level
+   deeper). The .toc-text / .toc-leader spans give the dotted leader; the trailing
+   number is the target page of the linked section/page heading. */
+.chapter-landing-title { counter-increment: chapter; }
+.chapter-landing-title::before {
+  content: "Chapter " counter(chapter, decimal-leading-zero);
+  display: block;
+  font-family: var(--font-body);
+  font-size: 0.4em;
+  font-weight: normal;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--color-accent);
+  margin-bottom: 0.5em;
+}
+.chapter-contents {
+  margin: 1.8em 0;
+  border-top: 2px solid var(--color-accent);
+  padding-top: 1.3em;
+}
 .chapter-contents ul { list-style: none; padding: 0; margin: 0; }
-.chapter-contents li { margin: 0.5em 0; font-size: 1.08em; }
 .chapter-contents a { display: flex; align-items: baseline; text-decoration: none; color: inherit; }
-.chapter-contents a::after { content: target-counter(attr(href), page); flex: 0 0 auto; }`;
+.chapter-contents a::after { content: target-counter(attr(href), page); flex: 0 0 auto; }
+/* Direct children: the chapter's main entries. */
+.chapter-contents > ul > li { margin: 0.7em 0; }
+.cc-level-1 > a { font-size: 1.1em; }
+/* Sub-entries one level deeper: indented, lighter, with a small square bullet. */
+.chapter-contents ul ul { padding-left: 1.4em; margin: 0.35em 0 0.7em; }
+.cc-level-2 { margin: 0.3em 0; }
+.cc-level-2 > a { font-size: 0.92em; color: var(--color-muted); }
+.cc-level-2 .toc-text::before {
+  content: "";
+  display: inline-block;
+  width: 4px;
+  height: 4px;
+  background: var(--color-muted);
+  margin-right: 0.55em;
+  vertical-align: middle;
+}`;
 }
 
 /**

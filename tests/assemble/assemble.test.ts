@@ -34,13 +34,13 @@ describe("assembleBody", () => {
 
   it("emits the section heading at the section's depth level", () => {
     // Top-level (depth-0) section also carries chapter-start.
-    expect(assembleBody(tree, rendered)).toContain('<h1 class="chapter-heading chapter-start" id="quire-section-1">Guides</h1>');
+    expect(assembleBody(tree, rendered)).toContain('<h1 class="chapter-heading chapter-start chapter-landing-title" id="quire-section-1">Guides</h1>');
   });
 
   it("gives the section heading a quire-section-N id for PDF outline navigation", () => {
     const html = assembleBody(tree, rendered);
     expect(html).toMatch(/id="quire-section-\d+"/);
-    expect(html).toContain('<h1 class="chapter-heading chapter-start" id="quire-section-1">Guides</h1>');
+    expect(html).toContain('<h1 class="chapter-heading chapter-start chapter-landing-title" id="quire-section-1">Guides</h1>');
   });
   it("wraps each page in a section and puts the anchor id on the page heading", () => {
     const html = assembleBody(tree, rendered);
@@ -56,7 +56,7 @@ describe("assembleBody", () => {
     const html = assembleBody(tree, rendered);
     // The top-level section heading carries BOTH chapter-heading (running header
     // named string) and chapter-start (page break before).
-    expect(html).toContain('<h1 class="chapter-heading chapter-start" id="quire-section-1">Guides</h1>');
+    expect(html).toContain('<h1 class="chapter-heading chapter-start chapter-landing-title" id="quire-section-1">Guides</h1>');
     // The nested page-title heading (depth 1) must NOT carry chapter-start; it
     // carries page-start (break only, so the running header keeps the chapter).
     expect(html).not.toContain('chapter-start" id="guides-intro-md"');
@@ -92,7 +92,7 @@ describe("assembleBody chapter-start on flat page lists", () => {
     const html = assembleBody(tree, rendered);
     // The section (depth 0) is the chapter (chapter-start); the page (depth 1)
     // gets page-start (break only), not chapter-start.
-    expect(html).toContain('<h1 class="chapter-heading chapter-start" id="quire-section-1">Sec</h1>');
+    expect(html).toContain('<h1 class="chapter-heading chapter-start chapter-landing-title" id="quire-section-1">Sec</h1>');
     expect(html).toContain('<h2 class="chapter-heading page-start" id="a-md">A</h2>');
     expect(html).not.toContain('chapter-start" id="a-md"');
   });
@@ -736,29 +736,39 @@ describe("assembleDocument structural TOC", () => {
 });
 
 describe("assembleBody chapter landing page", () => {
-  it("emits a chapter-contents index of a top-level chapter's direct children only", () => {
+  it("indexes a chapter's contents two levels deep, but not a third", () => {
     const tree: Tree = [
       {
         type: "section",
         title: "Build",
         children: [
-          { type: "section", title: "Nodes", children: [{ type: "page", file: "llm.md", title: "LLM" }] },
-          { type: "page", file: "extra.md", title: "Extra" },
+          {
+            type: "section",
+            title: "Nodes",
+            children: [
+              { type: "page", file: "user-input.md", title: "User Input" },
+              { type: "section", title: "Trigger", children: [{ type: "page", file: "overview.md", title: "Trigger Overview" }] },
+            ],
+          },
         ],
       },
     ];
-    const rendered = new Map([["llm.md", "<p>a</p>"], ["extra.md", "<p>b</p>"]]);
+    const rendered = new Map([["user-input.md", "<p>a</p>"], ["overview.md", "<p>b</p>"]]);
     const html = assembleBody(tree, rendered);
     expect(html).toContain('<nav class="chapter-contents">');
     const nav = html.match(/<nav class="chapter-contents">[\s\S]*?<\/nav>/)?.[0] ?? "";
-    // Lists the DIRECT children: the Nodes sub-group and the Extra page.
-    expect(nav).toMatch(/href="#quire-section-2"[\s\S]*Nodes/);
-    expect(nav).toMatch(/href="#extra-md"[\s\S]*Extra/);
-    // It does NOT recurse into Nodes' own children.
-    expect(nav).not.toContain("LLM");
+    // Level 1 (Nodes) and level 2 (Nodes' children: User Input, Trigger) appear...
+    expect(nav).toContain('class="cc-level-1"');
+    expect(nav).toContain('class="cc-level-2"');
+    expect(nav).toContain("Nodes");
+    expect(nav).toContain("User Input");
+    expect(nav).toContain("Trigger");
+    // ...but the third level (Trigger's own page) does not.
+    expect(nav).not.toContain("Trigger Overview");
+    expect(nav).not.toContain("cc-level-3");
   });
 
-  it("breaks depth-1 children (page-start) but leaves depth>=2 continuous", () => {
+  it("gives the top-level chapter title the landing-title class (for the kicker) and breaks depth-1, not depth>=2", () => {
     const tree: Tree = [
       {
         type: "section",
@@ -770,7 +780,7 @@ describe("assembleBody chapter landing page", () => {
     ];
     const rendered = new Map([["llm.md", "<p>a</p>"]]);
     const html = assembleBody(tree, rendered);
-    expect(html).toContain('<h1 class="chapter-heading chapter-start" id="quire-section-1">Build</h1>');
+    expect(html).toContain('<h1 class="chapter-heading chapter-start chapter-landing-title" id="quire-section-1">Build</h1>');
     expect(html).toContain('<h2 class="chapter-heading page-start" id="quire-section-2">Nodes</h2>');
     expect(html).toContain('<h3 class="chapter-heading" id="llm-md">LLM</h3>');
   });
