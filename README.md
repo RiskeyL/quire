@@ -1,15 +1,15 @@
 # Quire
 
-Quire converts Markdown and MDX documentation into brand-consistent PDF and Word files. Point it at a set of pages (or a manifest that orders them), give it a brand theme, and it produces a single paginated PDF and a matching `.docx`: cover page, table of contents, running headers and footers, and your fonts and colors applied to both outputs.
+Quire converts Markdown and MDX documentation into brand-consistent PDF and Word files. Point it at a set of pages (or a manifest that orders them), give it a brand theme, and it produces a single paginated PDF and a matching `.docx`: cover, table of contents, running headers and footers, and your fonts and colors across both.
 
-It was built for turning a documentation site into an offline or formal deliverable (a printed handbook, a versioned manual to hand to a client), and it understands the Mintlify component set (Callouts, Tabs, Steps, Cards, ParamFields, Frames, Mermaid diagrams, and more), so real docs pages render with their structure intact rather than as raw component tags.
+It understands the Mintlify component set (Callouts, Tabs, Steps, Cards, ParamFields, Frames, Mermaid diagrams, and more), so real docs pages render with their structure intact instead of as raw tags. Use it to turn a docs site into an offline or formal deliverable: a printed handbook, or a versioned manual for a client.
 
 ## How it works
 
 Everything passes through HTML, so the two output engines are independent:
 
 1. **Resolve** the selection into an ordered page tree (positional file paths, or a manifest).
-2. **Render** each MDX page to HTML (structural parse, no JavaScript evaluation), mapping Mintlify components to print-friendly markup and embedding images as self-contained data URIs. Embedded media that a document cannot play (`<video>`, `<iframe>`) becomes a labeled, clickable link to the source instead of a dead player box. Images narrower than the text column are centered.
+2. **Render** each MDX page to HTML (structural parse, no JavaScript evaluation), mapping Mintlify components to print-friendly markup and embedding images as data URIs. Media a document cannot play (`<video>`, `<iframe>`) becomes a clickable link, not a dead player box.
 3. **Assemble** the pages into one document: cover, TOC, section headings, per-page anchors, and cross-link rewriting.
 4. **Style and export**: the PDF is paginated with [Paged.js](https://pagedjs.org/) via headless Chromium; the Word file is produced by [Pandoc](https://pandoc.org/) against a brand-compiled `reference.docx`.
 
@@ -17,7 +17,7 @@ Everything passes through HTML, so the two output engines are independent:
 
 - **Node.js 18 or newer.**
 - **Pandoc**, for Word output. Install it with `brew install pandoc` (macOS) or from [pandoc.org/installing](https://pandoc.org/installing.html). PDF-only runs do not need it.
-- **Chromium** is downloaded automatically by Puppeteer during `npm install`. There is no separate browser to install, and no machine-specific path to configure.
+- **Chromium** is downloaded automatically by Puppeteer during install; there is no separate browser to set up, and no path to configure.
 
 ## Install
 
@@ -26,7 +26,7 @@ npm install -g @riskeyl/quire
 quire --help
 ```
 
-This installs the `quire` command onto your `PATH`. Puppeteer downloads its Chromium during install; there is no separate browser to set up.
+This puts the `quire` command on your `PATH`.
 
 To work from source instead, clone and build:
 
@@ -119,7 +119,7 @@ quire design                   # open the designer with default tokens
 quire design themes/brand.yaml # open with brand.yaml tokens pre-loaded
 ```
 
-When launched with a theme file, the designer opens with that theme's tokens already filled in. You can tweak colors, fonts, and page layout while watching the PDF preview update, then use Copy or Download to export the result as a theme YAML.
+Tweak colors, fonts, and page layout while the PDF preview updates, then use Copy or Download to export the result as a theme YAML.
 
 To run the headless designer smoke test (requires a local Chromium):
 
@@ -207,9 +207,7 @@ toc:
   depth: 3              # heading depth for the Word (Pandoc) TOC; the PDF TOC is a full-depth structural page index
 
 links:
-  underline: true       # underline hyperlinks in both PDF and Word; set false to remove in both
-                        # Note: the old Pandoc default for Word had no underline; the default true now adds one
-                        # to match the PDF. Set links.underline: false to restore the old no-underline Word behavior.
+  underline: true       # underline hyperlinks in both outputs; set false to remove (Word had no underline by default)
 
 density: "normal"       # vertical rhythm preset: "compact", "normal", or "relaxed"
 
@@ -273,7 +271,7 @@ A few things worth knowing:
 
 The cover shows, in order: the brand logo, the product name, the manual title, the version, and the publish date. The title is always present; every other element appears only when you supply it.
 
-The split is deliberate. The **logo** and **product name** are brand-level, so they live in the theme (`brand.logo`, `brand.productName`). The **version** and **publish date** change with each release, so they are per-run flags (`--doc-version`, `--date`). The publish date is never auto-filled from the system clock; if you do not pass `--date`, no date line is printed. The **title** comes from `--title` (or the manifest filename).
+The split follows what changes when: the **logo** and **product name** are brand-level, so they live in the theme (`brand.logo`, `brand.productName`); the **version** and **date** change per release, so they are per-run flags (`--doc-version`, `--date`); the **title** comes from `--title` (or the manifest filename). The date is never auto-filled, so omitting `--date` prints no date line.
 
 ```bash
 quire convert --manifest m.yaml --theme brand.yaml \
