@@ -23,6 +23,7 @@ export function compileCss(tokens: BrandTokens): string {
   const content = buildContent(tokens.tables.layout, tokens.headings);
   const boxed = buildBoxed();
   const figure = buildFigure();
+  const media = buildMedia();
   const disclosure = buildDisclosure();
   const steps = buildSteps();
   const cards = buildCards();
@@ -34,7 +35,7 @@ export function compileCss(tokens: BrandTokens): string {
 
   const pageDescription = buildPageDescription();
 
-  return [root, page, pageFurniture, elements, content, pageDescription, boxed, figure, disclosure, steps, cards, fields, code, inline, structural, structuralLists].join("\n");
+  return [root, page, pageFurniture, elements, content, pageDescription, boxed, figure, media, disclosure, steps, cards, fields, code, inline, structural, structuralLists].join("\n");
 }
 
 // ---------------------------------------------------------------------------
@@ -316,8 +317,10 @@ hr {
 /* ---- Images ---- */
 /* max-height caps a tall image so it scales down to fit one page instead of
    overflowing the page box and being clipped (Paged.js cannot split an image);
-   max-width caps how wide a large image renders in the column. */
-img { max-width: var(--image-max-width); max-height: var(--image-max-height); height: auto; display: block; }`;
+   max-width caps how wide a large image renders in the column. margin auto centers
+   an image narrower than the column (a no-op at full width), so a capped screenshot
+   sits centered rather than flush-left with a lopsided gap. */
+img { max-width: var(--image-max-width); max-height: var(--image-max-height); height: auto; display: block; margin-left: auto; margin-right: auto; }`;
 }
 
 /**
@@ -448,6 +451,43 @@ figcaption {
   display: block;
   margin: 1em auto;
   break-inside: avoid;
+}`;
+}
+
+/**
+ * Media placeholder styling (`<video>` / `<iframe>` → `.media-embed`).
+ *
+ * Neither output can play embedded media, so the render layer replaces a live
+ * `<video>`/`<iframe>` with a labeled, clickable link box. The box echoes the brand
+ * callout shape (surface fill, hairline border, accent left border) so it reads as a
+ * deliberate aside; `break-inside: avoid` keeps the short box whole. The link is mono +
+ * muted and wraps anywhere so a long asset/embed URL never overflows the column.
+ */
+function buildMedia(): string {
+  return `/* ---- Media placeholder (video / iframe → "watch online" link) ---- */
+.media-embed {
+  border: 1px solid var(--color-border);
+  border-left: 3px solid var(--color-accent);
+  border-radius: 0 var(--radius) var(--radius) 0;
+  background: var(--color-surface);
+  padding: 0.75em 1em;
+  margin: calc(1em * var(--rhythm) * var(--component-gap)) 0;
+  break-inside: avoid;
+}
+.media-embed-label {
+  font-weight: 700;
+  margin: 0 0 0.3em;
+}
+.media-embed-link {
+  font-family: var(--font-mono);
+  font-size: 0.85em;
+  color: var(--color-muted);
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+.media-embed-note {
+  color: var(--color-muted);
+  margin: 0;
 }`;
 }
 
@@ -1017,6 +1057,12 @@ ${heroRule}
    forced break at the very top of a page is a no-op in Paged.js (no spurious
    blank page; verified empirically). */
 .chapter-start, .page-start { break-before: page; }
+/* The first chapter must NOT break to a new page: it already sits at the top of the
+   first body page. The footer-note running element that precedes it in .doc-body would
+   otherwise make its break-before fire and insert a blank first body page. The
+   :first-child form covers the no-footer-note case (the chapter is then the first child). */
+.doc-body > .chapter-start:first-child,
+.doc-body > .footer-note + .chapter-start { break-before: auto; }
 
 /* TOC layout: remove bullets; every entry is a link with a target-counter
    page number. The TOC is heading-based (buildTocFromHeadings): each entry is

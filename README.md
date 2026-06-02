@@ -9,7 +9,7 @@ It was built for turning a documentation site into an offline or formal delivera
 Everything passes through HTML, so the two output engines are independent:
 
 1. **Resolve** the selection into an ordered page tree (positional file paths, or a manifest).
-2. **Render** each MDX page to HTML (structural parse, no JavaScript evaluation), mapping Mintlify components to print-friendly markup and embedding images as self-contained data URIs.
+2. **Render** each MDX page to HTML (structural parse, no JavaScript evaluation), mapping Mintlify components to print-friendly markup and embedding images as self-contained data URIs. Embedded media that a document cannot play (`<video>`, `<iframe>`) becomes a labeled, clickable link to the source instead of a dead player box. Images narrower than the text column are centered.
 3. **Assemble** the pages into one document: cover, TOC, section headings, per-page anchors, and cross-link rewriting.
 4. **Style and export**: the PDF is paginated with [Paged.js](https://pagedjs.org/) via headless Chromium; the Word file is produced by [Pandoc](https://pandoc.org/) against a brand-compiled `reference.docx`.
 

@@ -239,12 +239,14 @@ describe("assembleDocument", () => {
     expect(html).toContain("<p>body</p>"); // page content lives inside the wrapper
   });
 
-  it("injects the footer-note running element (with a clickable link) when footerNote has a url", () => {
+  it("injects the footer-note running element (with a clickable link) as the first child of .doc-body", () => {
     const html = assembleDocument(tree, rendered, {
       title: "My Title",
       cover: true,
       footerNote: { text: "See docs.example.com", url: "https://docs.example.com" },
     });
+    // First child of .doc-body so Paged.js binds it to the body pages; the first-chapter
+    // break is cancelled in CSS so this leading element does not insert a blank page.
     expect(html).toContain('<div class="doc-body"><div class="footer-note"><a href="https://docs.example.com">See docs.example.com</a></div>');
   });
 
@@ -259,10 +261,12 @@ describe("assembleDocument", () => {
   });
 
   it("omits the footer-note element when footerNote is absent or its text is empty", () => {
+    // Check for the ELEMENT specifically: the default stylesheet always contains
+    // `.footer-note` selectors, so a bare "footer-note" substring would false-positive.
     const none = assembleDocument(tree, rendered, { title: "My Title", cover: true });
-    expect(none).not.toContain("footer-note");
+    expect(none).not.toContain('class="footer-note"');
     const empty = assembleDocument(tree, rendered, { title: "My Title", cover: true, footerNote: { text: "  ", url: "x" } });
-    expect(empty).not.toContain("footer-note");
+    expect(empty).not.toContain('class="footer-note"');
   });
 });
 

@@ -498,6 +498,30 @@ describe("compileCss", () => {
       expect(compileCss(DEFAULT_TOKENS)).toMatch(/\bimg\b[^{]*\{[^}]*max-height:\s*var\(--image-max-height\)/);
       expect(compileCss(DEFAULT_TOKENS)).toContain(`--image-max-height: ${DEFAULT_TOKENS.image.maxHeight};`);
     });
+
+    it("img is centered via auto side margins (a capped image sits centered, not flush-left)", () => {
+      const css = compileCss(DEFAULT_TOKENS);
+      expect(css).toMatch(/\bimg\b[^{]*\{[^}]*margin-left:\s*auto/);
+      expect(css).toMatch(/\bimg\b[^{]*\{[^}]*margin-right:\s*auto/);
+    });
+  });
+
+  describe("first-chapter page break", () => {
+    it("cancels break-before on the first chapter so a leading footer-note adds no blank page", () => {
+      const css = compileCss(DEFAULT_TOKENS);
+      expect(css).toContain(".chapter-start, .page-start { break-before: page; }");
+      expect(css).toMatch(/\.doc-body > \.footer-note \+ \.chapter-start\s*\{\s*break-before: auto/);
+      expect(css).toContain(".doc-body > .chapter-start:first-child");
+    });
+  });
+
+  describe("media placeholder (video / iframe)", () => {
+    it("emits a .media-embed box with a muted, wrapping mono link", () => {
+      const css = compileCss(DEFAULT_TOKENS);
+      expect(css).toContain(".media-embed {");
+      expect(css).toMatch(/\.media-embed\b[^}]*border-left:\s*3px solid var\(--color-accent\)/);
+      expect(css).toMatch(/\.media-embed-link\b[^}]*overflow-wrap:\s*anywhere/);
+    });
   });
 
   describe("content: vertical rhythm", () => {

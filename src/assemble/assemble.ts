@@ -582,9 +582,13 @@ export function assembleDocument(
   // wrapper is inert in Word (Pandoc emits its contents); the Word body section
   // restarts numbering via pgNumType instead. The TOC is built from the unwrapped
   // body above, so the wrapper does not affect heading scanning.
-  // The footer-note running element must sit in the body flow (so Paged.js binds it
-  // to the body pages, not the cover/TOC) and as early as possible so it appears from
-  // the first body page. `position: running()` (compile-css) lifts it out of layout.
+  // The footer-note running element sits at the top of .doc-body so Paged.js binds it to
+  // the body pages (the cover/TOC named pages suppress all margin boxes). Because an
+  // element before the first chapter would otherwise make that chapter's `break-before:
+  // page` fire and insert a blank first body page, compile-css cancels the break on the
+  // first chapter (see `.doc-body > .footer-note + .chapter-start`). Declaring it before
+  // the cover instead is NOT an option: the running element would then generate its own
+  // blank page ahead of the cover.
   const footerNote = renderFooterNote(options.footerNote);
   return wrapHtmlDocument(
     cover + toc + `<div class="doc-body">${footerNote}${body}</div>`,

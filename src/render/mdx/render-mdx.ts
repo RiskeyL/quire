@@ -29,6 +29,7 @@ import { codeHandlers } from "./components/code.js";
 import { inlineHandlers } from "./components/inline.js";
 import { structuralHandlers } from "./components/structural.js";
 import { conditionalHandlers } from "./components/conditional.js";
+import { isMediaTag, renderMediaPlaceholder } from "./components/media.js";
 
 /** Parsed YAML frontmatter for a page. `title`/`description` are surfaced for convenience. */
 export interface PageFrontmatter {
@@ -183,6 +184,12 @@ function handleJsxElement(
     const handler = componentMap[node.name];
     if (handler) return handler(state, node);
     return element(wrapperTag, { "data-component": node.name }, children);
+  }
+
+  // Lowercase media elements (video/iframe) become a clickable placeholder: neither
+  // output can play embedded media, so a raw element would print as a dead player/frame.
+  if (isMediaTag(node.name)) {
+    return renderMediaPlaceholder(node);
   }
 
   // Lowercase HTML element.
