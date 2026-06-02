@@ -299,6 +299,8 @@ export const FORM_SPEC: GroupSpec[] = [
       { path: "footer.left",   label: "left",   control: "slot", help: "Running-footer left slot" },
       { path: "footer.center", label: "center", control: "slot", help: "Running-footer center slot" },
       { path: "footer.right",  label: "right",  control: "slot", help: "Running-footer right slot" },
+      { path: "footer.note.text", label: "note text", control: "text", help: 'Footer note shown by a slot set to "note" (e.g. a link to the live docs)' },
+      { path: "footer.note.url",  label: "note URL",  control: "text", help: "URL the footer note links to (clickable in the PDF)" },
     ],
   },
   {

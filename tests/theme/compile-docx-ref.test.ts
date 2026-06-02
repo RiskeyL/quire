@@ -38,7 +38,7 @@ const CUSTOM_TOKENS: BrandTokens = {
   links: { underline: true },
   density: "normal",
   header: { left: "docTitle", center: "none", right: "chapter" },
-  footer: { left: "none", center: "pageNumber", right: "none" },
+  footer: { left: "none", center: "pageNumber", right: "none", note: { text: "", url: "" } },
   furniture: { fontSize: "9pt", color: "#6b7280" },
   pageNumbers: { restartAtBody: true },
   meta: { showDescription: true },
@@ -780,7 +780,7 @@ describe("compileDocxReference", () => {
       const out = join(dir, "ref.docx");
       const custom: BrandTokens = {
         ...CUSTOM_TOKENS,
-        footer: { left: "Confidential", center: "none", right: "pageNumber" },
+        footer: { left: "Confidential", center: "none", right: "pageNumber", note: { text: "", url: "" } },
         furniture: { fontSize: "8pt", color: "#999999" },
       };
       await compileDocxReference(custom, out, { docTitle: "T" });
@@ -789,6 +789,27 @@ describe("compileDocxReference", () => {
       expect(footer).toContain(" PAGE ");
       expect(footer).toContain('<w:sz w:val="16" />'); // 8pt
       expect(footer).toContain('<w:color w:val="999999" />');
+    } finally { await rm(dir, { recursive: true, force: true }); }
+  });
+
+  it("renders a footer 'note' slot as plain note text (no clickable link in Word)", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "quire-cdr-"));
+    try {
+      const out = join(dir, "ref.docx");
+      const custom: BrandTokens = {
+        ...CUSTOM_TOKENS,
+        footer: {
+          left: "note",
+          center: "none",
+          right: "pageNumber",
+          note: { text: "See docs.example.com", url: "https://docs.example.com" },
+        },
+      };
+      await compileDocxReference(custom, out, { docTitle: "T" });
+      const footer = await (await JSZip.loadAsync(await readFile(out))).file("word/footer1.xml")!.async("string");
+      // The note text is emitted as plain text; the literal slot keyword is not.
+      expect(footer).toContain("See docs.example.com");
+      expect(footer).not.toContain(">note<");
     } finally { await rm(dir, { recursive: true, force: true }); }
   });
 });

@@ -117,9 +117,12 @@ export function serializeTheme(tokens: BrandTokens, notes?: string): string {
 
   // -- footer ----------------------------------------------------------------
   lines.push("footer:");
-  lines.push(`  left: ${str(tokens.footer.left)}     # Running-footer left slot`);
+  lines.push(`  left: ${str(tokens.footer.left)}     # Running-footer left slot (or "note" for the clickable footer note)`);
   lines.push(`  center: ${str(tokens.footer.center)}  # Running-footer center slot`);
   lines.push(`  right: ${str(tokens.footer.right)}   # Running-footer right slot`);
+  lines.push(`  note:`);
+  lines.push(`    text: ${str(tokens.footer.note.text)}  # Footer note shown by a "note" slot`);
+  lines.push(`    url: ${str(tokens.footer.note.url)}   # URL the note links to (clickable in the PDF)`);
   lines.push("");
 
   // -- furniture -------------------------------------------------------------

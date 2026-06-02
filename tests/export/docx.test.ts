@@ -63,7 +63,7 @@ describe("htmlToDocx", () => {
       links: { underline: true },
       density: "normal",
       header: { left: "docTitle", center: "none", right: "chapter" },
-      footer: { left: "none", center: "pageNumber", right: "none" },
+      footer: { left: "none", center: "pageNumber", right: "none", note: { text: "", url: "" } },
       furniture: { fontSize: "9pt", color: "#6b7280" },
       pageNumbers: { restartAtBody: true },
       meta: { showDescription: true },

@@ -232,6 +232,14 @@ export async function runConvert(paths: string[], options: ConvertOptions): Prom
     // CLI `--no-description` (options.description === false) overrides the token default.
     // When options.description is undefined, fall through to the token value.
     const showDescription = options.description ?? tokens.meta.showDescription;
+    // The footer note becomes a clickable running element in the PDF when a footer
+    // slot is set to "note" and the note has text. It is passed only to the PDF
+    // assembly; the Word path renders the note (plain text) from the reference doc.
+    const footerNote =
+      [tokens.footer.left, tokens.footer.center, tokens.footer.right].includes("note") &&
+      tokens.footer.note.text.trim() !== ""
+        ? { text: tokens.footer.note.text, url: tokens.footer.note.url || undefined }
+        : undefined;
     const pdfHtml = wantPdf
       ? assembleDocument(tree, rendered, {
           title: docTitle,
@@ -248,6 +256,7 @@ export async function runConvert(paths: string[], options: ConvertOptions): Prom
           logoDataUri,
           coverLayout: tokens.cover.layout,
           coverLogoWidth: tokens.cover.logoWidth,
+          footerNote,
         })
       : "";
     // The Word cover is rendered with custom-style="Quire Cover" (coverForWord),

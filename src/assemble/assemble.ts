@@ -546,6 +546,12 @@ export function assembleDocument(
     coverLayout?: "spine" | "plain";
     /** Logo width for the Word cover (defaults to `"44mm"`). Passed through to `renderCover`. */
     coverLogoWidth?: string;
+    /**
+     * Footer note rendered as a Paged.js running element at the top of the body, so
+     * a footer slot set to `"note"` shows it on every page with a clickable URL.
+     * PDF only: omit it for the Word path, where a stray div would show inline.
+     */
+    footerNote?: { text: string; url?: string };
   }
 ): string {
   const cover = options.cover
@@ -576,11 +582,30 @@ export function assembleDocument(
   // wrapper is inert in Word (Pandoc emits its contents); the Word body section
   // restarts numbering via pgNumType instead. The TOC is built from the unwrapped
   // body above, so the wrapper does not affect heading scanning.
+  // The footer-note running element must sit in the body flow (so Paged.js binds it
+  // to the body pages, not the cover/TOC) and as early as possible so it appears from
+  // the first body page. `position: running()` (compile-css) lifts it out of layout.
+  const footerNote = renderFooterNote(options.footerNote);
   return wrapHtmlDocument(
-    cover + toc + `<div class="doc-body">${body}</div>`,
+    cover + toc + `<div class="doc-body">${footerNote}${body}</div>`,
     options.title,
     options.css
   );
+}
+
+/**
+ * Render the footer-note running element, or `""` when there is no note text.
+ * When a `url` is given the whole note is wrapped in an `<a>` (the PDF turns it into
+ * a clickable annotation, even inside a running element); otherwise it is plain text.
+ */
+function renderFooterNote(note: { text: string; url?: string } | undefined): string {
+  if (note === undefined || note.text.trim() === "") return "";
+  const text = escapeHtml(note.text);
+  const inner =
+    note.url !== undefined && note.url.trim() !== ""
+      ? `<a href="${escapeHtml(note.url)}">${text}</a>`
+      : text;
+  return `<div class="footer-note">${inner}</div>`;
 }
 
 function walkTree(

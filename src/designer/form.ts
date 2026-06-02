@@ -60,6 +60,7 @@ const SLOT_KEYWORDS: { value: string; label: string }[] = [
   { value: "pageNumber", label: "Page number" },
   { value: "docTitle", label: "Document title" },
   { value: "chapter", label: "Chapter" },
+  { value: "note", label: "Footer note (clickable)" },
 ];
 const SLOT_CUSTOM = "__custom__";
 

@@ -865,12 +865,16 @@ function furnitureRpr(furniture: BrandTokens["furniture"]): string {
 
 /**
  * The run(s) for one header/footer slot: a field for the dynamic keywords, text
- * for docTitle/literals, or nothing for "none". Every run carries the furniture rPr.
+ * for docTitle/note/literals, or nothing for "none". Every run carries the furniture
+ * rPr. The `"note"` slot renders the footer note as plain text (Word footers do not
+ * get the clickable link the PDF running element does); an empty note collapses it.
  */
-function furnitureSlotRun(value: string, rpr: string, docTitle: string): string {
+function furnitureSlotRun(value: string, rpr: string, docTitle: string, noteText: string): string {
   switch (value) {
     case "none":
       return "";
+    case "note":
+      return noteText ? `<w:r>${rpr}<w:t xml:space="preserve">${escapeXml(noteText)}</w:t></w:r>` : "";
     case "docTitle": {
       const escaped = escapeXml(docTitle);
       return escaped ? `<w:r>${rpr}<w:t xml:space="preserve">${escaped}</w:t></w:r>` : "";
@@ -906,17 +910,18 @@ function furnitureParagraph(
   slots: BrandTokens["header"] | BrandTokens["footer"],
   rpr: string,
   docTitle: string,
-  contentWidthTwips: number
+  contentWidthTwips: number,
+  noteText: string
 ): string {
   const centerPos = Math.round(contentWidthTwips / 2);
   return (
     `<w:p>` +
     `<w:pPr><w:tabs><w:tab w:val="center" w:pos="${centerPos}" /><w:tab w:val="right" w:pos="${contentWidthTwips}" /></w:tabs></w:pPr>` +
-    furnitureSlotRun(slots.left, rpr, docTitle) +
+    furnitureSlotRun(slots.left, rpr, docTitle, noteText) +
     `<w:r>${rpr}<w:tab /></w:r>` +
-    furnitureSlotRun(slots.center, rpr, docTitle) +
+    furnitureSlotRun(slots.center, rpr, docTitle, noteText) +
     `<w:r>${rpr}<w:tab /></w:r>` +
-    furnitureSlotRun(slots.right, rpr, docTitle) +
+    furnitureSlotRun(slots.right, rpr, docTitle, noteText) +
     `</w:p>`
   );
 }
@@ -932,9 +937,10 @@ function buildHeaderXml(
   header: BrandTokens["header"],
   furniture: BrandTokens["furniture"],
   docTitle: string,
-  contentWidthTwips: number
+  contentWidthTwips: number,
+  noteText: string
 ): string {
-  const p = furnitureParagraph(header, furnitureRpr(furniture), docTitle, contentWidthTwips);
+  const p = furnitureParagraph(header, furnitureRpr(furniture), docTitle, contentWidthTwips, noteText);
   return (
     `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n` +
     `<w:hdr xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main" ` +
@@ -955,9 +961,10 @@ function buildFooterXml(
   footer: BrandTokens["footer"],
   furniture: BrandTokens["furniture"],
   docTitle: string,
-  contentWidthTwips: number
+  contentWidthTwips: number,
+  noteText: string
 ): string {
-  const p = furnitureParagraph(footer, furnitureRpr(furniture), docTitle, contentWidthTwips);
+  const p = furnitureParagraph(footer, furnitureRpr(furniture), docTitle, contentWidthTwips, noteText);
   return (
     `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n` +
     `<w:ftr xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main" ` +
@@ -1265,10 +1272,12 @@ export async function compileDocxReference(
   // right-aligned tab stop sits here so the chapter title is flush-right.
   const contentWidth = pgW - margins.left - margins.right;
 
-  // Header (Feature 2): slot-driven 3-cell tabbed paragraph.
-  zip.file("word/header1.xml", buildHeaderXml(tokens.header, tokens.furniture, options?.docTitle ?? "", contentWidth));
+  // Header (Feature 2): slot-driven 3-cell tabbed paragraph. The note text feeds a
+  // "note" slot as plain text (Word gets no clickable link; the PDF running element does).
+  const footerNoteText = tokens.footer.note.text;
+  zip.file("word/header1.xml", buildHeaderXml(tokens.header, tokens.furniture, options?.docTitle ?? "", contentWidth, footerNoteText));
   // Footer (Feature 2): slot-driven 3-cell tabbed paragraph.
-  zip.file("word/footer1.xml", buildFooterXml(tokens.footer, tokens.furniture, options?.docTitle ?? "", contentWidth));
+  zip.file("word/footer1.xml", buildFooterXml(tokens.footer, tokens.furniture, options?.docTitle ?? "", contentWidth, footerNoteText));
 
   // Content types: register the header/footer parts (best-effort).
   const ctFile = zip.file("[Content_Types].xml");

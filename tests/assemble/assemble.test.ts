@@ -238,6 +238,32 @@ describe("assembleDocument", () => {
     expect(html).toContain('<div class="doc-body">');
     expect(html).toContain("<p>body</p>"); // page content lives inside the wrapper
   });
+
+  it("injects the footer-note running element (with a clickable link) when footerNote has a url", () => {
+    const html = assembleDocument(tree, rendered, {
+      title: "My Title",
+      cover: true,
+      footerNote: { text: "See docs.example.com", url: "https://docs.example.com" },
+    });
+    expect(html).toContain('<div class="doc-body"><div class="footer-note"><a href="https://docs.example.com">See docs.example.com</a></div>');
+  });
+
+  it("renders the footer note as plain text when no url is given", () => {
+    const html = assembleDocument(tree, rendered, {
+      title: "My Title",
+      cover: true,
+      footerNote: { text: "Snapshot copy" },
+    });
+    expect(html).toContain('<div class="footer-note">Snapshot copy</div>');
+    expect(html).not.toContain("<a href");
+  });
+
+  it("omits the footer-note element when footerNote is absent or its text is empty", () => {
+    const none = assembleDocument(tree, rendered, { title: "My Title", cover: true });
+    expect(none).not.toContain("footer-note");
+    const empty = assembleDocument(tree, rendered, { title: "My Title", cover: true, footerNote: { text: "  ", url: "x" } });
+    expect(empty).not.toContain("footer-note");
+  });
 });
 
 describe("assignAnchors", () => {

@@ -31,7 +31,14 @@ export interface BrandTokens {
   links: { underline: boolean };
   density: "compact" | "normal" | "relaxed";
   header: { left: string; center: string; right: string };
-  footer: { left: string; center: string; right: string };
+  /**
+   * Running-footer slots plus an optional `note`. A slot set to `"note"` renders
+   * the note as a Paged.js running element, so its URL is a real clickable link in
+   * the PDF (margin-box `content` strings cannot hold a hyperlink). `text` is the
+   * displayed string; `url` (optional) makes the whole note a link. Empty `text`
+   * means a `"note"` slot is omitted. In Word the note shows as plain text only.
+   */
+  footer: { left: string; center: string; right: string; note: { text: string; url: string } };
   furniture: { fontSize: string; color: string };
   pageNumbers: { restartAtBody: boolean };
   meta: { showDescription: boolean };
@@ -98,7 +105,7 @@ export const DEFAULT_TOKENS: BrandTokens = {
   links: { underline: true },
   density: "normal",
   header: { left: "docTitle", center: "none", right: "chapter" },
-  footer: { left: "none", center: "pageNumber", right: "none" },
+  footer: { left: "none", center: "pageNumber", right: "none", note: { text: "", url: "" } },
   furniture: { fontSize: "9pt", color: "#6b7280" },
   pageNumbers: { restartAtBody: true },
   meta: { showDescription: true },
@@ -172,7 +179,11 @@ const partialTocSchema = z
 const partialHeadingsSchema = z.object({ scale: z.array(z.number()), weight: z.array(z.number()) }).strict().partial();
 const partialLinksSchema = z.object({ underline: z.boolean() }).strict().partial();
 const partialHeaderSchema = z.object({ left: z.string(), center: z.string(), right: z.string() }).strict().partial();
-const partialFooterSchema = z.object({ left: z.string(), center: z.string(), right: z.string() }).strict().partial();
+const partialFooterNoteSchema = z.object({ text: z.string(), url: z.string() }).strict().partial();
+const partialFooterSchema = z
+  .object({ left: z.string(), center: z.string(), right: z.string(), note: partialFooterNoteSchema })
+  .strict()
+  .partial();
 const partialFurnitureSchema = z.object({ fontSize: z.string(), color: z.string() }).strict().partial();
 const partialPageNumbersSchema = z.object({ restartAtBody: z.boolean() }).strict().partial();
 
@@ -300,7 +311,13 @@ function applyOverrides(partial: PartialTheme): BrandTokens {
     links: mergeSection(DEFAULT_TOKENS.links, partial.links ?? {}),
     density: partial.density ?? DEFAULT_TOKENS.density,
     header: mergeSection(DEFAULT_TOKENS.header, partial.header ?? {}),
-    footer: mergeSection(DEFAULT_TOKENS.footer, partial.footer ?? {}),
+    footer: {
+      left: partial.footer?.left ?? DEFAULT_TOKENS.footer.left,
+      center: partial.footer?.center ?? DEFAULT_TOKENS.footer.center,
+      right: partial.footer?.right ?? DEFAULT_TOKENS.footer.right,
+      // note is deep-merged so a theme can set just `text` and keep the `url` default.
+      note: mergeSection(DEFAULT_TOKENS.footer.note, partial.footer?.note ?? {}),
+    },
     furniture: mergeSection(DEFAULT_TOKENS.furniture, partial.furniture ?? {}),
     pageNumbers: mergeSection(DEFAULT_TOKENS.pageNumbers, partial.pageNumbers ?? {}),
     meta: mergeSection(DEFAULT_TOKENS.meta, partial.meta ?? {}),

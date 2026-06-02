@@ -101,6 +101,8 @@ function furnitureSlotContent(value: string): string | null {
  *   - `"docTitle"` → `string(doctitle)` (named string fed by `.doc-title`)
  *   - `"chapter"` → `string(chaptertitle, first)` (fed by `.chapter-start`)
  *   - `"pageNumber"` → `counter(page)`
+ *   - `"note"` → `element(footernote)`, the footer-note running element (so its URL
+ *     is a clickable link); omitted when `footer.note.text` is empty
  *   - `"none"` → the box is omitted entirely
  *   - any other string → a CSS quoted literal
  *
@@ -124,15 +126,32 @@ function buildPageFurniture(
     ["top-left", header.left], ["top-center", header.center], ["top-right", header.right],
     ["bottom-left", footer.left], ["bottom-center", footer.center], ["bottom-right", footer.right],
   ];
+  // A "note" slot resolves to the footer-note running element (a real <a> the PDF
+  // can make clickable), but only when the note actually has text; an empty note
+  // collapses the slot. Every other slot value goes through furnitureSlotContent.
+  const noteActive = footer.note.text.trim() !== "";
+  const usesNote = boxes.some(([, slot]) => slot === "note");
+  const slotContent = (slot: string): string | null =>
+    slot === "note" ? (noteActive ? "element(footernote)" : null) : furnitureSlotContent(slot);
   const marginBoxes = boxes
     .map(([box, slot]) => {
-      const content = furnitureSlotContent(slot);
+      const content = slotContent(slot);
       return content === null
         ? ""
         : `  @${box} { content: ${content}; font-size: ${furniture.fontSize}; color: ${furniture.color}; }`;
     })
     .filter(Boolean)
     .join("\n");
+
+  // The running element is declared once in the body (see assembleDocument) and
+  // pulled into the margin box on every page. It carries its own styling (a margin
+  // box does not style the element it hosts), so mirror the furniture size/color
+  // here and keep the link visually quiet (inherit color, no underline).
+  const noteRule =
+    usesNote && noteActive
+      ? `\n.footer-note { position: running(footernote); font-size: ${furniture.fontSize}; color: ${furniture.color}; }
+.footer-note a { color: inherit; text-decoration: none; }`
+      : "";
 
   return `/* ---- Named strings feeding the running headers ---- */
 /* Captured from the cover title and from top-level chapter headings respectively. */
@@ -173,7 +192,7 @@ ${marginBoxes}
    body-relative numbers. When false, the page reset is omitted and numbering
    runs continuously through the front matter (first body page shows its absolute
    physical number). */
-.doc-body { counter-reset: chapter 0${pageNumbers.restartAtBody ? " page 1" : ""}; }`;
+.doc-body { counter-reset: chapter 0${pageNumbers.restartAtBody ? " page 1" : ""}; }${noteRule}`;
 }
 
 function buildElements(linkUnderline: boolean): string {

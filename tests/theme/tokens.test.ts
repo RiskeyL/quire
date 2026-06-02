@@ -120,7 +120,7 @@ describe("parseTheme", () => {
     expect(t.links.underline).toBe(true);
     expect(t.density).toBe("normal");
     expect(t.header).toEqual({ left: "docTitle", center: "none", right: "chapter" });
-    expect(t.footer).toEqual({ left: "none", center: "pageNumber", right: "none" });
+    expect(t.footer).toEqual({ left: "none", center: "pageNumber", right: "none", note: { text: "", url: "" } });
     expect(t.furniture).toEqual({ fontSize: "9pt", color: "#6b7280" });
     expect(t.pageNumbers).toEqual({ restartAtBody: true });
   });
@@ -135,6 +135,19 @@ describe("parseTheme", () => {
     const t = parseTheme("header:\n  right: none\n");
     expect(t.header.right).toBe("none");
     expect(t.header.left).toBe("docTitle");
+  });
+
+  it("partial override: footer.note.text only keeps the url default and footer slots", () => {
+    const t = parseTheme('footer:\n  left: note\n  note:\n    text: "See docs"\n');
+    expect(t.footer.left).toBe("note");
+    expect(t.footer.note).toEqual({ text: "See docs", url: "" });
+    // unspecified slots keep their defaults
+    expect(t.footer.center).toBe("pageNumber");
+    expect(t.footer.right).toBe("none");
+  });
+
+  it("rejects an unknown key under footer.note", () => {
+    expect(() => parseTheme("footer:\n  note:\n    href: x\n")).toThrow();
   });
 
   it("density accepts an enum value and rejects others", () => {

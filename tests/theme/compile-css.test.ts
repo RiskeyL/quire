@@ -1274,13 +1274,34 @@ describe("compileCss", () => {
       const custom: BrandTokens = {
         ...DEFAULT_TOKENS,
         header: { left: "none", center: "docTitle", right: "none" },
-        footer: { left: "Confidential", center: "none", right: "pageNumber" },
+        footer: { left: "Confidential", center: "none", right: "pageNumber", note: { text: "", url: "" } },
         furniture: { fontSize: "8pt", color: "#999999" },
       };
       const css = compileCss(custom);
       expect(css).toContain('@top-center { content: string(doctitle); font-size: 8pt; color: #999999; }');
       expect(css).toContain('@bottom-left { content: "Confidential"; font-size: 8pt; color: #999999; }');
       expect(css).toContain("@bottom-right { content: counter(page); font-size: 8pt; color: #999999; }");
+    });
+
+    it("a 'note' footer slot becomes the footer-note running element when note.text is set", () => {
+      const custom: BrandTokens = {
+        ...DEFAULT_TOKENS,
+        footer: { left: "note", center: "none", right: "pageNumber", note: { text: "See docs.example.com", url: "https://docs.example.com" } },
+      };
+      const css = compileCss(custom);
+      expect(css).toContain("@bottom-left { content: element(footernote);");
+      expect(css).toContain(".footer-note { position: running(footernote);");
+      expect(css).toContain(".footer-note a { color: inherit; text-decoration: none; }");
+    });
+
+    it("a 'note' footer slot is omitted (no running element) when note.text is empty", () => {
+      const custom: BrandTokens = {
+        ...DEFAULT_TOKENS,
+        footer: { left: "note", center: "none", right: "pageNumber", note: { text: "", url: "" } },
+      };
+      const css = compileCss(custom);
+      expect(css).not.toContain("element(footernote)");
+      expect(css).not.toContain("position: running(footernote)");
     });
     it("cover and toc suppress all six margin boxes", () => {
       const css = compileCss(DEFAULT_TOKENS);

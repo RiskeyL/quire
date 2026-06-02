@@ -20,7 +20,7 @@ describe("serializeTheme", () => {
       links: { underline: false },
       density: "compact",
       header: { left: "none", center: "docTitle", right: "pageNumber" },
-      footer: { left: "Confidential", center: "none", right: "pageNumber" },
+      footer: { left: "note", center: "none", right: "pageNumber", note: { text: "Internal copy — see docs.example.com", url: "https://docs.example.com" } },
       furniture: { fontSize: "8pt", color: "#999999" },
       pageNumbers: { restartAtBody: false },
       meta: { showDescription: false },

@@ -226,6 +226,12 @@ footer:                 # running-footer slots (PDF and Word), same keyword set 
   left: "none"
   center: "pageNumber"
   right: "none"
+  # Set a slot to "note" to show footer.note. In the PDF the note is a Paged.js running
+  # element, so its URL is a real clickable link (plain footer text cannot be a link). In
+  # Word the note shows as plain text only. An empty note.text collapses the "note" slot.
+  note:
+    text: ""              # e.g. "This PDF may be out of date. Visit docs.example.com"
+    url: ""               # e.g. "https://docs.example.com" (whole note becomes the link)
 
 furniture:
   fontSize: "9pt"       # running header/footer text size
