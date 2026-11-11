@@ -18,6 +18,7 @@ import type { Handler, Handlers, State } from "mdast-util-to-hast";
 import type { Plugin } from "unified";
 import { element, type ComponentHandler } from "./hast-helpers.js";
 import { remarkGithubAlerts } from "./github-alerts.js";
+import { markHeadingIds, rehypeHeadingIds } from "./heading-ids.js";
 import { calloutHandlers } from "./components/callouts.js";
 import { boxedHandlers } from "./components/boxed.js";
 import { frameHandlers } from "./components/frame.js";
@@ -86,7 +87,7 @@ const componentMap: Record<string, ComponentHandler> = {
  */
 export function renderMdx(source: string, options: RenderMdxOptions = {}): RenderResult {
   try {
-    const file = buildProcessor().processSync(source);
+    const file = buildProcessor().processSync(markHeadingIds(source));
     const frontmatter = (file.data.frontmatter as PageFrontmatter | undefined) ?? {};
     return { html: String(file), frontmatter };
   } catch (err) {
@@ -109,6 +110,7 @@ function buildProcessor() {
       allowDangerousHtml: true,
       handlers: jsxHandlers(),
     })
+    .use(rehypeHeadingIds)
     .use(rehypeSlug)
     .use(rehypeStringify, { allowDangerousHtml: true });
 }
@@ -264,7 +266,7 @@ const FRONTMATTER_BLOCK = /^---\r?\n([\s\S]*?)\r?\n---\s*/;
  */
 function renderDegraded(source: string): RenderResult {
   const { frontmatter, body } = stripFrontmatter(source);
-  const stripped = stripJsxOutsideCode(body);
+  const stripped = stripJsxOutsideCode(markHeadingIds(body));
   let html: string;
   try {
     html = String(
@@ -272,6 +274,7 @@ function renderDegraded(source: string): RenderResult {
         .use(remarkParse)
         .use(remarkGfm)
         .use(remarkRehype, { allowDangerousHtml: true })
+        .use(rehypeHeadingIds)
         .use(rehypeSlug)
         .use(rehypeStringify, { allowDangerousHtml: true })
         .processSync(stripped)
