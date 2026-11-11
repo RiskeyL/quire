@@ -505,11 +505,14 @@ function structureLevel(depth: number): number {
  * frontmatter usually start their content at h2; demoting by a fixed amount
  * would leave a level unused between the title and the content, and lose one
  * at the bottom. Content that already starts lower is left where it is.
+ * `minContentLevel` pushes the content further down when the caller needs the
+ * top levels kept for structure alone (see `assembleDocument`).
  */
-function contentShift(html: string, titleLevel: number): number {
+function contentShift(html: string, titleLevel: number, minContentLevel = 1): number {
   const levels = [...html.matchAll(/<h([1-6])[\s>]/g)].map((m) => Number(m[1]));
   if (levels.length === 0) return 0;
-  return Math.max(0, titleLevel + 1 - Math.min(...levels));
+  const target = Math.max(titleLevel + 1, minContentLevel);
+  return Math.max(0, target - Math.min(...levels));
 }
 
 /**
@@ -522,12 +525,13 @@ export function assembleBody(
   rendered: Map<string, string>,
   showDescription?: boolean,
   baseUrl?: string,
-  unresolvedLinks: UnresolvedLinks = "keep"
+  unresolvedLinks: UnresolvedLinks = "keep",
+  minContentLevel = 1
 ): string {
   const anchors = assignAnchors(tree);
   const sectionIds = assignSectionIds(tree);
   const targets = buildLinkTargets(tree, anchors);
-  const body = walkTree(tree, rendered, anchors, targets, 0, sectionIds, showDescription, baseUrl, unresolvedLinks);
+  const body = walkTree(tree, rendered, anchors, targets, 0, sectionIds, showDescription, baseUrl, unresolvedLinks, minContentLevel);
   return deduplicateIds(body);
 }
 
@@ -588,6 +592,13 @@ export function assembleDocument(
     baseUrl?: string;
     /** `"text"` turns page links with no in-document target into plain text. Default `"keep"`. */
     unresolvedLinks?: UnresolvedLinks;
+    /**
+     * The highest heading level a page's own content may use (default 1: right
+     * below the page title). The Word document sets 4: Word builds its table of
+     * contents from Heading 1-3, whatever their origin, so keeping content at
+     * level 4 and below leaves that table to sections and pages, like the PDF's.
+     */
+    minContentLevel?: number;
     /** Optional cover metadata (product name, version, date, embedded logo). */
     productName?: string;
     version?: string;
@@ -620,7 +631,14 @@ export function assembleDocument(
         logoWidth: options.coverLogoWidth,
       })
     : "";
-  const body = assembleBody(tree, rendered, options.showDescription, options.baseUrl, options.unresolvedLinks);
+  const body = assembleBody(
+    tree,
+    rendered,
+    options.showDescription,
+    options.baseUrl,
+    options.unresolvedLinks,
+    options.minContentLevel
+  );
   // The TOC is a structural page index built from the tree (sections + page
   // titles), not by scanning the body's headings — so a page's internal content
   // headings never appear and the index mirrors the navigation at full depth.
@@ -674,7 +692,8 @@ function walkTree(
   sectionIds: Map<TreeNode, string>,
   showDescription?: boolean,
   baseUrl?: string,
-  unresolvedLinks: UnresolvedLinks = "keep"
+  unresolvedLinks: UnresolvedLinks = "keep",
+  minContentLevel = 1
 ): string {
   let out = "";
   for (const node of nodes) {
@@ -697,7 +716,7 @@ function walkTree(
         depth === 0 ? `${structuralClass(depth)} chapter-landing-title` : structuralClass(depth);
       out += `<h${L} class="${headingClass}" id="${sectionId}">${escapeHtml(node.title)}</h${L}>`;
       if (depth === 0) out += renderChapterContents(node.children, anchors, sectionIds);
-      out += walkTree(node.children, rendered, anchors, targets, depth + 1, sectionIds, showDescription, baseUrl, unresolvedLinks);
+      out += walkTree(node.children, rendered, anchors, targets, depth + 1, sectionIds, showDescription, baseUrl, unresolvedLinks, minContentLevel);
     } else {
       // page node
       const L = structureLevel(depth);
@@ -716,11 +735,12 @@ function walkTree(
       // carries the Pandoc custom-style for the description lede: a Word Para
       // cannot hold attributes, but a div applies "Page Description" to it; the
       // class still drives the PDF (the attribute is inert there).
+      const pageBody = demoteHeadings(linked, contentShift(linked, L, minContentLevel));
       const lede =
         showDescription && node.description && node.description.trim() !== ""
           ? `<div class="page-description" custom-style="Page Description">${escapeHtml(flattenDescriptionMarkdown(node.description))}</div>`
           : "";
-      out += `<section><h${L} class="${structuralClass(depth)}" id="${anchor}">${escapeHtml(title)}</h${L}>${lede}${demoteHeadings(linked, contentShift(linked, L))}</section>`;
+      out += `<section><h${L} class="${structuralClass(depth)}" id="${anchor}">${escapeHtml(title)}</h${L}>${lede}${pageBody}</section>`;
     }
   }
   return out;

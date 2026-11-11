@@ -935,3 +935,30 @@ describe("structure heading levels and content placement", () => {
     expect(html).toMatch(/<section><h3 class="chapter-heading page-start" id="[^"]+">P<\/h3>/);
   });
 });
+
+describe("content headings and the Word table of contents", () => {
+  const tree: Tree = [
+    { type: "section", title: "Ch", children: [{ type: "page", file: "p.md", title: "P" }] },
+  ];
+  const rendered = new Map([["p.md", "<h2>One</h2><p>x</p><h3 id=\"two\">Two</h3>"]]);
+
+  it("places a chapter page's first heading at level 3", () => {
+    // Level 3 is inside the PDF bookmark range (h1-h3), so these headings are bookmarked.
+    const html = assembleDocument(tree, rendered, { title: "T", cover: false });
+    expect(html).toContain("<h3>One</h3>");
+  });
+
+  it("keeps a page's own headings at level 4 and below when asked, so the Word contents lists structure only", () => {
+    const html = assembleDocument(tree, rendered, { title: "T", cover: false, minContentLevel: 4 });
+    expect(html).toContain("<h4>One</h4>");
+    expect(html).toContain('<h5 id="two">Two</h5>');
+    expect(html).toMatch(/<h1 class="chapter-heading chapter-start[^"]*" id="[^"]+">Ch<\/h1>/);
+    expect(html).toMatch(/<h2 class="chapter-heading page-start" id="[^"]+">P<\/h2>/);
+  });
+
+  it("does not move content that already sits below the floor", () => {
+    const deepContent = new Map([["p.md", "<h5>Low</h5>"]]);
+    const html = assembleDocument(tree, deepContent, { title: "T", cover: false, minContentLevel: 4 });
+    expect(html).toContain("<h5>Low</h5>");
+  });
+});

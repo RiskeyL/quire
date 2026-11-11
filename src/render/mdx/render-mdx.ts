@@ -266,7 +266,7 @@ const FRONTMATTER_BLOCK = /^---\r?\n([\s\S]*?)\r?\n---\s*/;
  */
 function renderDegraded(source: string): RenderResult {
   const { frontmatter, body } = stripFrontmatter(source);
-  const stripped = stripJsxOutsideCode(markHeadingIds(body));
+  const stripped = stripJsxOutsideCode(markHeadingIds(body, { indented: false }));
   let html: string;
   try {
     html = String(

@@ -43,6 +43,39 @@ describe("custom heading ids ({#id})", () => {
     expect(html).toContain('<h2 id="kept">Title</h2>');
   });
 
+  it("accepts a custom id on a heading indented inside a component", () => {
+    const warnings: string[] = [];
+    const source = '<Steps>\n  <Step title="One">\n    ### Inner {#inner}\n\n    text\n  </Step>\n</Steps>\n';
+    const { html } = renderMdx(source, { onWarn: (m) => warnings.push(m) });
+    expect(warnings).toEqual([]);
+    expect(html).toContain('id="inner"');
+    expect(html).not.toContain("{#");
+  });
+
+  it("leaves a marker inside a fenced code block alone in a CRLF file", () => {
+    const { html } = renderMdx("```md\r\n## Title {#keep-me}\r\n```\r\n");
+    expect(html).toContain("## Title {#keep-me}");
+    expect(html).not.toContain("quire-heading-id");
+  });
+
+  it("leaves an escaped brace as literal text", () => {
+    const { html } = renderMdx("## T \\{#x}\n");
+    expect(html).toContain("{#x}");
+    expect(html).not.toContain('id="x"');
+  });
+
+  it("does not touch frontmatter", () => {
+    const { frontmatter, html } = renderMdx("---\ndescription: |\n  ## d {#q}\n---\n\n## Body {#b}\n");
+    expect(String(frontmatter.description)).toContain("## d {#q}");
+    expect(html).toContain('<h2 id="b">Body</h2>');
+  });
+
+  it("keeps an indented heading-like line as code when the page degrades", () => {
+    const { html } = renderMdx("Broken {expression here}\n\n    ## Code {#c}\n");
+    expect(html).toContain("## Code {#c}");
+    expect(html).not.toContain("quire-heading-id");
+  });
+
   it("handles several custom ids on one page", () => {
     const { html } = renderMdx("## One {#first}\n\ntext\n\n## Two {#second}\n");
     expect(html).toContain('<h2 id="first">One</h2>');

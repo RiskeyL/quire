@@ -286,6 +286,7 @@ export async function runConvert(paths: string[], options: ConvertOptions): Prom
           date: options.date,
           logoDataUri,
           coverForWord: true,
+          minContentLevel: 4,
           coverLayout: tokens.cover.layout,
           coverLogoWidth: tokens.cover.logoWidth,
         })

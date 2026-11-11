@@ -20,35 +20,64 @@ import type { Plugin } from "unified";
 const MARK_OPEN = "⟪quire-heading-id:";
 const MARK_CLOSE = "⟫";
 
-/** An ATX heading line that ends in `{#id}`. Group 1 is the line without it; group 2 the id. */
-const ATX_WITH_ID = /^( {0,3}#{1,6}[ \t]+.*?)[ \t]*\{#([A-Za-z0-9_][\w:.-]*)\}[ \t]*$/;
+/**
+ * An ATX heading line that ends in `{#id}`. Group 1 is the line without it;
+ * group 2 the id. A brace escaped with a backslash is literal text and is left
+ * alone. `lead` is the indentation allowed in front of the hashes.
+ */
+function atxWithId(lead: string): RegExp {
+  return new RegExp(`^(${lead}#{1,6}[ \\t]+.*?)[ \\t]*(?<!\\\\)\\{#([A-Za-z0-9_][\\w:.-]*)\\}[ \\t]*$`);
+}
 
 /** The opening (or closing) line of a fenced code block. */
-const FENCE = /^ {0,3}(`{3,}|~{3,})(.*)$/;
+function fenceLine(lead: string): RegExp {
+  return new RegExp(`^${lead}(\`{3,}|~{3,})(.*)$`);
+}
 
 /** The marker at the end of a heading's last text node. */
 const MARKER_AT_END = new RegExp(`\\s*${MARK_OPEN}([^${MARK_CLOSE}]+)${MARK_CLOSE}\\s*$`);
 
+/** Options for `markHeadingIds`. */
+export interface MarkHeadingIdsOptions {
+  /**
+   * Whether a heading or fence may be indented by any amount. MDX has no
+   * indented code blocks, so a heading nested inside a component (four or more
+   * spaces deep) is still a heading; that is the default. Plain Markdown turns
+   * such a line into code, so the degraded renderer passes `false` and keeps
+   * CommonMark's limit of three spaces.
+   */
+  indented?: boolean;
+}
+
 /**
- * Replace the trailing `{#id}` of every ATX heading outside fenced code with a
- * marker that survives MDX parsing as ordinary text.
+ * Replace the trailing `{#id}` of every ATX heading outside fenced code and
+ * frontmatter with a marker that survives MDX parsing as ordinary text.
  */
-export function markHeadingIds(source: string): string {
+export function markHeadingIds(source: string, options: MarkHeadingIdsOptions = {}): string {
   if (!source.includes("{#")) return source;
+  const lead = options.indented === false ? " {0,3}" : "[ \\t]*";
+  const heading = atxWithId(lead);
+  const fenceOpenOrClose = fenceLine(lead);
+  const lines = source.split("\n");
   let fence: { char: string; length: number } | null = null;
-  return source
-    .split("\n")
-    .map((line) => {
-      const fenceMatch = FENCE.exec(line);
+  let inFrontmatter = lines[0]?.replace(/\r$/, "") === "---";
+  return lines
+    .map((rawLine, index) => {
+      const carriageReturn = rawLine.endsWith("\r") ? "\r" : "";
+      const line = carriageReturn ? rawLine.slice(0, -1) : rawLine;
+      if (inFrontmatter) {
+        if (index > 0 && line === "---") inFrontmatter = false;
+        return rawLine;
+      }
+      const fenceMatch = fenceOpenOrClose.exec(line);
       if (fence === null) {
         if (fenceMatch) {
           fence = { char: fenceMatch[1][0], length: fenceMatch[1].length };
-          return line;
+          return rawLine;
         }
-        const heading = ATX_WITH_ID.exec(line.replace(/\r$/, ""));
-        if (!heading) return line;
-        const carriageReturn = line.endsWith("\r") ? "\r" : "";
-        return `${heading[1]} ${MARK_OPEN}${heading[2]}${MARK_CLOSE}${carriageReturn}`;
+        const match = heading.exec(line);
+        if (!match) return rawLine;
+        return `${match[1]} ${MARK_OPEN}${match[2]}${MARK_CLOSE}${carriageReturn}`;
       }
       const closes =
         fenceMatch !== null &&
@@ -56,7 +85,7 @@ export function markHeadingIds(source: string): string {
         fenceMatch[1].length >= fence.length &&
         fenceMatch[2].trim() === "";
       if (closes) fence = null;
-      return line;
+      return rawLine;
     })
     .join("\n");
 }
