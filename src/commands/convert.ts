@@ -39,6 +39,12 @@ export interface ConvertOptions {
    * to in-document anchors.
    */
   baseUrl?: string;
+  /**
+   * What to do with internal page links whose target is not in the document and
+   * that `baseUrl` did not rewrite: `"keep"` (default) leaves them as written,
+   * `"text"` turns them into plain text.
+   */
+  unresolvedLinks?: "keep" | "text";
   /** Release/version label printed on the cover (omitted when absent). */
   docVersion?: string;
   /** Publish date printed on the cover (omitted when absent; never auto-filled). */
@@ -250,6 +256,7 @@ export async function runConvert(paths: string[], options: ConvertOptions): Prom
           tocDepth: tokens.toc.depth,
           showDescription,
           baseUrl: options.baseUrl,
+          unresolvedLinks: options.unresolvedLinks,
           productName: tokens.brand.productName,
           version: options.docVersion,
           date: options.date,
@@ -273,6 +280,7 @@ export async function runConvert(paths: string[], options: ConvertOptions): Prom
           toc: false,
           showDescription,
           baseUrl: options.baseUrl,
+          unresolvedLinks: options.unresolvedLinks,
           productName: tokens.brand.productName,
           version: options.docVersion,
           date: options.date,

@@ -116,6 +116,18 @@ export function buildLinkTargets(
   return targets;
 }
 
+/** What `rewriteCrossLinks` does with an internal page link that resolves to nothing. */
+export type UnresolvedLinks = "keep" | "text";
+
+/**
+ * True when a link path points at a docs page rather than a file asset: its last
+ * segment has no extension, or ends in `.md`/`.mdx`.
+ */
+function isPagePath(pathPart: string): boolean {
+  const last = pathPart.split("/").pop() ?? "";
+  return !/\.[A-Za-z0-9]+$/.test(last) || /\.(md|mdx)$/i.test(last);
+}
+
 /**
  * Resolve a site-absolute link (e.g. `/en/develop-plugin/.../tool-plugin`) to a
  * bundled page's anchor, or `undefined` when none matches.
@@ -180,12 +192,17 @@ function joinBaseUrl(baseUrl: string, path: string): string {
  * @param targets  The link-targets map produced by `buildLinkTargets`.
  * @param baseUrl  Optional published-site base (e.g. `https://docs.dify.ai`);
  *                 when set, out-of-bundle site-absolute links become external URLs.
+ * @param unresolved What to do with a page link that still has no target:
+ *                 `"keep"` (default) leaves it as written; `"text"` replaces the
+ *                 `<a>` with its contents so no dead link reaches the output.
+ *                 Links to non-page files (images, archives) are never unwrapped.
  */
 export function rewriteCrossLinks(
   html: string,
   fromFile: string,
   targets: Map<string, string>,
-  baseUrl?: string
+  baseUrl?: string,
+  unresolved: UnresolvedLinks = "keep"
 ): string {
   const $ = cheerio.load(html, null, false);
   $("a[href]").each((_, el) => {
@@ -216,6 +233,8 @@ export function rewriteCrossLinks(
         $(el).attr("href", `#${anchor}`);
       } else if (baseUrl !== undefined) {
         $(el).attr("href", joinBaseUrl(baseUrl, raw));
+      } else if (unresolved === "text" && isPagePath(pathPart)) {
+        $(el).replaceWith($(el).contents());
       }
       return;
     }
@@ -225,6 +244,8 @@ export function rewriteCrossLinks(
 
     if (targets.has(key)) {
       $(el).attr("href", `#${targets.get(key)}`);
+    } else if (unresolved === "text" && isPagePath(pathPart)) {
+      $(el).replaceWith($(el).contents());
     }
   });
   return $.html();
@@ -471,12 +492,13 @@ export function assembleBody(
   tree: Tree,
   rendered: Map<string, string>,
   showDescription?: boolean,
-  baseUrl?: string
+  baseUrl?: string,
+  unresolvedLinks: UnresolvedLinks = "keep"
 ): string {
   const anchors = assignAnchors(tree);
   const sectionIds = assignSectionIds(tree);
   const targets = buildLinkTargets(tree, anchors);
-  const body = walkTree(tree, rendered, anchors, targets, 0, sectionIds, showDescription, baseUrl);
+  const body = walkTree(tree, rendered, anchors, targets, 0, sectionIds, showDescription, baseUrl, unresolvedLinks);
   return deduplicateIds(body);
 }
 
@@ -535,6 +557,8 @@ export function assembleDocument(
     tocDepth?: number;
     showDescription?: boolean;
     baseUrl?: string;
+    /** `"text"` turns page links with no in-document target into plain text. Default `"keep"`. */
+    unresolvedLinks?: UnresolvedLinks;
     /** Optional cover metadata (product name, version, date, embedded logo). */
     productName?: string;
     version?: string;
@@ -567,7 +591,7 @@ export function assembleDocument(
         logoWidth: options.coverLogoWidth,
       })
     : "";
-  const body = assembleBody(tree, rendered, options.showDescription, options.baseUrl);
+  const body = assembleBody(tree, rendered, options.showDescription, options.baseUrl, options.unresolvedLinks);
   // The TOC is a structural page index built from the tree (sections + page
   // titles), not by scanning the body's headings — so a page's internal content
   // headings never appear and the index mirrors the navigation at full depth.
@@ -620,7 +644,8 @@ function walkTree(
   depth: number,
   sectionIds: Map<TreeNode, string>,
   showDescription?: boolean,
-  baseUrl?: string
+  baseUrl?: string,
+  unresolvedLinks: UnresolvedLinks = "keep"
 ): string {
   let out = "";
   for (const node of nodes) {
@@ -643,7 +668,7 @@ function walkTree(
         depth === 0 ? `${structuralClass(depth)} chapter-landing-title` : structuralClass(depth);
       out += `<h${L} class="${headingClass}" id="${sectionId}">${escapeHtml(node.title)}</h${L}>`;
       if (depth === 0) out += renderChapterContents(node.children, anchors, sectionIds);
-      out += walkTree(node.children, rendered, anchors, targets, depth + 1, sectionIds, showDescription, baseUrl);
+      out += walkTree(node.children, rendered, anchors, targets, depth + 1, sectionIds, showDescription, baseUrl, unresolvedLinks);
     } else {
       // page node
       const L = Math.min(depth + 1, 6);
@@ -656,7 +681,7 @@ function walkTree(
       if (content === undefined) {
         throw new Error(`No rendered content for page "${node.file}".`);
       }
-      const linked = rewriteCrossLinks(content, node.file, targets, baseUrl);
+      const linked = rewriteCrossLinks(content, node.file, targets, baseUrl, unresolvedLinks);
       // The anchor id sits on the page heading (not the <section> wrapper) so
       // pagedjs registers it as the PDF outline destination. A <div> (not a <p>)
       // carries the Pandoc custom-style for the description lede: a Word Para

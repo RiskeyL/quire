@@ -197,6 +197,8 @@ When a link points to another page **inside the same bundle**, Quire rewrites it
 
 Pass `--base-url` to turn those out-of-bundle internal links into live URLs on your published site. For example, with `--base-url https://docs.dify.ai`, a link to `/en/use-dify/something` that is not in the bundle becomes `https://docs.dify.ai/en/use-dify/something` (query strings and fragments are preserved). Genuine external links and full URLs already written into the source are never touched.
 
+For a deliverable whose readers cannot reach the published site, pass `--unresolved-links text` instead. Every link to a page that is not in the bundle then becomes plain text, so the file carries no dead links. When both options are set, `--base-url` wins for site-absolute links and only what it cannot rewrite becomes text. Links to other kinds of files, such as images or archives, are left as written.
+
 ## Reuse options with a config file
 
 A run-config YAML supplies defaults so you do not retype the same flags. Every key mirrors a `convert` flag. An explicitly-set CLI flag wins over the file; the file wins over the built-in default.
@@ -275,6 +277,7 @@ Provide either one or more file `paths` or a `--manifest`, not both.
 | `--doc-version <version>` | Release or version label printed on the cover. Omitted when unset. |
 | `--date <date>` | Publish date printed on the cover. Omitted when unset; never auto-filled. |
 | `--base-url <url>` | Published-site base (e.g. `https://docs.dify.ai`). Rewrites links to pages outside the bundle into live external URLs. See [Link between documents](#link-between-documents). |
+| `--unresolved-links <mode>` | What to do with a link to a page outside the bundle: `keep` (default) leaves it as written, `text` turns it into plain text. See [Link between documents](#link-between-documents). |
 | `--root <dir>` | Base directory for resolving root-relative image paths (`/images/…`). Defaults to the manifest directory, then the current directory. |
 | `--offline` | Do not fetch remote images. |
 | `--no-cover` | Omit the cover page. |

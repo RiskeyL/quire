@@ -21,6 +21,7 @@ const runConfigSchema = z
     theme: z.string().optional(),
     description: z.boolean().optional(),
     baseUrl: z.string().optional(),
+    unresolvedLinks: z.enum(["keep", "text"]).optional(),
     // YAML auto-types unquoted scalars: `1.14` parses as a number and a bare
     // `2026-05-25` as a Date. Accept those and normalize to a string so the user
     // need not remember to quote the cover's version/date.
@@ -50,6 +51,7 @@ export const RUN_CONFIG_KEYS = [
   "theme",
   "description",
   "baseUrl",
+  "unresolvedLinks",
   "docVersion",
   "date",
 ] as const;

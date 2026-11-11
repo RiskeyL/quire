@@ -485,6 +485,58 @@ describe("rewriteCrossLinks with baseUrl", () => {
   });
 });
 
+describe("rewriteCrossLinks unresolved: text", () => {
+  const tree: Tree = [
+    { type: "page", file: "a.md" },
+    { type: "page", file: "guides/b.md" },
+  ];
+  const anchors = assignAnchors(tree);
+  const targets = buildLinkTargets(tree, anchors);
+
+  it("unwraps a site-absolute link to a page outside the bundle", () => {
+    const out = rewriteCrossLinks('<p>See <a href="/zh/3.13.x/use/missing#x">权限参考</a>.</p>', "a.md", targets, undefined, "text");
+    expect(out).toBe("<p>See 权限参考.</p>");
+  });
+  it("unwraps an unresolved relative page link and keeps inline markup", () => {
+    const out = rewriteCrossLinks('<a href="./gone.mdx"><strong>Gone</strong></a>', "a.md", targets, undefined, "text");
+    expect(out).toBe("<strong>Gone</strong>");
+  });
+  it("still rewrites a resolvable link to its anchor", () => {
+    const out = rewriteCrossLinks('<a href="guides/b.md">B</a>', "a.md", targets, undefined, "text");
+    expect(out).toContain('href="#');
+  });
+  it("leaves external, fragment, and non-page links alone", () => {
+    const html = '<a href="https://x.dev">x</a><a href="#top">t</a><a href="/images/a.png">i</a><a href="./sample.zip">z</a>';
+    expect(rewriteCrossLinks(html, "a.md", targets, undefined, "text")).toBe(html);
+  });
+  it("prefers baseUrl over unwrapping for site-absolute links", () => {
+    const out = rewriteCrossLinks('<a href="/en/x/y">y</a>', "a.md", targets, "https://docs.example.com", "text");
+    expect(out).toContain('href="https://docs.example.com/en/x/y"');
+  });
+  it("keeps unresolved links unchanged by default", () => {
+    const html = '<a href="/zh/3.13.x/use/missing">m</a>';
+    expect(rewriteCrossLinks(html, "a.md", targets)).toBe(html);
+  });
+  it("leaves no site path behind in a card whose target is unresolved", () => {
+    const html = '<div class="card"><p class="card-title"><a href="/zh/3.13.x/use/missing">Roles</a></p><p>Body</p></div>';
+    const out = rewriteCrossLinks(html, "a.md", targets, undefined, "text");
+    expect(out).not.toContain("/zh/3.13.x/use/missing");
+    expect(out).toContain('<p class="card-title">Roles</p>');
+  });
+});
+
+describe("assembleDocument unresolvedLinks option", () => {
+  it("threads the option down to link rewriting", () => {
+    const tree: Tree = [{ type: "page", file: "a.md" }];
+    const rendered = new Map([["a.md", '<h1>A</h1><p><a href="/zh/3.13.x/use/missing">gone</a></p>']]);
+    const kept = assembleDocument(tree, rendered, { title: "T", cover: false });
+    const text = assembleDocument(tree, rendered, { title: "T", cover: false, unresolvedLinks: "text" });
+    expect(kept).toContain('href="/zh/3.13.x/use/missing"');
+    expect(text).not.toContain("/zh/3.13.x/use/missing");
+    expect(text).toContain("gone");
+  });
+});
+
 describe("assembleDocument with toc option", () => {
   const tree: Tree = [{ type: "page", file: "x.md", title: "X" }];
   const rendered = new Map([["x.md", "<p>body</p>"]]);

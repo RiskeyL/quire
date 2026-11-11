@@ -21,6 +21,14 @@ describe("parseRunConfig", () => {
     });
   });
 
+  it("accepts unresolvedLinks: text", () => {
+    expect(parseRunConfig("unresolvedLinks: text")).toEqual({ unresolvedLinks: "text" });
+  });
+
+  it("rejects an unknown unresolvedLinks value, naming the key", () => {
+    expect(() => parseRunConfig("unresolvedLinks: bogus")).toThrow(/unresolvedLinks[\s\S]*keep/);
+  });
+
   it("accepts docVersion and date strings for the cover", () => {
     expect(parseRunConfig("docVersion: 1.14.2\ndate: 2026-05-25")).toEqual({
       docVersion: "1.14.2",
