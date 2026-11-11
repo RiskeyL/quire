@@ -14,4 +14,14 @@ describe("packaging", () => {
     expect(pkg.dependencies?.["pagedjs-cli"]).toBeTruthy();
     expect(pkg.devDependencies?.["pagedjs-cli"]).toBeUndefined();
   });
+
+  it("does not hard-code a node_modules path for mermaid", () => {
+    // A consumer's package manager may hoist mermaid out of Quire's own node_modules,
+    // so the bundle has to be found through module resolution.
+    const src = readFileSync(
+      fileURLToPath(new URL("../src/render/mermaid.ts", import.meta.url)),
+      "utf8"
+    );
+    expect(src).not.toContain("../../node_modules/mermaid");
+  });
 });

@@ -1,6 +1,6 @@
 import * as cheerio from "cheerio";
 import { readFile } from "node:fs/promises";
-import { fileURLToPath } from "node:url";
+import { createRequire } from "node:module";
 import puppeteer, { type Browser } from "puppeteer";
 
 /**
@@ -131,10 +131,15 @@ export async function renderMermaid(
 // Puppeteer-backed renderer
 // ---------------------------------------------------------------------------
 
-/** Path to the bundled mermaid UMD build (no CDN — offline-first). */
-const MERMAID_DIST = fileURLToPath(
-  new URL("../../node_modules/mermaid/dist/mermaid.min.js", import.meta.url)
-);
+/**
+ * Absolute path of the mermaid UMD build (no CDN — offline-first), found through
+ * Node's module resolution from this file. A fixed path into Quire's own
+ * dependency folder would break when Quire is installed as a dependency and the
+ * package manager hoists mermaid to the consumer's top level.
+ */
+export function resolveMermaidDist(): string {
+  return createRequire(import.meta.url).resolve("mermaid/dist/mermaid.min.js");
+}
 
 /**
  * Create a {@link DiagramRenderer} backed by a single headless Chromium
@@ -155,7 +160,7 @@ export async function createPuppeteerRenderer(): Promise<{
   render: DiagramRenderer;
   close: () => Promise<void>;
 }> {
-  const mermaidScript = await readFile(MERMAID_DIST, "utf8");
+  const mermaidScript = await readFile(resolveMermaidDist(), "utf8");
 
   const browser: Browser = await puppeteer.launch({
     headless: "new",

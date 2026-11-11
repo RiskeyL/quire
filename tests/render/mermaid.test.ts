@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
-import { renderMermaid } from "../../src/render/mermaid.js";
+import { existsSync } from "node:fs";
+import { renderMermaid, resolveMermaidDist } from "../../src/render/mermaid.js";
 
 // A tiny 1x1 transparent PNG data URI used as the fake render output.
 const FAKE_PNG_URI =
@@ -152,5 +153,13 @@ describe("renderMermaid (real puppeteer + bundled mermaid)", () => {
     expect(result).toContain(`class="mermaid-diagram"`);
     expect(result).toMatch(/src="data:image\/png;base64,[A-Za-z0-9+/=]+"/);
     expect(result).not.toContain(`language-mermaid`);
+  });
+});
+
+describe("resolveMermaidDist", () => {
+  it("resolves the mermaid bundle to an existing file", () => {
+    const p = resolveMermaidDist();
+    expect(p.endsWith("mermaid/dist/mermaid.min.js")).toBe(true);
+    expect(existsSync(p)).toBe(true);
   });
 });
