@@ -513,6 +513,15 @@ describe("compileCss", () => {
       expect(css).toMatch(/\.doc-body > \.footer-note \+ \.chapter-start\s*\{\s*break-before: auto/);
       expect(css).toContain(".doc-body > .chapter-start:first-child");
     });
+
+    it("cancels break-before on a first chapter that is wrapped in a section", () => {
+      // A top-level page outside any manifest section is emitted as
+      // <section><h1 class="chapter-start">, so the heading is not a direct child of .doc-body.
+      const css = compileCss(DEFAULT_TOKENS);
+      expect(css).toMatch(
+        /\.doc-body > \.footer-note \+ section > \.chapter-start:first-child[^{]*\{\s*break-before: auto/
+      );
+    });
   });
 
   describe("media placeholder (video / iframe)", () => {

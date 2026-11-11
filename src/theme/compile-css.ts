@@ -1060,8 +1060,12 @@ ${heroRule}
 /* The first chapter must NOT break to a new page: it already sits at the top of the
    first body page. The footer-note running element that precedes it in .doc-body would
    otherwise make its break-before fire and insert a blank first body page. The
-   :first-child form covers the no-footer-note case (the chapter is then the first child). */
+   :first-child form covers the no-footer-note case (the chapter is then the first child).
+   A top-level page outside any manifest section is emitted as
+   <section><h1 class="chapter-start"> (assembleBody), so its heading is not a direct
+   child of .doc-body; the "+ section >" form covers that case. */
 .doc-body > .chapter-start:first-child,
+.doc-body > .footer-note + section > .chapter-start:first-child,
 .doc-body > .footer-note + .chapter-start { break-before: auto; }
 
 /* TOC layout: remove bullets; every entry is a link with a target-counter
