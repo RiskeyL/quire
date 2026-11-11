@@ -517,6 +517,14 @@ describe("rewriteCrossLinks unresolved: text", () => {
     const html = '<a href="/zh/3.13.x/use/missing">m</a>';
     expect(rewriteCrossLinks(html, "a.md", targets)).toBe(html);
   });
+  it("treats a link that ends at a version folder as a page link", () => {
+    const out = rewriteCrossLinks('<a href="/zh/3.13.x">3.13</a>', "a.md", targets, undefined, "text");
+    expect(out).toBe("3.13");
+  });
+  it("treats a dotted page slug as a page link", () => {
+    const out = rewriteCrossLinks('<a href="/zh/3.13.x/upgrade/v3.13.0">Upgrade</a><a href="./v1.2">Old</a>', "a.md", targets, undefined, "text");
+    expect(out).toBe("UpgradeOld");
+  });
   it("leaves no site path behind in a card whose target is unresolved", () => {
     const html = '<div class="card"><p class="card-title"><a href="/zh/3.13.x/use/missing">Roles</a></p><p>Body</p></div>';
     const out = rewriteCrossLinks(html, "a.md", targets, undefined, "text");

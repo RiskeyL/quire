@@ -197,7 +197,7 @@ When a link points to another page **inside the same bundle**, Quire rewrites it
 
 Pass `--base-url` to turn those out-of-bundle internal links into live URLs on your published site. For example, with `--base-url https://docs.dify.ai`, a link to `/en/use-dify/something` that is not in the bundle becomes `https://docs.dify.ai/en/use-dify/something` (query strings and fragments are preserved). Genuine external links and full URLs already written into the source are never touched.
 
-For a deliverable whose readers cannot reach the published site, pass `--unresolved-links text` instead. Every link to a page that is not in the bundle then becomes plain text, so the file carries no dead links. When both options are set, `--base-url` wins for site-absolute links and only what it cannot rewrite becomes text. Links to other kinds of files, such as images or archives, are left as written.
+For a deliverable whose readers cannot reach the published site, pass `--unresolved-links text` instead. Every link to a page that is not in the bundle then becomes plain text, so the file carries no dead page links. When both options are set, `--base-url` wins for site-absolute links and only what it cannot rewrite becomes text. Links to other kinds of files, such as images or archives, are left as written.
 
 ## Reuse options with a config file
 

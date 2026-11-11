@@ -121,11 +121,15 @@ export type UnresolvedLinks = "keep" | "text";
 
 /**
  * True when a link path points at a docs page rather than a file asset: its last
- * segment has no extension, or ends in `.md`/`.mdx`.
+ * segment has no file extension, or ends in `.md`/`.mdx`.
+ *
+ * A file extension starts with a letter and is two to six characters long
+ * (`.png`, `.zip`, `.json`). That keeps dotted page slugs and version folders
+ * (`/zh/3.13.x`, `/upgrade/v3.13.0`, `./v1.2`) on the page side.
  */
 function isPagePath(pathPart: string): boolean {
   const last = pathPart.split("/").pop() ?? "";
-  return !/\.[A-Za-z0-9]+$/.test(last) || /\.(md|mdx)$/i.test(last);
+  return !/\.[A-Za-z][A-Za-z0-9]{1,5}$/.test(last) || /\.(md|mdx)$/i.test(last);
 }
 
 /**
