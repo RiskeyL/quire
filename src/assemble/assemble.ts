@@ -483,8 +483,33 @@ function chapterContentsEntry(id: string, text: string, level: number): string {
  */
 function structuralClass(depth: number): string {
   if (depth === 0) return "chapter-heading chapter-start";
-  if (depth === 1) return "chapter-heading page-start";
-  return "chapter-heading";
+  return "chapter-heading page-start";
+}
+
+/**
+ * The deepest heading level structure may use. Section and page titles nested
+ * deeper than this all sit at this level, so that a page's own headings keep
+ * the remaining levels however deep the navigation above it goes. The nesting
+ * itself still shows in the table of contents, which is built from the tree.
+ */
+const MAX_STRUCTURE_LEVEL = 3;
+
+/** The heading level of a section or page title at `depth`. */
+function structureLevel(depth: number): number {
+  return Math.min(depth + 1, MAX_STRUCTURE_LEVEL);
+}
+
+/**
+ * How far to demote a page's own headings so that its topmost one lands right
+ * below the page title (at `titleLevel + 1`). Docs whose title lives in
+ * frontmatter usually start their content at h2; demoting by a fixed amount
+ * would leave a level unused between the title and the content, and lose one
+ * at the bottom. Content that already starts lower is left where it is.
+ */
+function contentShift(html: string, titleLevel: number): number {
+  const levels = [...html.matchAll(/<h([1-6])[\s>]/g)].map((m) => Number(m[1]));
+  if (levels.length === 0) return 0;
+  return Math.max(0, titleLevel + 1 - Math.min(...levels));
 }
 
 /**
@@ -654,7 +679,7 @@ function walkTree(
   let out = "";
   for (const node of nodes) {
     if (node.type === "section") {
-      const L = Math.min(depth + 1, 6);
+      const L = structureLevel(depth);
       // The pre-assigned id (assignSectionIds) is a PDF-outline destination and
       // the link target for the TOC and the chapter-contents list. structuralClass
       // marks chapters/their direct children for page breaks (and the depth-0
@@ -675,7 +700,7 @@ function walkTree(
       out += walkTree(node.children, rendered, anchors, targets, depth + 1, sectionIds, showDescription, baseUrl, unresolvedLinks);
     } else {
       // page node
-      const L = Math.min(depth + 1, 6);
+      const L = structureLevel(depth);
       const anchor = anchors.get(node.file);
       if (anchor === undefined) {
         throw new Error(`No anchor assigned for page "${node.file}".`);
@@ -695,7 +720,7 @@ function walkTree(
         showDescription && node.description && node.description.trim() !== ""
           ? `<div class="page-description" custom-style="Page Description">${escapeHtml(flattenDescriptionMarkdown(node.description))}</div>`
           : "";
-      out += `<section><h${L} class="${structuralClass(depth)}" id="${anchor}">${escapeHtml(title)}</h${L}>${lede}${demoteHeadings(linked, depth + 1)}</section>`;
+      out += `<section><h${L} class="${structuralClass(depth)}" id="${anchor}">${escapeHtml(title)}</h${L}>${lede}${demoteHeadings(linked, contentShift(linked, L))}</section>`;
     }
   }
   return out;

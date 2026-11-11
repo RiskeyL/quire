@@ -48,7 +48,7 @@ A manifest is a YAML list that defines what goes into the document and in what o
     - file: "en/guides/publishing.mdx"
 ```
 
-Page paths are resolved relative to the manifest's own directory. Each top-level section becomes a chapter: it gets a landing page (a blue "Chapter NN" kicker, the title, and a linked index of the chapter's contents two levels deep), and the chapter plus each of its direct children start on a new page (deeper nesting flows continuously, so closely related sub-pages stay together). Sections can nest to any depth. The PDF table of contents is a structural index of every section and page (page titles only, never a page's in-page headings), following the structure to full depth.
+Page paths are resolved relative to the manifest's own directory. Each top-level section becomes a chapter: it gets a landing page (a blue "Chapter NN" kicker, the title, and a linked index of the chapter's contents two levels deep), and the chapter and every page under it, at any depth, start on a new page. A nested section's title stays on the page of the first page it introduces. Sections can nest to any depth: section and page titles use heading levels 1 to 3, and each page's own headings follow directly below its title, so a page keeps its heading hierarchy however deep it sits. The PDF table of contents is a structural index of every section and page (page titles only, never a page's in-page headings), following the structure to full depth.
 
 Build it with a theme and a cover:
 

@@ -858,7 +858,7 @@ describe("assembleBody chapter landing page", () => {
     expect(nav).not.toContain("cc-level-3");
   });
 
-  it("gives the top-level chapter title the landing-title class (for the kicker) and breaks depth-1, not depth>=2", () => {
+  it("gives the top-level chapter title the landing-title class (for the kicker) and marks everything below it as a page start", () => {
     const tree: Tree = [
       {
         type: "section",
@@ -872,6 +872,66 @@ describe("assembleBody chapter landing page", () => {
     const html = assembleBody(tree, rendered);
     expect(html).toContain('<h1 class="chapter-heading chapter-start chapter-landing-title" id="quire-section-1">Build</h1>');
     expect(html).toContain('<h2 class="chapter-heading page-start" id="quire-section-2">Nodes</h2>');
-    expect(html).toContain('<h3 class="chapter-heading" id="llm-md">LLM</h3>');
+    // Every source page starts on a new page; the stylesheet keeps a group heading
+    // (Nodes) on the page of the first page it introduces (LLM).
+    expect(html).toContain('<h3 class="chapter-heading page-start" id="llm-md">LLM</h3>');
+  });
+});
+
+describe("structure heading levels and content placement", () => {
+  const deep: Tree = [
+    {
+      type: "section",
+      title: "Ch",
+      children: [
+        {
+          type: "section",
+          title: "A",
+          children: [
+            {
+              type: "section",
+              title: "B",
+              children: [
+                { type: "section", title: "C", children: [{ type: "page", file: "p.md", title: "P" }] },
+              ],
+            },
+          ],
+        },
+      ],
+    },
+  ];
+
+  it("stops spending heading levels on structure after level 3", () => {
+    const html = assembleBody(deep, new Map([["p.md", "<p>x</p>"]]));
+    expect(html).toMatch(/<h1 [^>]*>Ch<\/h1>/);
+    expect(html).toMatch(/<h2 [^>]*>A<\/h2>/);
+    expect(html).toMatch(/<h3 [^>]*>B<\/h3>/);
+    expect(html).toMatch(/<h3 [^>]*>C<\/h3>/);
+    expect(html).toMatch(/<h3 [^>]*>P<\/h3>/);
+  });
+
+  it("keeps a deeply nested page's own heading levels apart", () => {
+    const html = assembleBody(deep, new Map([["p.md", "<h2>One</h2><h3>Two</h3><h4>Three</h4>"]]));
+    expect(html).toContain("<h4>One</h4><h5>Two</h5><h6>Three</h6>");
+  });
+
+  it("puts a page's topmost heading right below its title, whatever level the source starts at", () => {
+    const flat: Tree = [{ type: "page", file: "a.md", title: "A" }];
+    const fromH2 = assembleBody(flat, new Map([["a.md", "<h2>X</h2><h3>Y</h3>"]]));
+    expect(fromH2).toContain("<h2>X</h2><h3>Y</h3>");
+    const fromH1 = assembleBody(flat, new Map([["a.md", "<h1>X</h1><h2>Y</h2>"]]));
+    expect(fromH1).toContain("<h2>X</h2><h3>Y</h3>");
+  });
+
+  it("never promotes headings that start lower than the slot below the title", () => {
+    const flat: Tree = [{ type: "page", file: "a.md", title: "A" }];
+    const html = assembleBody(flat, new Map([["a.md", "<h4>Deep</h4>"]]));
+    expect(html).toContain("<h4>Deep</h4>");
+  });
+
+  it("marks every page and group below the top level as a page start", () => {
+    const html = assembleBody(deep, new Map([["p.md", "<p>x</p>"]]));
+    expect(html).toMatch(/<h3 class="chapter-heading page-start" id="[^"]+">C<\/h3>/);
+    expect(html).toMatch(/<section><h3 class="chapter-heading page-start" id="[^"]+">P<\/h3>/);
   });
 });

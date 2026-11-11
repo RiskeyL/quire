@@ -514,6 +514,16 @@ describe("compileCss", () => {
       expect(css).toContain(".doc-body > .chapter-start:first-child");
     });
 
+    it("keeps a group heading on the same page as the heading or page that follows it", () => {
+      const css = compileCss(DEFAULT_TOKENS);
+      // Nested group headings stack, and the first page of a group shares its page.
+      expect(css).toMatch(/\.doc-body > \.page-start \+ \.page-start[^{]*\{\s*break-before: auto/);
+      expect(css).toMatch(
+        /\.doc-body > \.page-start \+ section > \.page-start:first-child[^{]*\{\s*break-before: auto/
+      );
+      expect(css).toMatch(/\.doc-body > \.page-start\s*\{[^}]*break-after:\s*avoid/);
+    });
+
     it("cancels break-before on a first chapter that is wrapped in a section", () => {
       // A top-level page outside any manifest section is emitted as
       // <section><h1 class="chapter-start">, so the heading is not a direct child of .doc-body.

@@ -1050,9 +1050,9 @@ ${heroRule}
 
 /* Page-break structure. A top-level (depth-0) chapter carries .chapter-start
    (which also feeds the running-header chapter title via the string-set rule
-   above). Its direct children (depth-1) carry .page-start, which only breaks the
-   page — so the running header keeps showing the chapter, not the sub-page.
-   Deeper nesting (depth >= 2) carries neither, so sub-content flows continuously.
+   above). Every group heading and page title below it, at any depth, carries
+   .page-start, which only breaks the page — so each source page starts on a new
+   page while the running header keeps showing the chapter.
    The body's first chapter follows the TOC's own \`break-after: page\`, so a
    forced break at the very top of a page is a no-op in Paged.js (no spurious
    blank page; verified empirically). */
@@ -1067,6 +1067,15 @@ ${heroRule}
 .doc-body > .chapter-start:first-child,
 .doc-body > .footer-note + section > .chapter-start:first-child,
 .doc-body > .footer-note + .chapter-start { break-before: auto; }
+/* A group heading (a section title below the chapter level) is a direct child of
+   .doc-body; a page title sits inside its own <section>. A group heading stays on
+   the page of whatever it introduces: the next group heading nested under it, or
+   the first page of the group. Only the first heading of such a run breaks. It is
+   set in the muted colour so the page title under it reads as the heading and the
+   group names above it as where the page sits. */
+.doc-body > .page-start { break-after: avoid; color: var(--color-muted); }
+.doc-body > .page-start + .page-start,
+.doc-body > .page-start + section > .page-start:first-child { break-before: auto; }
 
 /* TOC layout: remove bullets; every entry is a link with a target-counter
    page number. The TOC is heading-based (buildTocFromHeadings): each entry is
