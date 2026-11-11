@@ -61,10 +61,16 @@ export interface BrandTokens {
     layout: "spine" | "plain";
     spineWidth: string;
     logoWidth: string;
-    titleAnchor: "top" | "center" | "bottom";
+    /**
+     * Vertical position of the title block. "upper" seats it in the upper third
+     * and pins the version/date line (and the site address) to the bottom.
+     */
+    titleAnchor: "top" | "upper" | "center" | "bottom";
     align: "left" | "center";
     /** Cover title font size, e.g. "2.8em" or "32pt" (PDF only). */
     titleSize: string;
+    /** Cover title font weight, 100-900 (PDF only). */
+    titleWeight: number;
   };
   badges: { color: string };
   components: { gap: number };
@@ -120,7 +126,7 @@ export const DEFAULT_TOKENS: BrandTokens = {
   // No logo or product name by default; the cover then shows just the title
   // (plus any per-run version/date).
   brand: {},
-  cover: { layout: "spine", spineWidth: "16mm", logoWidth: "44mm", titleAnchor: "bottom", align: "left", titleSize: "2.8em" },
+  cover: { layout: "spine", spineWidth: "16mm", logoWidth: "44mm", titleAnchor: "bottom", align: "left", titleSize: "2.8em", titleWeight: 400 },
   badges: { color: "muted" },
   components: { gap: 1 },
 };
@@ -216,9 +222,10 @@ const partialCoverSchema = z
     layout: z.enum(["spine", "plain"]),
     spineWidth: z.string(),
     logoWidth: z.string(),
-    titleAnchor: z.enum(["top", "center", "bottom"]),
+    titleAnchor: z.enum(["top", "upper", "center", "bottom"]),
     align: z.enum(["left", "center"]),
     titleSize: z.string(),
+    titleWeight: z.number(),
   })
   .strict()
   .partial();

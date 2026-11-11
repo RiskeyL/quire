@@ -1257,6 +1257,28 @@ describe("compileCss", () => {
       expect(withCover({ titleAnchor: "top" })).toContain(".cover-hero { margin-top: 10mm; }");
     });
 
+    it("upper anchor seats the hero in the upper third and pins the version line to the bottom", () => {
+      const css = withCover({ titleAnchor: "upper" });
+      expect(css).toContain(".cover-hero { margin-top: 30mm; flex: 1 1 auto; display: flex; flex-direction: column; }");
+      expect(css).toContain(".cover-hero .cover-meta { margin-top: auto; }");
+    });
+
+    it("keeps the version line under the title for the other anchors", () => {
+      for (const titleAnchor of ["top", "center", "bottom"] as const) {
+        expect(withCover({ titleAnchor })).not.toContain(".cover-hero .cover-meta { margin-top: auto; }");
+      }
+    });
+
+    it("sets the cover title weight from the token", () => {
+      expect(withCover({ titleWeight: 700 })).toMatch(/\.cover \.doc-title \{[^}]*font-weight: 700;/);
+      expect(withCover({})).toMatch(/\.cover \.doc-title \{[^}]*font-weight: 400;/);
+    });
+
+    it("keeps CJK phrases whole in the cover title unless one cannot fit the line", () => {
+      // Breaks fall at spaces and zero-width spaces; overflow-wrap is the safety net.
+      expect(withCover({})).toMatch(/\.cover \.doc-title \{[^}]*word-break: keep-all;[^}]*overflow-wrap: anywhere;/);
+    });
+
     it("center align centers the column, logo, and rule", () => {
       const css = withCover({ align: "center" });
       expect(css).toMatch(/\.cover-main \{[^}]*align-items: center;[^}]*text-align: center;/);

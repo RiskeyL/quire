@@ -986,12 +986,18 @@ function buildStructural(tokens: BrandTokens): string {
   // Title-block vertical placement. The logo always anchors the top of the
   // column; this positions the hero (kicker, title, rule, meta, footer) in the
   // space below it. "bottom" (default) keeps the classic book-cover split.
+  // "upper" seats the title block in the upper third and lets the hero fill the
+  // rest of the column, so the version/date line (and the site address after
+  // it) can be pushed to the bottom edge.
   const heroRule =
     tokens.cover.titleAnchor === "top"
       ? ".cover-hero { margin-top: 10mm; }"
-      : tokens.cover.titleAnchor === "center"
-        ? ".cover-hero { margin-top: auto; margin-bottom: auto; }"
-        : ".cover-hero { margin-top: auto; }";
+      : tokens.cover.titleAnchor === "upper"
+        ? `.cover-hero { margin-top: 30mm; flex: 1 1 auto; display: flex; flex-direction: column; }
+.cover-hero .cover-meta { margin-top: auto; }`
+        : tokens.cover.titleAnchor === "center"
+          ? ".cover-hero { margin-top: auto; margin-bottom: auto; }"
+          : ".cover-hero { margin-top: auto; }";
   // Horizontal alignment. "center" centers the logo, the text, and the rule.
   const coverAlign =
     tokens.cover.align === "center"
@@ -1037,10 +1043,14 @@ ${heroRule}
   font-family: var(--font-heading);
   font-size: ${tokens.cover.titleSize};
   line-height: 1.07;
-  font-weight: 400;
+  font-weight: ${tokens.cover.titleWeight};
   letter-spacing: -0.01em;
   color: var(--color-heading);
   margin: 0;
+  /* Keep a CJK phrase on one line: break at spaces and zero-width spaces only,
+     and anywhere only when a phrase cannot fit the line at all. */
+  word-break: keep-all;
+  overflow-wrap: anywhere;
 }
 .cover-rule { height: 2px; width: 42mm; background: var(--color-accent); margin: 2.4em 0 1.9em; }
 .cover-meta { font-family: var(--font-body); font-size: 1.05em; color: var(--color-muted); margin: 0; }

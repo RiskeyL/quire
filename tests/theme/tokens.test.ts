@@ -164,7 +164,7 @@ describe("parseTheme", () => {
   });
 
   it("T3 cover defaults", () => {
-    expect(parseTheme("").cover).toEqual({ layout: "spine", spineWidth: "16mm", logoWidth: "44mm", titleAnchor: "bottom", align: "left", titleSize: "2.8em" });
+    expect(parseTheme("").cover).toEqual({ layout: "spine", spineWidth: "16mm", logoWidth: "44mm", titleAnchor: "bottom", align: "left", titleSize: "2.8em", titleWeight: 400 });
   });
 
   it("cover.layout accepts plain and rejects others", () => {
@@ -246,5 +246,14 @@ describe("parseTheme — tables.layout token", () => {
   it("unknown key under tables is rejected (strict schema)", () => {
     expect(() => parseTheme("tables:\n  bogus: true\n")).toThrow(/bogus/);
   });
-});
 
+  it("accepts the upper title anchor and a cover title weight", () => {
+    const t = parseTheme("cover:\n  titleAnchor: upper\n  titleWeight: 700\n");
+    expect(t.cover.titleAnchor).toBe("upper");
+    expect(t.cover.titleWeight).toBe(700);
+  });
+
+  it("rejects a cover title weight that is not a number", () => {
+    expect(() => parseTheme("cover:\n  titleWeight: bold\n")).toThrow(/titleWeight/);
+  });
+});

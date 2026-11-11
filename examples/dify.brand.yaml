@@ -66,6 +66,10 @@ cover:
   layout: "spine"     # Cover layout: "spine" (brand-color bar down the left edge) or "plain" (no bar). PDF only (the Word cover is always plain).
   spineWidth: "16mm"  # Width of the cover spine bar. PDF only.
   logoWidth: "44mm"   # Cover logo width (PDF and Word).
+  titleAnchor: "bottom"  # Title block position: "top", "upper", "center", or "bottom". "upper" seats the title in the upper third and moves the version line to the bottom. PDF only.
+  align: "left"       # Cover alignment: "left" or "center". PDF only.
+  titleSize: "2.8em"  # Cover title font size, e.g. "2.8em" or "32pt". PDF only.
+  titleWeight: 400    # Cover title font weight, 100-900. PDF only.
 
 badges:
   color: "muted"      # Badge border and text color: "accent", "muted", or a hex value. PDF only.

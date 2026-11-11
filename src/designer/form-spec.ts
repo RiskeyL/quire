@@ -86,8 +86,8 @@ export const FORM_SPEC: GroupSpec[] = [
         path: "cover.titleAnchor",
         label: "title anchor",
         control: "select",
-        options: ["top", "center", "bottom"],
-        help: "Vertical position of the title block; the logo stays at the top (PDF only)",
+        options: ["top", "upper", "center", "bottom"],
+        help: 'Vertical position of the title block; the logo stays at the top. "upper" also moves the version line to the bottom (PDF only)',
       },
       {
         path: "cover.align",
@@ -113,6 +113,15 @@ export const FORM_SPEC: GroupSpec[] = [
         label: "title size",
         control: "text",
         help: "Cover title font size, e.g. 2.8em or 32pt (PDF only)",
+      },
+      {
+        path: "cover.titleWeight",
+        label: "title weight",
+        control: "number",
+        min: 100,
+        max: 900,
+        step: 100,
+        help: "Cover title font weight (PDF only)",
       },
       {
         path: "brand.productName",

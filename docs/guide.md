@@ -188,6 +188,8 @@ The cover shows, in order: the brand logo, the product name, the manual title, t
 
 The split follows what changes when: the **logo** and **product name** are brand-level, so they live in the theme (`brand.logo`, `brand.productName`); the **version** and **date** change per release, so they are per-run flags (`--doc-version`, `--date`); the **title** comes from `--title` (or the manifest filename). The date is never auto-filled, so omitting `--date` prints no date line.
 
+The theme's `cover` block places and sizes the title: `titleAnchor` (`top`, `upper`, `center`, or `bottom`), `titleSize`, and `titleWeight`. With `upper`, the title block sits in the upper third of the page and the version line moves to the bottom edge, which suits a large title. A long cover title wraps at spaces. Chinese, Japanese, and Korean text is kept together and wraps only at a space or at a zero-width space (U+200B) you place in the title, so you decide where a title such as `产品名​使用手册` breaks; a phrase too long for the line still wraps rather than overflowing.
+
 ```bash
 quire convert --manifest m.yaml --theme brand.yaml \
   --title "User Guide" --doc-version "v2.1" --date "2026-05-25"
